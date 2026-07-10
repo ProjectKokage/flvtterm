@@ -598,6 +598,64 @@ void springBoneTests() {
     );
   });
 
+  test('runtime SpringBone evaluates separate chains root to descendant', () {
+    VrmRuntime runtime({required bool childFirst}) {
+      final json = _minimalVrmJson()
+        ..['extensionsUsed'] = ['VRMC_vrm', 'VRMC_springBone'];
+      final nodes = json['nodes']! as List<Map<String, Object?>>;
+      nodes[1]['translation'] = [0.0, 0.0, 0.0];
+      for (final node in [9, 10, 11]) {
+        nodes[node]['translation'] = [0.0, 1.0, 0.0];
+      }
+      final parentSpring = {
+        'joints': [
+          {
+            'node': 1,
+            'stiffness': 0.0,
+            'gravityPower': 1.0,
+            'gravityDir': [1.0, 0.0, 0.0],
+            'dragForce': 1.0,
+          },
+          {'node': 9},
+        ],
+      };
+      final childSpring = {
+        'joints': [
+          {'node': 10, 'stiffness': 1.0, 'gravityPower': 0.0, 'dragForce': 1.0},
+          {'node': 11},
+        ],
+      };
+      (json['extensions']! as Map<String, Object?>)['VRMC_springBone'] = {
+        'specVersion': '1.0',
+        'springs': childFirst
+            ? [childSpring, parentSpring]
+            : [parentSpring, childSpring],
+      };
+      return VrmRuntime(VrmModel.parseGlb(_glb(json)));
+    }
+
+    final ordered = runtime(childFirst: false);
+    final reversed = runtime(childFirst: true);
+    final orderedBinding = _FakeBinding();
+    final reversedBinding = _FakeBinding();
+    ordered.bind(orderedBinding);
+    reversed.bind(reversedBinding);
+
+    ordered.update(1.0);
+    reversed.update(1.0);
+
+    final orderedChild = orderedBinding.nodes[10]!.localTransform.storage;
+    final reversedChild = reversedBinding.nodes[10]!.localTransform.storage;
+    expect(orderedChild[0], lessThan(0.99));
+    for (var index = 0; index < orderedChild.length; index++) {
+      expect(
+        reversedChild[index],
+        closeTo(orderedChild[index], 0.000001),
+        reason: 'matrix component $index depends on spring declaration order',
+      );
+    }
+  });
+
   test('runtime SpringBone stiffness follows animated parent rotation', () {
     final json = _minimalVrmJson()
       ..['extensionsUsed'] = ['VRMC_vrm', 'VRMC_springBone'];

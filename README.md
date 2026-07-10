@@ -118,7 +118,8 @@ moving the avatar root.
 Spring chains without a `center` retain inertia in runtime-world space. Chains
 with a `center` retain inertia relative to that node. Runtime model-root motion
 participates in both paths, while gravity and collider resolution remain in
-runtime-world space.
+runtime-world space. Resolved spring joints always execute root to descendant,
+independent of the order of `springs` in the asset.
 
 Frame evaluation order is:
 

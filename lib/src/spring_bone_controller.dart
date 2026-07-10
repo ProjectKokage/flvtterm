@@ -260,6 +260,13 @@ final class VrmSpringBoneController {
         );
       }
     }
+    _states.sort((a, b) {
+      final depth = a.nodePath.nodes.length.compareTo(b.nodePath.nodes.length);
+      if (depth != 0) return depth;
+      return a.nodePath.nodes.first.index.compareTo(
+        b.nodePath.nodes.first.index,
+      );
+    });
     _initialized = true;
   }
 
