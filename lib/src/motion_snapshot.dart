@@ -14,11 +14,13 @@ extension _VrmMotionSnapshot on VrmMotionController {
   _MotionSnapshot? _captureRawSnapshot() {
     final programmaticPose = _programmaticPose;
     if (programmaticPose != null) {
-      return _snapshotProgrammaticPose(programmaticPose);
+      return _maskedSnapshot(_snapshotProgrammaticPose(programmaticPose));
     }
     final proceduralMotion = _proceduralMotion;
     if (proceduralMotion != null) {
-      return _snapshotProgrammaticPose(proceduralMotion(_timeSeconds));
+      return _maskedSnapshot(
+        _snapshotProgrammaticPose(proceduralMotion(_timeSeconds)),
+      );
     }
 
     final animationIndex = _animationIndex;
@@ -29,9 +31,28 @@ extension _VrmMotionSnapshot on VrmMotionController {
     }
     final evaluator = _externalGltfEvaluator ?? _evaluator;
     final frame = evaluator.evaluate(animationIndex, _timeSeconds);
+    return _maskedSnapshot(
+      _MotionSnapshot(
+        nodePoses: frame.nodePoses,
+        morphWeights: frame.morphWeights,
+      ),
+    );
+  }
+
+  _MotionSnapshot _maskedSnapshot(_MotionSnapshot snapshot) {
+    if (_nodeMask == null) return snapshot;
     return _MotionSnapshot(
-      nodePoses: frame.nodePoses,
-      morphWeights: frame.morphWeights,
+      nodePoses: Map.unmodifiable({
+        for (final entry in snapshot.nodePoses.entries)
+          if (_isNodeAllowed(entry.key)) entry.key: entry.value,
+      }),
+      modelRootPose: snapshot.modelRootPose,
+      morphWeights: Map.unmodifiable({
+        for (final entry in snapshot.morphWeights.entries)
+          if (_isNodeAllowed(entry.key)) entry.key: entry.value,
+      }),
+      expressionWeights: snapshot.expressionWeights,
+      lookAt: snapshot.lookAt,
     );
   }
 

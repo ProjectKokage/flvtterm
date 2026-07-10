@@ -58,11 +58,12 @@ extension _VrmMotionApply on VrmMotionController {
     final fromPoses = from ?? const <int, GltfNodePose>{};
     final nodeIndices = {...fromPoses.keys, ...nodePoses.keys};
     for (final nodeIndex in nodeIndices) {
-      if (!_isNodeAllowed(nodeIndex)) continue;
+      final targetAllowed = _isNodeAllowed(nodeIndex);
+      final fromPose = fromPoses[nodeIndex];
+      if (!targetAllowed && fromPose == null) continue;
       final node = model.gltf.nodes.elementAtOrNull(nodeIndex);
       if (node == null) continue;
-      final fromPose = fromPoses[nodeIndex];
-      final targetPose = nodePoses[nodeIndex];
+      final targetPose = targetAllowed ? nodePoses[nodeIndex] : null;
       binding.nodeByGltfIndex(nodeIndex).localTransform = _trsMatrix(
         _lerpList(
           _finiteListOr(fromPose?.translation, node.restTranslation, 3),
@@ -97,8 +98,9 @@ extension _VrmMotionApply on VrmMotionController {
     };
     for (final nodeIndex in nodeIndices) {
       final overrideAllowed = _isNodeAllowed(nodeIndex);
+      final hasSource = fromWeights.containsKey(nodeIndex);
       final additiveMorphCount = _additiveMorphCount(nodeIndex);
-      if (!overrideAllowed && additiveMorphCount == 0) continue;
+      if (!overrideAllowed && !hasSource && additiveMorphCount == 0) continue;
       final meshIndex = model.gltf.nodes.elementAtOrNull(nodeIndex)?.mesh;
       if (meshIndex == null) continue;
       final mesh = model.gltf.meshes.elementAtOrNull(meshIndex);
@@ -112,9 +114,7 @@ extension _VrmMotionApply on VrmMotionController {
         final target = overrideAllowed
             ? morphWeights[nodeIndex] ?? const <double>[]
             : const <double>[];
-        final source = overrideAllowed
-            ? fromWeights[nodeIndex] ?? const <double>[]
-            : const <double>[];
+        final source = fromWeights[nodeIndex] ?? const <double>[];
         final requestedMorphCount = math.max(
           math.max(target.length, source.length),
           additiveMorphCount,

@@ -711,6 +711,75 @@ void motionControllerTests() {
     expect(binding.nodes[0]!.localTransform.storage[12], 1.0);
   });
 
+  test('runtime motion crossfades cleanly between different node masks', () {
+    VrmProgrammaticPose pose(
+      double node0,
+      double node1,
+      double morph0,
+      double morph1,
+    ) => VrmProgrammaticPose(
+      nodePoses: {
+        0: GltfNodePose(translation: [node0, 0.0, 0.0]),
+        1: GltfNodePose(translation: [node1, 0.0, 0.0]),
+      },
+      morphWeights: {
+        0: [morph0],
+        1: [morph1],
+      },
+    );
+
+    final json = _minimalVrmJson(
+      meshes: [
+        for (var i = 0; i < 2; i++)
+          {
+            'primitives': [
+              {
+                'attributes': <String, Object?>{},
+                'targets': [<String, Object?>{}],
+              },
+            ],
+          },
+      ],
+      nodeMesh: {0: 0, 1: 1},
+    );
+    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
+    final binding = _FakeBinding();
+
+    runtime.bind(binding);
+    runtime.motion.playProgrammaticPose(
+      pose(10.0, 20.0, 0.8, 0.6),
+      nodeMask: {0},
+    );
+    runtime.update(0.0);
+    expect(binding.nodes[0]!.localTransform.storage[12], 10.0);
+    expect(binding.nodes[1]!.localTransform.storage[12], 0.0);
+    expect(binding.meshes[0]!.weights['0:0'], 0.8);
+    expect(binding.meshes[1]!.weights['0:0'], 0.0);
+
+    runtime.motion.playProgrammaticPose(
+      pose(30.0, 40.0, 0.2, 1.0),
+      nodeMask: {1},
+      fadeIn: const Duration(seconds: 1),
+    );
+    runtime.update(0.0);
+    expect(binding.nodes[0]!.localTransform.storage[12], 10.0);
+    expect(binding.nodes[1]!.localTransform.storage[12], 0.0);
+    expect(binding.meshes[0]!.weights['0:0'], 0.8);
+    expect(binding.meshes[1]!.weights['0:0'], 0.0);
+
+    runtime.update(0.5);
+    expect(binding.nodes[0]!.localTransform.storage[12], 5.0);
+    expect(binding.nodes[1]!.localTransform.storage[12], 20.0);
+    expect(binding.meshes[0]!.weights['0:0'], 0.4);
+    expect(binding.meshes[1]!.weights['0:0'], 0.5);
+
+    runtime.update(0.5);
+    expect(binding.nodes[0]!.localTransform.storage[12], 0.0);
+    expect(binding.nodes[1]!.localTransform.storage[12], 40.0);
+    expect(binding.meshes[0]!.weights['0:0'], 0.0);
+    expect(binding.meshes[1]!.weights['0:0'], 1.0);
+  });
+
   test('runtime motion preserves pose when a crossfade is interrupted', () {
     VrmProgrammaticPose pose(double x) => VrmProgrammaticPose(
       nodePoses: {
