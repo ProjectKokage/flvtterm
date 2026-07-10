@@ -487,7 +487,7 @@ Uint8List? _imageBufferViewBytes(
   if (view == null || bytes == null || length == null) return null;
   final start = view.byteOffset;
   final end = start + length;
-  if (start < 0 || end > bytes.length) return null;
+  if (start < 0 || length < 0 || end > bytes.length) return null;
   return Uint8List.sublistView(bytes, start, end);
 }
 

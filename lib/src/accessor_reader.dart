@@ -14,7 +14,10 @@ List<double>? _readAccessorNumbers(
   final componentSize = _componentByteSize(accessor.componentType);
   final componentCount = accessor.componentCount;
   final count = accessor.count;
-  if (componentSize == null || componentCount == null || count == null) {
+  if (componentSize == null ||
+      componentCount == null ||
+      count == null ||
+      count <= 0) {
     return null;
   }
 
@@ -33,6 +36,7 @@ List<double>? _readAccessorNumbers(
   final sparse = accessor.sparse;
   if (sparse != null && sparse.count != null && sparse.count! > 0) {
     final sparseCount = sparse.count!;
+    if (sparseCount > count) return null;
     final indices = _readSparseIndices(gltf, sparse, sparseCount);
     final replacements = _readSparseValues(
       gltf,

@@ -27,6 +27,39 @@ void gltfBufferTests() {
     expect(asset.readBufferViewBytes(1), isNull);
   });
 
+  test('negative bufferView lengths stay diagnostic in permissive mode', () {
+    final result = GltfAsset.tryParse(
+      bytes: Uint8List.fromList(
+        utf8.encode(
+          jsonEncode({
+            'asset': {'version': '2.0'},
+            'buffers': [
+              {
+                'byteLength': 1,
+                'uri': 'data:application/octet-stream;base64,AA==',
+              },
+            ],
+            'bufferViews': [
+              {'buffer': 0, 'byteLength': -1},
+            ],
+            'images': [
+              {'bufferView': 0, 'mimeType': 'image/png'},
+            ],
+          }),
+        ),
+      ),
+      validation: VrmValidationMode.permissive,
+    );
+
+    expect(result.asset, isNotNull);
+    expect(
+      result.validation.errors.map((diagnostic) => diagnostic.code),
+      contains('gltf.invalidBufferViewRange'),
+    );
+    expect(result.asset!.images.single.data, isNull);
+    expect(result.asset!.readBufferViewBytes(0), isNull);
+  });
+
   test('reads raw bufferView bytes from GLB BIN chunks', () {
     final data = Uint8List.fromList([10, 11, 12, 13, 14, 15, 16, 17]);
     final asset = GltfAsset.parse(

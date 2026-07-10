@@ -1069,6 +1069,49 @@ void vrmFirstPersonTests() {
     );
   });
 
+  test('first-person classification ignores invalid vertex counts', () {
+    final json = _minimalVrmJson(
+      meshes: [
+        {
+          'primitives': [
+            {
+              'attributes': {'POSITION': 0},
+            },
+          ],
+        },
+      ],
+      nodeMesh: {0: 0},
+    );
+    (json['nodes']! as List<Map<String, Object?>>)[0]['skin'] = 0;
+    json
+      ..['accessors'] = [
+        {'componentType': 5126, 'count': -1, 'type': 'VEC3'},
+      ]
+      ..['skins'] = [
+        {
+          'joints': [2],
+        },
+      ];
+    final result = VrmModel.tryParseGlb(
+      _glb(json),
+      validation: VrmValidationMode.permissive,
+    );
+    final model = result.asset!;
+
+    expect(
+      result.validation.errors.map((diagnostic) => diagnostic.code),
+      contains('gltf.invalidAccessorShape'),
+    );
+    expect(
+      model.conservativeFirstPersonTypeForNode(0),
+      VrmFirstPersonMeshAnnotationType.auto,
+    );
+    expect(model.firstPersonTriangleTypesForPrimitive(0, 0), isEmpty);
+
+    final runtime = VrmRuntime(model)..bind(_FakeBinding());
+    expect(() => runtime.update(0), returnsNormally);
+  });
+
   test('runtime applies first-person mesh visibility policy', () {
     final json = _minimalVrmJson(
       meshes: [

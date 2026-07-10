@@ -84,6 +84,29 @@ void gltfAccessorTests() {
     expect(asset.readAccessorNumbers(0), [0.0, 0.0, 2.0, 3.0, 0.0, 0.0]);
   });
 
+  test('negative accessor counts stay diagnostic in permissive mode', () {
+    final result = GltfAsset.tryParse(
+      bytes: Uint8List.fromList(
+        utf8.encode(
+          jsonEncode({
+            'asset': {'version': '2.0'},
+            'accessors': [
+              {'componentType': 5126, 'count': -1, 'type': 'SCALAR'},
+            ],
+          }),
+        ),
+      ),
+      validation: VrmValidationMode.permissive,
+    );
+
+    expect(result.asset, isNotNull);
+    expect(
+      result.validation.errors.map((diagnostic) => diagnostic.code),
+      contains('gltf.invalidAccessorShape'),
+    );
+    expect(result.asset!.readAccessorNumbers(0), isNull);
+  });
+
   test('reports invalid unused accessor component type and type', () {
     final json = {
       'asset': {'version': '2.0'},

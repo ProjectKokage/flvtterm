@@ -193,7 +193,7 @@ final class GltfAsset {
     if (view == null || bytes == null || byteLength == null) return null;
     final start = view.byteOffset;
     final end = start + byteLength;
-    if (start < 0 || end > bytes.length) return null;
+    if (start < 0 || byteLength < 0 || end > bytes.length) return null;
     return Uint8List.sublistView(bytes, start, end);
   }
 }

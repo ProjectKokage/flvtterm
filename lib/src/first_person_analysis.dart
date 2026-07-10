@@ -97,7 +97,7 @@ int? _primitiveTriangleCount(
   if (primitive == null || !_isTriangleTopology(primitive.mode)) return null;
   if (primitive.indices != null) {
     final count = gltf.accessors.elementAtOrNull(primitive.indices!)?.count;
-    return count == null
+    return count == null || count <= 0
         ? null
         : _triangleCountForTopology(primitive.mode, count);
   }
@@ -181,7 +181,7 @@ List<bool>? _primitiveVertexHeadInfluence(
 int? _primitiveVertexCount(GltfAsset gltf, GltfMeshPrimitive primitive) {
   for (final accessorIndex in primitive.attributes.values) {
     final count = gltf.accessors.elementAtOrNull(accessorIndex)?.count;
-    if (count != null) return count;
+    if (count != null && count > 0) return count;
   }
   return null;
 }

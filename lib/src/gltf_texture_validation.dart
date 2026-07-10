@@ -218,7 +218,7 @@ Uint8List? _imageBytes(GltfImage image, GltfAsset gltf, _DiagnosticSink sink) {
   if (view == null || source == null || length == null) return null;
   final start = view.byteOffset;
   final end = start + length;
-  if (start < 0 || end > source.length) return null;
+  if (start < 0 || length < 0 || end > source.length) return null;
   return Uint8List.sublistView(source, start, end);
 }
 
