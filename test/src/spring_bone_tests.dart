@@ -1140,7 +1140,7 @@ void springBoneTests() {
     expect(binding.nodes[1]!.localTransform.storage[5], closeTo(0.0, 0.0001));
   });
 
-  test('runtime SpringBone fixed timestep caps per-frame substeps', () {
+  test('fixed-step SpringBone preserves pose and drops backlog', () {
     final json = _minimalVrmJson()
       ..['extensionsUsed'] = ['VRMC_vrm', 'VRMC_springBone'];
     final nodes = json['nodes']! as List<Map<String, Object?>>;
@@ -1169,10 +1169,33 @@ void springBoneTests() {
     runtime.bind(binding);
     runtime.springBones.fixedTimeStepSeconds = 0.5;
     runtime.springBones.maxSubSteps = 1;
-    runtime.update(1.0);
+    runtime.update(0.5);
 
     expect(binding.nodes[1]!.localTransform.storage[4], lessThan(math.sqrt1_2));
     expect(binding.nodes[1]!.localTransform.storage[4], greaterThan(0.4));
+    final firstStep = binding.nodes[1]!.localTransform;
+
+    runtime.update(0.1);
+
+    for (var index = 0; index < firstStep.storage.length; index++) {
+      expect(
+        binding.nodes[1]!.localTransform.storage[index],
+        closeTo(firstStep.storage[index], 0.000001),
+        reason: 'spring pose changed between fixed substeps at $index',
+      );
+    }
+
+    runtime.update(0.9);
+    final cappedStep = binding.nodes[1]!.localTransform;
+    runtime.update(0.0);
+
+    for (var index = 0; index < cappedStep.storage.length; index++) {
+      expect(
+        binding.nodes[1]!.localTransform.storage[index],
+        closeTo(cappedStep.storage[index], 0.000001),
+        reason: 'capped fixed-step backlog remained at $index',
+      );
+    }
   });
 
   test('runtime SpringBone fixed timestep ignores non-finite delta', () {

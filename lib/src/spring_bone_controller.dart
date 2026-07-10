@@ -18,6 +18,8 @@ final class VrmSpringBoneController {
   double? fixedTimeStepSeconds;
 
   /// Maximum fixed substeps consumed by one frame.
+  ///
+  /// Excess whole-step backlog is discarded.
   int maxSubSteps = 4;
 
   /// Clears simulated state so the next frame starts from the rest pose.
@@ -49,11 +51,16 @@ final class VrmSpringBoneController {
     if (fixedStep != null && fixedStep.isFinite && fixedStep > 0) {
       _stepAccumulatorSeconds += dt;
       var steps = 0;
-      while (_stepAccumulatorSeconds >= fixedStep && steps < maxSubSteps) {
+      final stepLimit = maxSubSteps < 0 ? 0 : maxSubSteps;
+      while (_stepAccumulatorSeconds >= fixedStep && steps < stepLimit) {
         _step(fixedStep);
         _stepAccumulatorSeconds -= fixedStep;
         steps++;
       }
+      if (_stepAccumulatorSeconds >= fixedStep) {
+        _stepAccumulatorSeconds %= fixedStep;
+      }
+      if (steps == 0) _step(0);
       return;
     }
     _step(dt);

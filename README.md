@@ -120,6 +120,8 @@ with a `center` retain inertia relative to that node. Runtime model-root motion
 participates in both paths, while gravity and collider resolution remain in
 runtime-world space. Resolved spring joints always execute root to descendant,
 independent of the order of `springs` in the asset.
+With `fixedTimeStepSeconds`, the last solved pose remains active between
+substeps and whole-step backlog beyond `maxSubSteps` is discarded.
 
 Frame evaluation order is:
 
