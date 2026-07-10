@@ -198,11 +198,14 @@ VRMA playback:
 final vrma = VrmAnimationAsset.parse(bytes: vrmaBytes);
 runtime.motion.play(
   vrma,
+  animationIndex: 1,
   loop: true,
   hipsTranslationScale: 1.0,
   fadeIn: const Duration(milliseconds: 200),
 );
 ```
+
+Omit `animationIndex` to play the first glTF animation in the VRMA asset.
 
 Current VRMA retargeting uses `VrmFkHumanoidRetargeter` by default and can be replaced through `runtime.motion.vrmaRetargeter`. Source animation node indices are mapped to source humanoid bones, then applied to destination humanoid bones; source node indices are never written directly to destination glTF node indices. Hips translation uses the source rest-pose delta, multiplies that delta by `hipsTranslationScale`, and applies it as model root motion through `VrmModelRootBinding` when available. Bindings without `VrmModelRootBinding` fall back to composing that root motion onto the glTF scene root nodes. Non-hips humanoid translation and humanoid scale animation are validation errors.
 

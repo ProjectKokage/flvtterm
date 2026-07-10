@@ -25,6 +25,24 @@ void vrmaMotionTests() {
     );
   });
 
+  test('runtime selects VRMA animations and defaults to first', () {
+    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
+    final binding = _FakeBinding();
+    final vrma = _hipsTranslationVrma(2.0, secondX: 4.0);
+
+    expect(vrma.gltf.animations, hasLength(2));
+    expect(vrma.defaultAnimationIndex, 0);
+    runtime.bind(binding);
+
+    runtime.motion.playVrmAnimation(vrma);
+    runtime.update(1.0);
+    expect(binding.modelRootMotionTransform.storage[12], closeTo(2.0, 0.0001));
+
+    runtime.motion.playVrmAnimation(vrma, animationIndex: 1);
+    runtime.update(1.0);
+    expect(binding.modelRootMotionTransform.storage[12], closeTo(4.0, 0.0001));
+  });
+
   test('runtime motion plays VRMA humanoid and expression animation', () {
     final modelJson = _minimalVrmJson(
       meshes: [
@@ -1830,8 +1848,18 @@ void vrmaMotionTests() {
   });
 }
 
-VrmAnimationAsset _hipsTranslationVrma(double x) {
-  final binary = _floats([0.0, 1.0, 0.0, 0.0, 0.0, x, 0.0, 0.0]);
+VrmAnimationAsset _hipsTranslationVrma(double x, {double? secondX}) {
+  final binary = _floats([
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    0.0,
+    x,
+    0.0,
+    0.0,
+    if (secondX != null) ...[0.0, 0.0, 0.0, secondX, 0.0, 0.0],
+  ]);
   final json =
       <String, Object?>{
         'asset': {'version': '2.0'},
@@ -1843,20 +1871,22 @@ VrmAnimationAsset _hipsTranslationVrma(double x) {
         _animationStorageJson(binary.length, [
           [0, 8],
           [8, 24],
+          if (secondX != null) [32, 24],
         ]),
       );
   json['animations'] = [
-    {
-      'channels': [
-        {
-          'sampler': 0,
-          'target': {'node': 0, 'path': 'translation'},
-        },
-      ],
-      'samplers': [
-        {'input': 0, 'output': 1},
-      ],
-    },
+    for (final output in [1, if (secondX != null) 2])
+      {
+        'channels': [
+          {
+            'sampler': 0,
+            'target': {'node': 0, 'path': 'translation'},
+          },
+        ],
+        'samplers': [
+          {'input': 0, 'output': output},
+        ],
+      },
   ];
   json['extensions'] = {
     'VRMC_vrm_animation': {
