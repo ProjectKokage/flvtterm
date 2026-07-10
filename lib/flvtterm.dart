@@ -45,6 +45,7 @@ part 'src/motion_layers.dart';
 part 'src/motion_retargeter.dart';
 part 'src/motion_snapshot.dart';
 part 'src/motion_vrma.dart';
+part 'src/motion_vrma_plan.dart';
 part 'src/node_constraint_controller.dart';
 part 'src/parser.dart';
 part 'src/runtime.dart';

@@ -547,6 +547,110 @@ void vrmaMotionTests() {
     expectExpectedRotation();
   });
 
+  test('runtime motion preserves source-only optional bone rotations', () {
+    List<double> xRotation(double degrees) {
+      final radians = degrees * math.pi / 360;
+      return [math.sin(radians), 0.0, 0.0, math.cos(radians)];
+    }
+
+    List<double> yRotation(double degrees) {
+      final radians = degrees * math.pi / 360;
+      return [0.0, math.sin(radians), 0.0, math.cos(radians)];
+    }
+
+    final vrmaBinary = _floats([
+      0.0,
+      1.0,
+      ...yRotation(0),
+      ...yRotation(90),
+      ...xRotation(0),
+      ...xRotation(90),
+    ]);
+    final vrmaJson =
+        <String, Object?>{
+            'asset': {'version': '2.0'},
+            'extensionsUsed': ['VRMC_vrm_animation'],
+            'nodes': [
+              {
+                'name': 'sourceSpine',
+                'children': [1],
+              },
+              {
+                'name': 'sourceUpperChest',
+                'children': [2],
+              },
+              {'name': 'sourceHead'},
+            ],
+          }
+          ..addAll(
+            _animationStorageJson(
+              vrmaBinary.length,
+              [
+                [0, 8],
+                [8, 32],
+                [40, 32],
+              ],
+              accessorTypes: const ['SCALAR', 'VEC4', 'VEC4'],
+            ),
+          )
+          ..['animations'] = [
+            {
+              'channels': [
+                {
+                  'sampler': 0,
+                  'target': {'node': 1, 'path': 'rotation'},
+                },
+                {
+                  'sampler': 1,
+                  'target': {'node': 2, 'path': 'rotation'},
+                },
+              ],
+              'samplers': [
+                {'input': 0, 'output': 1},
+                {'input': 0, 'output': 2},
+              ],
+            },
+          ]
+          ..['extensions'] = {
+            'VRMC_vrm_animation': {
+              'specVersion': '1.0',
+              'humanoid': {
+                'humanBones': {
+                  'spine': {'node': 0},
+                  'upperChest': {'node': 1},
+                  'head': {'node': 2},
+                },
+              },
+            },
+          };
+    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
+    final binding = _FakeBinding();
+
+    runtime.bind(binding);
+    final vrma = VrmAnimationAsset.tryParse(
+      bytes: _glb(vrmaJson, binaryChunk: vrmaBinary),
+      validation: VrmValidationMode.permissive,
+    ).asset!;
+    runtime.motion.playVrmAnimation(vrma);
+    runtime.update(1);
+
+    final expected = _testTrs(rotation: const [0.5, 0.5, -0.5, 0.5]).storage;
+    void expectExpectedRotation() {
+      final actual = binding.nodes[2]!.localTransform.storage;
+      for (var index = 0; index < actual.length; index++) {
+        expect(actual[index], closeTo(expected[index], 0.0001));
+      }
+    }
+
+    expectExpectedRotation();
+
+    runtime.motion.stop();
+    runtime.motion.addAdditiveLayer(vrma);
+    runtime.update(1);
+
+    expectExpectedRotation();
+  });
+
   test('runtime motion retargets VRMA hips translation from rest poses', () {
     final modelJson = _minimalVrmJson();
     (modelJson['nodes']! as List<Map<String, Object?>>)[0]['translation'] = [

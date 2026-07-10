@@ -6,7 +6,9 @@ abstract interface class VrmHumanoidRetargeter {
   /// frame.
   ///
   /// [sourceRestWorldRotation] and [destinationRestWorldRotation] include all
-  /// glTF ancestors, including nodes without humanoid assignments.
+  /// glTF ancestors, including nodes without humanoid assignments. When the
+  /// destination omits source humanoid ancestors, [sourcePose] includes their
+  /// normalized rotations collapsed into this bone.
   VrmRetargetedBonePose retargetBone({
     required VrmHumanoidBone bone,
     required GltfNodePose sourcePose,
@@ -81,21 +83,35 @@ List<double> _retargetHumanoidRotation({
   required List<double> destinationRestLocal,
   required List<double> destinationRestWorld,
 }) {
-  final normalized = _quatMultiply(
-    _quatMultiply(
-      _quatMultiply(sourceRestWorld, _quatInverse(sourceRestLocal)),
-      sourceCurrent,
-    ),
-    _quatInverse(sourceRestWorld),
+  final normalized = _normalizedHumanoidRotation(
+    localRest: sourceRestLocal,
+    worldRest: sourceRestWorld,
+    current: sourceCurrent,
   );
-  return _quatMultiply(
-    _quatMultiply(
-      _quatMultiply(destinationRestLocal, _quatInverse(destinationRestWorld)),
-      normalized,
-    ),
-    destinationRestWorld,
+  return _humanoidLocalRotationFromNormalized(
+    localRest: destinationRestLocal,
+    worldRest: destinationRestWorld,
+    normalized: normalized,
   );
 }
+
+List<double> _normalizedHumanoidRotation({
+  required List<double> localRest,
+  required List<double> worldRest,
+  required List<double> current,
+}) => _quatMultiply(
+  _quatMultiply(_quatMultiply(worldRest, _quatInverse(localRest)), current),
+  _quatInverse(worldRest),
+);
+
+List<double> _humanoidLocalRotationFromNormalized({
+  required List<double> localRest,
+  required List<double> worldRest,
+  required List<double> normalized,
+}) => _quatMultiply(
+  _quatMultiply(_quatMultiply(localRest, _quatInverse(worldRest)), normalized),
+  worldRest,
+);
 
 Map<int, List<double>> _restWorldRotations(GltfAsset gltf) {
   final parents = _nodeParents(gltf);

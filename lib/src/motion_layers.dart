@@ -75,9 +75,13 @@ extension VrmAdditiveMotionLayers on VrmMotionController {
       source: source,
       evaluator: evaluator,
       referenceGltf: referenceGltf,
-      vrmaRestWorldRotations: source is VrmAnimationAsset
-          ? _restWorldRotations(source.gltf)
-          : const {},
+      vrmaRetargetPlan: source is VrmAnimationAsset
+          ? _VrmaRetargetPlan(
+              model,
+              source,
+              destinationRestWorldRotations: _modelRestWorldRotations,
+            )
+          : null,
       animationIndex: selectedAnimation,
       durationSeconds: duration,
       loop: loop,
@@ -156,7 +160,7 @@ extension VrmAdditiveMotionLayers on VrmMotionController {
           evaluated,
           isNodeAllowed: layer.allowsNode,
           hipsTranslationScale: layer.hipsTranslationScale,
-          sourceRestWorldRotations: layer.vrmaRestWorldRotations,
+          retargetPlan: layer.vrmaRetargetPlan,
         );
         layer.frame = _relativeAdditiveSnapshot(
           retargeted,
@@ -195,7 +199,7 @@ final class _AdditiveMotionLayer {
     required this.source,
     required this.evaluator,
     required this.referenceGltf,
-    required this.vrmaRestWorldRotations,
+    required this.vrmaRetargetPlan,
     required this.animationIndex,
     required this.durationSeconds,
     required this.loop,
@@ -210,7 +214,7 @@ final class _AdditiveMotionLayer {
   final Object source;
   final GltfAnimationEvaluator? evaluator;
   final GltfAsset? referenceGltf;
-  final Map<int, List<double>> vrmaRestWorldRotations;
+  final _VrmaRetargetPlan? vrmaRetargetPlan;
   final int? animationIndex;
   final double durationSeconds;
   final bool loop;

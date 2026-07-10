@@ -55,45 +55,31 @@ _MotionSnapshot _snapshotVrmaFrame(
   GltfAnimationFrame frame, {
   bool Function(int nodeIndex)? isNodeAllowed,
   double? hipsTranslationScale,
-  Map<int, List<double>>? sourceRestWorldRotations,
+  _VrmaRetargetPlan? retargetPlan,
 }) {
   final model = controller.model;
   final allowsNode = isNodeAllowed ?? controller._isNodeAllowed;
   final nodePoses = <int, GltfNodePose>{};
   GltfNodePose? modelRootPose;
-  final sourceNodeToBone = <int, VrmHumanoidBone>{
-    for (final entry in vrma.animation.humanoid.humanBones.entries)
-      entry.value.node: entry.key,
-  };
-  for (final entry in frame.nodePoses.entries) {
-    final bone = sourceNodeToBone[entry.key];
-    if (bone == null) continue;
-    if (bone == VrmHumanoidBone.leftEye || bone == VrmHumanoidBone.rightEye) {
-      continue;
-    }
-    final destinationNodeIndex = model.vrm.humanoid.nodeFor(bone);
-    final destinationNode = destinationNodeIndex == null
-        ? null
-        : model.gltf.nodes.elementAtOrNull(destinationNodeIndex);
-    final sourceNode = vrma.gltf.nodes.elementAtOrNull(entry.key);
-    if (destinationNodeIndex == null ||
-        destinationNode == null ||
-        sourceNode == null) {
-      continue;
-    }
-    if (!allowsNode(destinationNodeIndex)) continue;
+  final resolvedPlan =
+      retargetPlan ??
+      controller._vrmaRetargetPlan ??
+      _VrmaRetargetPlan(
+        model,
+        vrma,
+        destinationRestWorldRotations: controller._modelRestWorldRotations,
+      );
+  for (final target in resolvedPlan.targets) {
+    if (!allowsNode(target.destinationNode.index)) continue;
+    final sourcePose = target.sourcePose(frame);
+    if (sourcePose == null) continue;
     final retargeted = controller.vrmaRetargeter.retargetBone(
-      bone: bone,
-      sourcePose: entry.value,
-      sourceRestNode: sourceNode,
-      sourceRestWorldRotation:
-          (sourceRestWorldRotations ??
-              controller._vrmaRestWorldRotations)[sourceNode.index] ??
-          sourceNode.restRotation,
-      destinationRestNode: destinationNode,
-      destinationRestWorldRotation:
-          controller._modelRestWorldRotations[destinationNode.index] ??
-          destinationNode.restRotation,
+      bone: target.bone,
+      sourcePose: sourcePose,
+      sourceRestNode: target.sourceNode,
+      sourceRestWorldRotation: target.sourceRestWorldRotation,
+      destinationRestNode: target.destinationNode,
+      destinationRestWorldRotation: target.destinationRestWorldRotation,
       hipsTranslationScale:
           hipsTranslationScale ?? controller._vrmaHipsTranslationScale,
     );
@@ -101,27 +87,19 @@ _MotionSnapshot _snapshotVrmaFrame(
       modelRootPose = retargeted.modelRootPose;
     }
     if (retargeted.nodePose != null) {
-      nodePoses[destinationNodeIndex] = retargeted.nodePose!;
+      nodePoses[target.destinationNode.index] = retargeted.nodePose!;
     }
   }
 
-  final expressionNodes = <int, List<String>>{};
-  for (final entry in vrma.animation.presetExpressions.entries) {
-    expressionNodes.putIfAbsent(entry.value, () => []).add(entry.key.specName);
-  }
-  for (final entry in vrma.animation.customExpressions.entries) {
-    expressionNodes.putIfAbsent(entry.value, () => []).add(entry.key);
-  }
   final expressionWeights = <String, double>{};
-  for (final entry in frame.nodePoses.entries) {
-    final expressionNames = expressionNodes[entry.key];
-    final translation = entry.value.translation;
-    if (expressionNames == null || translation == null) continue;
-    for (final expressionName in expressionNames) {
+  for (final target in resolvedPlan.expressionTargets) {
+    final translation = frame.nodePoses[target.nodeIndex]?.translation;
+    if (translation == null) continue;
+    for (final expressionName in target.names) {
       expressionWeights[expressionName] = _clamp01(translation[0]);
     }
   }
-  final lookAtNode = vrma.animation.lookAt;
+  final lookAtNode = resolvedPlan.lookAtNode;
   final lookAtRotation = lookAtNode == null
       ? null
       : frame.nodePoses[lookAtNode]?.rotation;
