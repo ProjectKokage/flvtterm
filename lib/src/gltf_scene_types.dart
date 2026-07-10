@@ -96,17 +96,21 @@ final class GltfNode {
   final Object? extras;
 
   /// Rest local translation after applying matrix fallback.
-  List<double> get restTranslation =>
-      matrix == null ? translation : _matrixTranslation(matrix!);
+  late final List<double> restTranslation = matrix == null
+      ? translation
+      : List.unmodifiable(_matrixTranslation(matrix!));
 
   /// Rest local rotation after applying matrix fallback.
-  List<double> get restRotation =>
-      matrix == null ? rotation : _matrixRotation(matrix!, fallback: rotation);
+  late final List<double> restRotation = matrix == null
+      ? rotation
+      : List.unmodifiable(_matrixRotation(matrix!, fallback: rotation));
 
   /// Rest local scale after applying matrix fallback.
-  List<double> get restScale => matrix == null ? scale : _matrixScale(matrix!);
+  late final List<double> restScale = matrix == null
+      ? scale
+      : List.unmodifiable(_matrixScale(matrix!));
 
   /// Rest local transform.
-  VrmMatrix4 get restTransform =>
+  late final VrmMatrix4 restTransform =
       matrix ?? _trsMatrix(translation, rotation, scale);
 }

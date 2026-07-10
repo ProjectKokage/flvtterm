@@ -2597,10 +2597,20 @@ void parserTests() {
       ];
     final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
     final binding = _FakeBinding();
+    final node = runtime.model.gltf.nodes[0];
+    final trsNode = runtime.model.gltf.nodes[1];
 
     runtime.bind(binding);
     runtime.update(0);
 
+    expect(identical(node.restTransform, node.restTransform), isTrue);
+    expect(identical(node.restTranslation, node.restTranslation), isTrue);
+    expect(identical(node.restRotation, node.restRotation), isTrue);
+    expect(identical(node.restScale, node.restScale), isTrue);
+    expect(identical(trsNode.restTransform, trsNode.restTransform), isTrue);
+    expect(() => node.restTranslation.add(1), throwsUnsupportedError);
+    expect(() => node.restRotation.add(1), throwsUnsupportedError);
+    expect(() => node.restScale.add(1), throwsUnsupportedError);
     expect(binding.nodes[0]!.localTransform.storage[12], 3.0);
     expect(binding.nodes[0]!.localTransform.storage[13], 4.0);
     expect(binding.nodes[0]!.localTransform.storage[14], 5.0);
