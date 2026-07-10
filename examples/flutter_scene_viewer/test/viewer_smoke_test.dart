@@ -9,7 +9,7 @@ void main() {
   });
 
   test('viewer surfaces adapter capability warnings', () {
-    final source = File('lib/main.dart').readAsStringSync();
+    final source = File('lib/src/viewer_screen.dart').readAsStringSync();
 
     expect(source, contains('capabilityWarnings'));
     expect(source, contains('Adapter warnings'));
