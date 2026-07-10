@@ -24,7 +24,7 @@ void main() {
     expect(() => options.nodeIndexPaths[1] = [1], throwsUnsupportedError);
   });
 
-  test('binds Flutter Scene nodes by deterministic traversal', () {
+  test('binds Flutter Scene nodes by parsed glTF hierarchy', () {
     final model = VrmModel.parseGlb(_minimalVrmGlb());
     final root = scene.Node(name: 'importRoot');
     final sceneNodes = [
@@ -65,7 +65,9 @@ void main() {
     expect(sceneNodes[0].localTransform.storage[12], 1);
     expect(sceneNodes[0].localTransform.storage[13], 2);
     expect(root.localTransform.storage[14], 3);
-    expect(binding.nodeByGltfIndex(0).debugName, 'node0');
+    for (var i = 0; i < sceneNodes.length; i++) {
+      expect(binding.nodeByGltfIndex(i).debugName, 'node$i');
+    }
     expect(
       binding.capabilityWarnings.map((d) => d.code),
       contains('flutterScene.unsupportedTextureTransform'),
@@ -294,7 +296,9 @@ void main() {
       final asset = await FlutterSceneVrmAsset.fromGlbBytes(_minimalVrmGlb());
 
       expect(asset.model.vrm.meta.name, 'Avatar');
-      expect(asset.binding.nodeByGltfIndex(0).debugName, 'node0');
+      for (var i = 0; i < asset.model.gltf.nodes.length; i++) {
+        expect(asset.binding.nodeByGltfIndex(i).debugName, 'node$i');
+      }
       expect(asset.rootNode.children, isNotEmpty);
     },
   );

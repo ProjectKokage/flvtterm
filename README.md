@@ -244,12 +244,14 @@ For the common case, `FlutterSceneVrmAsset.fromGlbBytes(bytes)` performs those
 three steps and returns the parsed model, imported root node, and binding.
 
 The adapter maps glTF node indices through explicit index paths when available,
-or by deterministic depth-first traversal of the imported node tree. It applies
-node transforms, model-root motion, whole-node visibility, base-color material
-fallback, and MToon PBR/emissive fallback values. MToon materials report
-unlit/PBR fallback diagnostics through `binding.capabilityWarnings`, as do
-first-person `auto` meshes that would need geometry splitting. Missing Flutter
-Scene mutators for imported morph target weights and texture transforms are reported through
+or by pairing the imported node tree with the parsed default-scene hierarchy.
+This preserves glTF node-array indices even when they differ from depth-first
+order. It applies node transforms, model-root motion, whole-node visibility,
+base-color material fallback, and MToon PBR/emissive fallback values. MToon
+materials report unlit/PBR fallback diagnostics through
+`binding.capabilityWarnings`, as do first-person `auto` meshes that would need
+geometry splitting. Missing Flutter Scene mutators for imported morph target
+weights and texture transforms are reported through
 `binding.capabilityWarnings`.
 
 Pure Dart smoke example: run `dart run bin/runtime_console.dart [avatar.vrm]`

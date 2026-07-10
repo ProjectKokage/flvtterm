@@ -18,7 +18,7 @@ final class FlutterSceneVrmBindingOptions {
   /// node indices.
   ///
   /// Prefer this when an importer can expose stable node index paths. Any
-  /// omitted node falls back to deterministic depth-first traversal.
+  /// omitted node falls back to the parsed glTF scene hierarchy.
   final Map<int, List<int>> nodeIndexPaths;
 
   /// Whether fallback traversal should treat the supplied root as glTF node 0.
@@ -193,33 +193,113 @@ Map<int, scene.Node> _sceneNodesByGltfIndex(
     if (node != null) nodes[entry.key] = node;
   }
 
-  final fallback = _fallbackNodeTraversal(root, model, options);
-  for (var i = 0; i < model.gltf.nodes.length && i < fallback.length; i++) {
-    nodes.putIfAbsent(i, () => fallback[i]);
+  final fallback = _fallbackNodesByGltfIndex(root, model, options);
+  for (final entry in fallback.entries) {
+    nodes.putIfAbsent(entry.key, () => entry.value);
   }
 
   return nodes;
 }
 
-List<scene.Node> _fallbackNodeTraversal(
+Map<int, scene.Node> _fallbackNodesByGltfIndex(
   scene.Node root,
   VrmModel model,
   FlutterSceneVrmBindingOptions options,
 ) {
+  final mapped = <int, scene.Node>{};
+  if (model.gltf.nodes.isEmpty) return mapped;
+
   final descendants = <scene.Node>[];
   for (final child in root.children) {
     _collectDepthFirst(child, descendants);
   }
+  final sceneRoots = _defaultSceneRootNodeIndices(model);
+  final reachableNodeCount = _reachableNodeCount(model, sceneRoots);
   final includeRoot =
-      options.includeRootAsGltfNode ??
-      descendants.length < model.gltf.nodes.length;
-  return includeRoot ? [root, ...descendants] : descendants;
+      options.includeRootAsGltfNode ?? descendants.length < reachableNodeCount;
+  final visited = <int>{};
+  if (includeRoot || sceneRoots.isEmpty) {
+    _mapNodeHierarchy(
+      gltfNodeIndex: 0,
+      sceneNode: root,
+      model: model,
+      output: mapped,
+      visited: visited,
+    );
+    return mapped;
+  }
+
+  final rootCount = sceneRoots.length < root.children.length
+      ? sceneRoots.length
+      : root.children.length;
+  for (var i = 0; i < rootCount; i++) {
+    _mapNodeHierarchy(
+      gltfNodeIndex: sceneRoots[i],
+      sceneNode: root.children[i],
+      model: model,
+      output: mapped,
+      visited: visited,
+    );
+  }
+  return mapped;
 }
 
 void _collectDepthFirst(scene.Node node, List<scene.Node> output) {
   output.add(node);
   for (final child in node.children) {
     _collectDepthFirst(child, output);
+  }
+}
+
+List<int> _defaultSceneRootNodeIndices(VrmModel model) {
+  if (model.gltf.scenes.isEmpty) return const [];
+  final sceneIndex = model.gltf.scene ?? 0;
+  if (sceneIndex < 0 || sceneIndex >= model.gltf.scenes.length) {
+    return const [];
+  }
+  return model.gltf.scenes[sceneIndex].nodes;
+}
+
+int _reachableNodeCount(VrmModel model, List<int> roots) {
+  final visited = <int>{};
+
+  void visit(int nodeIndex) {
+    if (nodeIndex < 0 || nodeIndex >= model.gltf.nodes.length) return;
+    if (!visited.add(nodeIndex)) return;
+    for (final childIndex in model.gltf.nodes[nodeIndex].children) {
+      visit(childIndex);
+    }
+  }
+
+  for (final rootIndex in roots) {
+    visit(rootIndex);
+  }
+  return visited.length;
+}
+
+void _mapNodeHierarchy({
+  required int gltfNodeIndex,
+  required scene.Node sceneNode,
+  required VrmModel model,
+  required Map<int, scene.Node> output,
+  required Set<int> visited,
+}) {
+  if (gltfNodeIndex < 0 || gltfNodeIndex >= model.gltf.nodes.length) return;
+  if (!visited.add(gltfNodeIndex)) return;
+  output[gltfNodeIndex] = sceneNode;
+
+  final gltfChildren = model.gltf.nodes[gltfNodeIndex].children;
+  final childCount = gltfChildren.length < sceneNode.children.length
+      ? gltfChildren.length
+      : sceneNode.children.length;
+  for (var i = 0; i < childCount; i++) {
+    _mapNodeHierarchy(
+      gltfNodeIndex: gltfChildren[i],
+      sceneNode: sceneNode.children[i],
+      model: model,
+      output: output,
+      visited: visited,
+    );
   }
 }
 
