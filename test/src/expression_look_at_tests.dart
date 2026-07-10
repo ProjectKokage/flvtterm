@@ -302,6 +302,106 @@ void expressionLookAtTests() {
     );
   });
 
+  test('expression binds accumulate from asset base values each frame', () {
+    void expectColor(VrmVector4 actual, VrmVector4 expected) {
+      expect(actual.x, closeTo(expected.x, 0.000001));
+      expect(actual.y, closeTo(expected.y, 0.000001));
+      expect(actual.z, closeTo(expected.z, 0.000001));
+      expect(actual.w, closeTo(expected.w, 0.000001));
+    }
+
+    Map<String, Object?> expression({
+      required double morph,
+      required List<double> color,
+      required List<double> scale,
+      required List<double> offset,
+    }) => {
+      'morphTargetBinds': [
+        {'node': 0, 'index': 0, 'weight': morph},
+      ],
+      'materialColorBinds': [
+        {'material': 0, 'type': 'color', 'targetValue': color},
+      ],
+      'textureTransformBinds': [
+        {'material': 0, 'scale': scale, 'offset': offset},
+      ],
+    };
+
+    final json = _minimalVrmJson(
+      meshes: [
+        {
+          'primitives': [
+            {
+              'attributes': <String, Object?>{},
+              'targets': [<String, Object?>{}],
+            },
+          ],
+        },
+      ],
+      materials: [
+        {
+          'pbrMetallicRoughness': {
+            'baseColorFactor': [0.2, 0.2, 0.2, 1.0],
+            'baseColorTexture': {
+              'index': 0,
+              'extensions': {
+                'KHR_texture_transform': {
+                  'scale': [2.0, 2.0],
+                  'offset': [0.25, 0.25],
+                },
+              },
+            },
+          },
+        },
+      ],
+      nodeMesh: {0: 0},
+      expressions: {
+        'custom': {
+          'a': expression(
+            morph: 0.8,
+            color: [1.0, 0.0, 0.0, 1.0],
+            scale: [4.0, 4.0],
+            offset: [0.75, 0.75],
+          ),
+          'b': expression(
+            morph: 0.4,
+            color: [0.0, 1.0, 0.0, 1.0],
+            scale: [6.0, 6.0],
+            offset: [1.25, 1.25],
+          ),
+        },
+      },
+    );
+    json['textures'] = [<String, Object?>{}];
+    (json['extensionsUsed']! as List<Object?>).add('KHR_texture_transform');
+    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)))..bind(binding);
+
+    runtime.expressions
+      ..setCustom('a', 0.5)
+      ..setCustom('b', 0.25);
+    runtime.update(0);
+
+    expect(binding.meshes[0]!.weights['0:0'], closeTo(0.5, 0.000001));
+    expectColor(
+      binding.materials[0]!.colors['color']!,
+      VrmVector4(0.55, 0.3, 0.05, 1.0),
+    );
+    expect(binding.materials[0]!.scale, VrmVector2(4.0, 4.0));
+    expect(binding.materials[0]!.offset, VrmVector2(0.75, 0.75));
+
+    runtime.expressions.setCustom('a', 0);
+    runtime.update(0);
+
+    expect(binding.meshes[0]!.weights['0:0'], closeTo(0.1, 0.000001));
+    expectColor(
+      binding.materials[0]!.colors['color']!,
+      VrmVector4(0.15, 0.4, 0.15, 1.0),
+    );
+    expect(binding.materials[0]!.scale, VrmVector2(3.0, 3.0));
+    expect(binding.materials[0]!.offset, VrmVector2(0.5, 0.5));
+  });
+
   test('expression setters clamp non-finite weights', () {
     final model = VrmModel.parseGlb(
       _glb(
