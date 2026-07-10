@@ -188,13 +188,7 @@ VrmAnimationExtension? _parseVrmaExtension(
     sink,
   );
   final lookAtNode = _int(lookAt['node']);
-  if (hasLookAt && lookAtValue is Map && !lookAt.containsKey('node')) {
-    sink.error(
-      'vrma.lookAtMissingNode',
-      'VRMA LookAt must specify a node.',
-      jsonPath: r'$.extensions.VRMC_vrm_animation.lookAt.node',
-    );
-  } else if (lookAt.containsKey('node') && lookAtNode == null) {
+  if (lookAt.containsKey('node') && lookAtNode == null) {
     sink.error(
       'vrma.invalidLookAtNode',
       'VRMA LookAt node must be an integer.',

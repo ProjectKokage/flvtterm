@@ -1944,7 +1944,7 @@ void vrmaMotionTests() {
     );
   });
 
-  test('reports VRMA LookAt offset without a node', () {
+  test('allows VRMA LookAt offset without a node', () {
     final json = {
       'asset': {'version': '2.0'},
       'extensionsUsed': ['VRMC_vrm_animation'],
@@ -1969,7 +1969,8 @@ void vrmaMotionTests() {
     final strict = VrmAnimationAsset.tryParse(bytes: bytes);
 
     expect(result.asset, isNotNull);
-    expect(strict.asset, isNull);
+    expect(strict.asset, isNotNull);
+    expect(result.validation.hasErrors, isFalse);
     expect(result.asset!.animation.lookAt, isNull);
     expect(result.asset!.animation.offsetFromHeadBone, [0.0, 0.0, 0.0]);
     expect(
@@ -1985,16 +1986,6 @@ void vrmaMotionTests() {
     final rawTags = rawExtras['tags']! as List<Object?>;
     expect(() => rawExtras['other'] = true, throwsUnsupportedError);
     expect(() => rawTags.add('copy'), throwsUnsupportedError);
-    expect(
-      result.validation.errors.map((d) => d.code),
-      contains('vrma.lookAtMissingNode'),
-    );
-    expect(
-      result.validation.errors
-          .singleWhere((d) => d.code == 'vrma.lookAtMissingNode')
-          .jsonPath,
-      r'$.extensions.VRMC_vrm_animation.lookAt.node',
-    );
   });
 
   test('allows VRMA assets without humanoid mappings', () {

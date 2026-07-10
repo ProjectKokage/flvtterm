@@ -194,7 +194,7 @@ final class VrmAnimationExtension {
   /// Custom expression node mappings.
   final Map<String, int> customExpressions;
 
-  /// LookAt animation node index.
+  /// Optional LookAt animation node index.
   final int? lookAt;
 
   /// LookAt origin offset from head bone.
