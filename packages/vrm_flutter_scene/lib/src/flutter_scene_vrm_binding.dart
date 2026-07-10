@@ -44,6 +44,17 @@ final class FlutterSceneVrmBinding implements VrmModelRootBinding {
   }) {
     options ??= FlutterSceneVrmBindingOptions();
     _importRootLocalTransform = root.localTransform.clone();
+    final coreFromSceneTransform = vm.Matrix4.tryInvert(
+      _importRootLocalTransform,
+    );
+    _coreFromSceneTransform = coreFromSceneTransform ?? vm.Matrix4.identity();
+    if (coreFromSceneTransform == null) {
+      _warnOnce(
+        code: 'flutterScene.nonInvertibleImportRoot',
+        message:
+            'Flutter Scene import root transform is not invertible; core world transforms cannot be converted from renderer coordinates.',
+      );
+    }
     _capabilityWarnings.addAll(
       VrmFirstPersonController(model).geometrySplitWarnings(),
     );
@@ -91,7 +102,10 @@ final class FlutterSceneVrmBinding implements VrmModelRootBinding {
     }
     _nodeBindings = {
       for (final entry in sceneNodes.entries)
-        entry.key: _FlutterSceneNodeBinding(entry.value),
+        entry.key: _FlutterSceneNodeBinding(
+          entry.value,
+          _coreFromSceneTransform,
+        ),
     };
     _materialBindings = {
       for (final entry in _sceneMaterials(sceneNodes, model).entries)
@@ -116,6 +130,7 @@ final class FlutterSceneVrmBinding implements VrmModelRootBinding {
   final List<VrmDiagnostic> _capabilityWarnings = [];
   final Set<String> _warningCodes = {};
   late final vm.Matrix4 _importRootLocalTransform;
+  late final vm.Matrix4 _coreFromSceneTransform;
   var _modelRootMotionTransform = VrmMatrix4.identity();
 
   /// Warnings for renderer features this adapter cannot currently mutate.
@@ -347,9 +362,10 @@ List<GltfMeshPrimitive> _materialAlignedGltfPrimitives(
 }
 
 final class _FlutterSceneNodeBinding implements VrmNodeBinding {
-  _FlutterSceneNodeBinding(this._node);
+  _FlutterSceneNodeBinding(this._node, this._coreFromSceneTransform);
 
   final scene.Node _node;
+  final vm.Matrix4 _coreFromSceneTransform;
 
   @override
   VrmMatrix4 get localTransform => _fromSceneMatrix(_node.localTransform);
@@ -360,7 +376,9 @@ final class _FlutterSceneNodeBinding implements VrmNodeBinding {
   }
 
   @override
-  VrmMatrix4 get worldTransform => _fromSceneMatrix(_node.globalTransform);
+  VrmMatrix4 get worldTransform => _fromSceneMatrix(
+    _coreFromSceneTransform.clone()..multiply(_node.globalTransform),
+  );
 
   @override
   String? get debugName => _node.name.isEmpty ? null : _node.name;

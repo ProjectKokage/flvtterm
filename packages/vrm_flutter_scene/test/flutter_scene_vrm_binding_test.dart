@@ -192,6 +192,55 @@ void main() {
     expect(root.localTransform.storage[12], 2);
   });
 
+  test('converts imported handedness out of core world transforms', () {
+    final model = VrmModel.parseGlb(_minimalVrmGlb());
+    final root = scene.Node(name: 'root')
+      ..localTransform = vm.Matrix4.diagonal3Values(1, 1, -1);
+    final node = scene.Node(name: 'node0')
+      ..localTransform = vm.Matrix4.translationValues(0, 0, 2);
+    root.add(node);
+    final binding = FlutterSceneVrmBinding.fromRootNode(
+      root,
+      model: model,
+      options: FlutterSceneVrmBindingOptions(includeRootAsGltfNode: false),
+    );
+
+    expect(binding.nodeByGltfIndex(0).worldTransform.storage[14], 2.0);
+
+    binding.modelRootMotionTransform = VrmMatrix4([
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      3,
+      1,
+    ]);
+
+    expect(binding.nodeByGltfIndex(0).worldTransform.storage[14], 5.0);
+  });
+
+  test('warns when the import root transform cannot be inverted', () {
+    final model = VrmModel.parseGlb(_minimalVrmGlb());
+    final root = scene.Node(name: 'root')..localTransform = vm.Matrix4.zero();
+
+    final binding = FlutterSceneVrmBinding.fromRootNode(root, model: model);
+
+    expect(
+      binding.capabilityWarnings.map((warning) => warning.code),
+      contains('flutterScene.nonInvertibleImportRoot'),
+    );
+  });
+
   test('reports MToon fallback warnings', () {
     final model = VrmModel.parseGlb(_minimalVrmGlb(mtoonMaterial: true));
     final binding = FlutterSceneVrmBinding.fromRootNode(

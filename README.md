@@ -246,8 +246,10 @@ three steps and returns the parsed model, imported root node, and binding.
 The adapter maps glTF node indices through explicit index paths when available,
 or by pairing the imported node tree with the parsed default-scene hierarchy.
 This preserves glTF node-array indices even when they differ from depth-first
-order. It applies node transforms, model-root motion, whole-node visibility,
-base-color material fallback, and MToon PBR/emissive fallback values. MToon
+order. World transforms are converted back through Flutter Scene's synthesized
+import root before core constraints consume them. The adapter applies node
+transforms, model-root motion, whole-node visibility, base-color material
+fallback, and MToon PBR/emissive fallback values. MToon
 materials report unlit/PBR fallback diagnostics through
 `binding.capabilityWarnings`, as do first-person `auto` meshes that would need
 geometry splitting. Missing Flutter Scene mutators for imported morph target
