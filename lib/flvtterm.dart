@@ -51,6 +51,7 @@ part 'src/parser.dart';
 part 'src/runtime.dart';
 part 'src/runtime_transform_helpers.dart';
 part 'src/scene_binding.dart';
+part 'src/scene_binding_cache.dart';
 part 'src/spring_bone_controller.dart';
 part 'src/spring_bone_math.dart';
 part 'src/spring_bone_parser.dart';

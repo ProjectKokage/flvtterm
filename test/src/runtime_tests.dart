@@ -1,6 +1,59 @@
 part of '../flvtterm_test.dart';
 
 void runtimeTests() {
+  test('runtime resolves scene binding handles once at bind time', () {
+    final model = VrmModel.tryParseGlb(
+      _glb(
+        _minimalVrmJson(
+          meshes: const [
+            {
+              'primitives': [
+                {
+                  'attributes': <String, Object?>{},
+                  'targets': [<String, Object?>{}],
+                },
+              ],
+            },
+          ],
+          materials: const [<String, Object?>{}, <String, Object?>{}],
+          nodeMesh: const {2: 0},
+          expressions: const {
+            'preset': {
+              'happy': {
+                'materialColorBinds': [
+                  {
+                    'material': 0,
+                    'type': 'color',
+                    'targetValue': [0.5, 0.5, 0.5, 1.0],
+                  },
+                ],
+              },
+            },
+          },
+        ),
+      ),
+      validation: VrmValidationMode.permissive,
+    ).asset!;
+    final runtime = VrmRuntime(model);
+    final binding = _FakeBinding();
+
+    runtime.bind(binding);
+
+    expect(binding.nodeLookups, model.gltf.nodes.length);
+    expect(binding.meshLookups, 1);
+    expect(binding.materialLookups, 1);
+    final nodeLookups = binding.nodeLookups;
+    final meshLookups = binding.meshLookups;
+    final materialLookups = binding.materialLookups;
+
+    runtime.update(0);
+    runtime.update(1 / 60);
+
+    expect(binding.nodeLookups, nodeLookups);
+    expect(binding.meshLookups, meshLookups);
+    expect(binding.materialLookups, materialLookups);
+  });
+
   test('runtime unbind detaches scene binding', () {
     final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
     final binding = _FakeBinding();

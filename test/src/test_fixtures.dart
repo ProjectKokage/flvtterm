@@ -331,6 +331,8 @@ final class _FakeBinding implements VrmModelRootBinding {
   var began = 0;
   var committed = 0;
   var nodeLookups = 0;
+  var meshLookups = 0;
+  var materialLookups = 0;
 
   @override
   VrmMatrix4 modelRootMotionTransform = VrmMatrix4.identity();
@@ -346,12 +348,16 @@ final class _FakeBinding implements VrmModelRootBinding {
   }
 
   @override
-  VrmMaterialBinding materialByGltfIndex(int materialIndex) =>
-      materials.putIfAbsent(materialIndex, _FakeMaterial.new);
+  VrmMaterialBinding materialByGltfIndex(int materialIndex) {
+    materialLookups++;
+    return materials.putIfAbsent(materialIndex, _FakeMaterial.new);
+  }
 
   @override
-  VrmMeshBinding? meshByNodeIndex(int nodeIndex) =>
-      meshes.putIfAbsent(nodeIndex, _FakeMesh.new);
+  VrmMeshBinding? meshByNodeIndex(int nodeIndex) {
+    meshLookups++;
+    return meshes.putIfAbsent(nodeIndex, _FakeMesh.new);
+  }
 
   @override
   VrmNodeBinding nodeByGltfIndex(int nodeIndex) {

@@ -93,6 +93,8 @@ Bind the runtime to any renderer by implementing `VrmSceneBinding`,
 `VrmNodeBinding`, `VrmMeshBinding`, and `VrmMaterialBinding`. Implement
 `VrmModelRootBinding` too when the renderer exposes a parent/root object for
 the loaded avatar; VRMA hips translation is written there as model root motion.
+`VrmRuntime.bind` resolves runtime-used node, mesh, and expression-material
+handles once; adapters must return stable handles for the binding lifetime.
 
 ```dart
 final runtime = VrmRuntime(model)..bind(sceneBinding);

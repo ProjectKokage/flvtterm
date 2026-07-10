@@ -49,7 +49,7 @@ final class VrmRuntime {
 
   /// Binds this runtime to a renderer scene.
   void bind(VrmSceneBinding binding) {
-    _binding = binding;
+    _binding = _resolveSceneBinding(model, binding);
     springBones.reset();
   }
 
