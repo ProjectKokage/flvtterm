@@ -257,6 +257,33 @@ void main() {
     expect(material.emissiveFactor, vm.Vector4(0.5, 0.6, 0.7, 1.0));
   });
 
+  test('aligns materials after skipped non-triangle primitives', () {
+    final model = VrmModel.tryParseGlb(
+      _minimalVrmGlb(
+        firstPersonSplit: true,
+        meshMaterial: true,
+        skippedPrimitiveBeforeMaterial: true,
+      ),
+      validation: VrmValidationMode.permissive,
+    ).asset!;
+    final material = _StubMaterial();
+    final root = scene.Node(name: 'root');
+    root.add(
+      scene.Node(name: 'node0', mesh: scene.Mesh(_StubGeometry(), material)),
+    );
+    final binding = FlutterSceneVrmBinding.fromRootNode(
+      root,
+      model: model,
+      options: FlutterSceneVrmBindingOptions(includeRootAsGltfNode: false),
+    );
+
+    binding
+        .materialByGltfIndex(1)
+        .setColor('color', VrmVector4(0.1, 0.2, 0.3, 0.4));
+
+    expect(material.baseColorFactor, vm.Vector4(0.1, 0.2, 0.3, 0.4));
+  });
+
   test('warns when a Flutter Scene material cannot be located', () {
     final model = VrmModel.tryParseGlb(
       _minimalVrmGlb(firstPersonSplit: true, meshMaterial: true),
@@ -308,6 +335,7 @@ Uint8List _minimalVrmGlb({
   bool mtoonMaterial = false,
   bool firstPersonSplit = false,
   bool meshMaterial = false,
+  bool skippedPrimitiveBeforeMaterial = false,
 }) {
   final binaryChunk = firstPersonSplit ? _firstPersonSplitBinary() : null;
   final jsonBytes = Uint8List.fromList(
@@ -340,6 +368,7 @@ Uint8List _minimalVrmGlb({
           ..._firstPersonSplitGltfData(
             binaryChunk!,
             material: meshMaterial ? 0 : null,
+            skippedPrimitiveBeforeMaterial: skippedPrimitiveBeforeMaterial,
           ),
         if (mtoonMaterial || meshMaterial)
           'materials': [
@@ -355,6 +384,7 @@ Uint8List _minimalVrmGlb({
                   'KHR_materials_unlit': {},
                 },
             },
+            if (skippedPrimitiveBeforeMaterial) {},
           ],
         'extensions': {
           'VRMC_vrm': {
@@ -440,17 +470,19 @@ final class _StubMaterial extends scene.Material {
 Map<String, Object?> _firstPersonSplitGltfData(
   Uint8List binary, {
   int? material,
+  bool skippedPrimitiveBeforeMaterial = false,
 }) => {
   'meshes': [
     {
       'primitives': [
         {
-          'mode': 0,
+          'mode': skippedPrimitiveBeforeMaterial ? 1 : 0,
           ..._materialEntry(material),
           'attributes': {'JOINTS_0': 0, 'WEIGHTS_0': 1},
         },
         {
-          'mode': 0,
+          'mode': skippedPrimitiveBeforeMaterial ? 4 : 0,
+          if (skippedPrimitiveBeforeMaterial) 'material': 1,
           'attributes': {'JOINTS_0': 2, 'WEIGHTS_0': 3},
         },
       ],

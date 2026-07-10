@@ -316,7 +316,10 @@ Map<int, scene.Material> _sceneMaterials(
     if (meshIndex == null || meshIndex >= model.gltf.meshes.length) continue;
     final scenePrimitives = entry.value.mesh?.primitives;
     if (scenePrimitives == null) continue;
-    final gltfPrimitives = model.gltf.meshes[meshIndex].primitives;
+    final gltfPrimitives = _materialAlignedGltfPrimitives(
+      model.gltf.meshes[meshIndex].primitives,
+      scenePrimitives.length,
+    );
     for (
       var i = 0;
       i < gltfPrimitives.length && i < scenePrimitives.length;
@@ -328,6 +331,19 @@ Map<int, scene.Material> _sceneMaterials(
     }
   }
   return materials;
+}
+
+List<GltfMeshPrimitive> _materialAlignedGltfPrimitives(
+  List<GltfMeshPrimitive> primitives,
+  int scenePrimitiveCount,
+) {
+  if (primitives.length == scenePrimitiveCount) return primitives;
+  // Flutter Scene 0.16 omits non-TRIANGLES primitives during GLB import.
+  final triangles = [
+    for (final primitive in primitives)
+      if (primitive.mode == 4) primitive,
+  ];
+  return triangles.length == scenePrimitiveCount ? triangles : primitives;
 }
 
 final class _FlutterSceneNodeBinding implements VrmNodeBinding {
