@@ -33,6 +33,7 @@ final class VrmMotionController {
   var _fadeOutSeconds = 0.0;
   var _fadeOutElapsedSeconds = 0.0;
   _MotionSnapshot? _crossFadeFrom;
+  _MotionSnapshot? _fadeOutFrom;
   var _stopping = false;
   var _loop = false;
   var _priority = 0;
@@ -396,6 +397,8 @@ final class VrmMotionController {
   /// Stops playback and clears the active clip.
   void stop({Duration fadeOut = Duration.zero}) {
     if (fadeOut > Duration.zero && _hasActiveSource) {
+      _fadeOutFrom = _captureSnapshot();
+      _crossFadeFrom = null;
       _fadeOutSeconds = fadeOut.inMicroseconds / Duration.microsecondsPerSecond;
       _fadeOutElapsedSeconds = 0;
       _stopping = true;
@@ -447,6 +450,7 @@ final class VrmMotionController {
     _fadeOutSeconds = 0;
     _fadeOutElapsedSeconds = 0;
     _crossFadeFrom = null;
+    _fadeOutFrom = null;
     _stopping = false;
     _priority = 0;
     _playing = false;
@@ -495,6 +499,10 @@ final class VrmMotionController {
     VrmLookAtController lookAt,
   ) {
     _evaluateAdditiveLayers();
+    if (_stopping && _fadeOutFrom != null) {
+      _applyFadeOutSnapshot(binding, expressions, lookAt);
+      return;
+    }
     final animationIndex = _animationIndex;
     final programmaticPose = _programmaticPose;
     final proceduralMotion = _proceduralMotion;
@@ -610,6 +618,7 @@ final class VrmMotionController {
     _fadeElapsedSeconds = _fadeInSeconds == 0 ? 0 : 0;
     _fadeOutSeconds = 0;
     _fadeOutElapsedSeconds = 0;
+    _fadeOutFrom = null;
     _stopping = false;
   }
 
@@ -626,6 +635,10 @@ final class VrmMotionController {
         : 1 - _clamp01(_fadeOutElapsedSeconds / _fadeOutSeconds);
     return fadeIn * fadeOut;
   }
+
+  double get _fadeOutProgress => _fadeOutSeconds == 0
+      ? 1
+      : _clamp01(_fadeOutElapsedSeconds / _fadeOutSeconds);
 
   void _clearIfFadeOutFinished() {
     if (_stopping && _fadeOutElapsedSeconds >= _fadeOutSeconds) {

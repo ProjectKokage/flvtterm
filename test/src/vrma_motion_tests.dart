@@ -279,6 +279,26 @@ void vrmaMotionTests() {
     },
   );
 
+  test('runtime motion fades the current VRMA root crossfade to rest', () {
+    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
+    final binding = _FakeBinding();
+
+    runtime.bind(binding);
+    runtime.motion.playVrmAnimation(_hipsTranslationVrma(2.0));
+    runtime.update(1.0);
+    runtime.motion.playVrmAnimation(
+      _hipsTranslationVrma(4.0),
+      fadeIn: const Duration(seconds: 2),
+    );
+    runtime.update(1.0);
+    expect(binding.modelRootMotionTransform.storage[12], 3.0);
+
+    runtime.motion.stop(fadeOut: const Duration(seconds: 2));
+    runtime.update(1.0);
+
+    expect(binding.modelRootMotionTransform.storage[12], 1.5);
+  });
+
   test('runtime motion drives multiple VRMA expressions from one node', () {
     final modelJson = _minimalVrmJson(
       meshes: [

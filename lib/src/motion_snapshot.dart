@@ -2,6 +2,13 @@ part of '../flvtterm.dart';
 
 extension _VrmMotionSnapshot on VrmMotionController {
   _MotionSnapshot? _captureSnapshot() {
+    if (_stopping && _fadeOutFrom != null) {
+      return _blendSnapshots(
+        _fadeOutFrom,
+        const _MotionSnapshot(),
+        _fadeOutProgress,
+      );
+    }
     final target = _captureRawSnapshot();
     if (target == null) return null;
     final fade = _fadeWeight;

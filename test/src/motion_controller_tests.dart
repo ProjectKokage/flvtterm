@@ -887,6 +887,52 @@ void motionControllerTests() {
         closeTo(entry.value, 0.0001),
       );
     }
+
+    runtime.motion.stop(fadeOut: const Duration(seconds: 2));
+    runtime.update(1.0);
+
+    for (final entry in before.entries) {
+      expect(
+        binding.meshes[0]!.weights[entry.key],
+        closeTo(entry.value * 0.5, 0.0001),
+      );
+    }
+  });
+
+  test('runtime motion fades the current crossfade pose to rest', () {
+    VrmProgrammaticPose pose(double x) => VrmProgrammaticPose(
+      nodePoses: {
+        0: GltfNodePose(translation: [x, 0.0, 0.0]),
+      },
+    );
+
+    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
+    final binding = _FakeBinding();
+
+    runtime.bind(binding);
+    runtime.motion.playProgrammaticPose(pose(4.0));
+    runtime.update(0.0);
+    runtime.motion.playProgrammaticPose(
+      pose(10.0),
+      fadeIn: const Duration(seconds: 2),
+    );
+    runtime.update(1.0);
+    expect(binding.nodes[0]!.localTransform.storage[12], 7.0);
+
+    runtime.motion.stop(fadeOut: const Duration(seconds: 2));
+    runtime.update(1.0);
+
+    expect(binding.nodes[0]!.localTransform.storage[12], 3.5);
+
+    runtime.motion.playProgrammaticPose(
+      pose(20.0),
+      fadeIn: const Duration(seconds: 2),
+    );
+    runtime.update(0.0);
+    expect(binding.nodes[0]!.localTransform.storage[12], 3.5);
+
+    runtime.update(1.0);
+    expect(binding.nodes[0]!.localTransform.storage[12], 11.75);
   });
 
   test('runtime motion fades out before clearing active clip', () {

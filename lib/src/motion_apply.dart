@@ -1,6 +1,29 @@
 part of '../flvtterm.dart';
 
 extension _VrmMotionApply on VrmMotionController {
+  void _applyFadeOutSnapshot(
+    VrmSceneBinding binding,
+    VrmExpressionController expressions,
+    VrmLookAtController lookAt,
+  ) {
+    final source = _fadeOutFrom!;
+    final progress = _fadeOutProgress;
+    _applyNodePoses(binding, const {}, progress, from: source.nodePoses);
+    _applyMorphWeights(binding, const {}, progress, from: source.morphWeights);
+    expressions._setMotionInputs(
+      _additiveMotionInputs({
+        for (final entry in source.expressionWeights.entries)
+          entry.key: entry.value * (1 - progress),
+      }),
+    );
+    lookAt._setMotionYawPitch(
+      _additiveLookAt(_lerpSnapshotLookAt(source.lookAt, null, progress)),
+    );
+    _applyAdditiveNodePoses(binding);
+    _applyModelRootPose(binding, null, progress, from: source.modelRootPose);
+    _clearIfFadeOutFinished();
+  }
+
   void _applyProgrammaticPose(
     VrmSceneBinding binding,
     VrmExpressionController expressions,
