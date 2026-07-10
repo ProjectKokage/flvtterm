@@ -1250,11 +1250,16 @@ void expressionLookAtTests() {
             as Map<String, Object?>;
     humanBones['leftEye'] = {'node': 15};
     humanBones['rightEye'] = {'node': 16};
-    vrm['lookAt'] = _lookAtJson(
+    final lookAt = _lookAtJson(
       type: 'bone',
       horizontalInnerOutput: 10,
       horizontalOuterOutput: 20,
     );
+    (lookAt['rangeMapVerticalDown']! as Map<String, Object?>)['outputScale'] =
+        30.0;
+    (lookAt['rangeMapVerticalUp']! as Map<String, Object?>)['outputScale'] =
+        40.0;
+    vrm['lookAt'] = lookAt;
     final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
     final binding = _FakeBinding();
 
@@ -1278,5 +1283,42 @@ void expressionLookAtTests() {
       binding.nodes[16]!.localTransform.storage[0],
       closeTo(mathCosDegrees(10), 0.0001),
     );
+
+    runtime.lookAt.setYawPitch(yawDegrees: -90, pitchDegrees: 0);
+    runtime.update(0);
+    expect(
+      binding.nodes[15]!.localTransform.storage[0],
+      closeTo(mathCosDegrees(10), 0.0001),
+    );
+    expect(
+      binding.nodes[16]!.localTransform.storage[0],
+      closeTo(mathCosDegrees(20), 0.0001),
+    );
+
+    runtime.lookAt.setYawPitch(yawDegrees: 0, pitchDegrees: 90);
+    runtime.update(0);
+    for (final eye in [15, 16]) {
+      expect(
+        binding.nodes[eye]!.localTransform.storage[5],
+        closeTo(mathCosDegrees(30), 0.0001),
+      );
+      expect(
+        binding.nodes[eye]!.localTransform.storage[6],
+        closeTo(math.sin(30 * math.pi / 180), 0.0001),
+      );
+    }
+
+    runtime.lookAt.setYawPitch(yawDegrees: 0, pitchDegrees: -90);
+    runtime.update(0);
+    for (final eye in [15, 16]) {
+      expect(
+        binding.nodes[eye]!.localTransform.storage[5],
+        closeTo(mathCosDegrees(40), 0.0001),
+      );
+      expect(
+        binding.nodes[eye]!.localTransform.storage[6],
+        closeTo(-math.sin(40 * math.pi / 180), 0.0001),
+      );
+    }
   });
 }
