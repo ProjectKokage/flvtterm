@@ -244,15 +244,12 @@ extension _VrmMotionApply on VrmMotionController {
         if (gltfNode == null) continue;
         final node = binding.nodeByGltfIndex(entry.key);
         final current = node.localTransform;
-        final translation = _matrixTranslation(
-          current,
-          fallback: gltfNode.restTranslation,
-        );
+        final translation = _matrixTranslation(current);
         final rotation = _matrixRotation(
           current,
           fallback: gltfNode.restRotation,
         );
-        final scale = _matrixScale(current, fallback: gltfNode.restScale);
+        final scale = _matrixScale(current);
         final additive = entry.value;
         final additiveTranslation = additive.translation;
         final additiveRotation = additive.rotation;

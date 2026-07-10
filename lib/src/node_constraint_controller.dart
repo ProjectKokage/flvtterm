@@ -53,12 +53,9 @@ final class VrmNodeConstraintController {
         );
         final current = destinationBinding.localTransform;
         destinationBinding.localTransform = _trsMatrix(
-          _matrixTranslation(
-            current,
-            fallback: destinationNode.restTranslation,
-          ),
+          _matrixTranslation(current),
           outputRotation,
-          _matrixScale(current, fallback: destinationNode.restScale),
+          _matrixScale(current),
         );
       }
     }

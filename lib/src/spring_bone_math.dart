@@ -424,26 +424,14 @@ void _springLocalRotation(
   out[3] = w;
 }
 
-VrmMatrix4 _springOutputTransform(
-  VrmMatrix4 current,
-  List<double> initialTranslation,
-  List<double> initialScale,
-  List<double> rotation,
-) {
+VrmMatrix4 _springOutputTransform(VrmMatrix4 current, List<double> rotation) {
   final m = current.storage;
-  final useFallback = _isIdentityMatrix(current);
-  final tx = useFallback ? initialTranslation[0] : m[12];
-  final ty = useFallback ? initialTranslation[1] : m[13];
-  final tz = useFallback ? initialTranslation[2] : m[14];
-  final sx = useFallback
-      ? initialScale[0]
-      : math.sqrt(m[0] * m[0] + m[1] * m[1] + m[2] * m[2]);
-  final sy = useFallback
-      ? initialScale[1]
-      : math.sqrt(m[4] * m[4] + m[5] * m[5] + m[6] * m[6]);
-  final sz = useFallback
-      ? initialScale[2]
-      : math.sqrt(m[8] * m[8] + m[9] * m[9] + m[10] * m[10]);
+  final tx = m[12];
+  final ty = m[13];
+  final tz = m[14];
+  final sx = math.sqrt(m[0] * m[0] + m[1] * m[1] + m[2] * m[2]);
+  final sy = math.sqrt(m[4] * m[4] + m[5] * m[5] + m[6] * m[6]);
+  final sz = math.sqrt(m[8] * m[8] + m[9] * m[9] + m[10] * m[10]);
   final x = rotation[0];
   final y = rotation[1];
   final z = rotation[2];

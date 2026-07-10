@@ -249,12 +249,12 @@ final class VrmLookAtController {
     final lookRotation = _yawPitchQuaternion(yawDegrees, pitchDegrees);
     final current = binding.nodeByGltfIndex(nodeIndex).localTransform;
     binding.nodeByGltfIndex(nodeIndex).localTransform = _trsMatrix(
-      _matrixTranslation(current, fallback: node.restTranslation),
+      _matrixTranslation(current),
       _quatMultiply(
         _matrixRotation(current, fallback: node.restRotation),
         lookRotation,
       ),
-      _matrixScale(current, fallback: node.restScale),
+      _matrixScale(current),
     );
   }
 

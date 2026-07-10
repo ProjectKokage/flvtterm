@@ -42,18 +42,14 @@ VrmMatrix4 _trsMatrix(
   ]);
 }
 
-List<double> _matrixTranslation(
-  VrmMatrix4 matrix, {
-  required List<double> fallback,
-}) {
-  if (_isIdentityMatrix(matrix)) return fallback;
-  return [matrix.storage[12], matrix.storage[13], matrix.storage[14]];
-}
+List<double> _matrixTranslation(VrmMatrix4 matrix) => [
+  matrix.storage[12],
+  matrix.storage[13],
+  matrix.storage[14],
+];
 
-VrmVector3 _matrixPosition(VrmMatrix4 matrix, {required VrmVector3 fallback}) {
-  if (_isIdentityMatrix(matrix)) return fallback;
-  return VrmVector3(matrix.storage[12], matrix.storage[13], matrix.storage[14]);
-}
+VrmVector3 _matrixPosition(VrmMatrix4 matrix) =>
+    VrmVector3(matrix.storage[12], matrix.storage[13], matrix.storage[14]);
 
 VrmMatrix4 _multiplyMatrices(VrmMatrix4 a, VrmMatrix4 b) {
   final left = a.storage;
@@ -77,8 +73,7 @@ VrmVector3 _transformPoint(VrmMatrix4 matrix, VrmVector3 point) {
   );
 }
 
-List<double> _matrixScale(VrmMatrix4 matrix, {required List<double> fallback}) {
-  if (_isIdentityMatrix(matrix)) return fallback;
+List<double> _matrixScale(VrmMatrix4 matrix) {
   final m = matrix.storage;
   return [
     math.sqrt(m[0] * m[0] + m[1] * m[1] + m[2] * m[2]),
@@ -91,9 +86,11 @@ List<double> _matrixRotation(
   VrmMatrix4 matrix, {
   required List<double> fallback,
 }) {
-  if (_isIdentityMatrix(matrix)) return fallback;
   final m = matrix.storage;
-  final scale = _matrixScale(matrix, fallback: const [1, 1, 1]);
+  final scale = _matrixScale(matrix);
+  if (scale.any((value) => !value.isFinite || value.abs() < 1e-12)) {
+    return fallback;
+  }
   final m00 = m[0] / scale[0];
   final m01 = m[4] / scale[1];
   final m02 = m[8] / scale[2];

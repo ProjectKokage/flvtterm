@@ -1396,6 +1396,50 @@ void motionControllerTests() {
     expect(binding.nodes[0]!.localTransform.storage[12], 0.0);
   });
 
+  test('runtime motion preserves an intentional identity override pose', () {
+    final json = _minimalVrmJson();
+    final nodes = json['nodes']! as List<Map<String, Object?>>;
+    nodes[0]
+      ..['translation'] = [5.0, 0.0, 0.0]
+      ..['rotation'] = [0.0, 0.0, math.sqrt1_2, math.sqrt1_2]
+      ..['scale'] = [2.0, 2.0, 2.0];
+    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
+    final binding = _FakeBinding();
+
+    runtime.bind(binding);
+    runtime.motion.playProgrammaticPose(
+      VrmProgrammaticPose(
+        nodePoses: {
+          0: GltfNodePose(
+            translation: [0.0, 0.0, 0.0],
+            rotation: [0.0, 0.0, 0.0, 1.0],
+            scale: [1.0, 1.0, 1.0],
+          ),
+        },
+      ),
+    );
+    runtime.motion.setAdditiveProgrammaticPose(
+      VrmProgrammaticPose(
+        nodePoses: {
+          0: GltfNodePose(
+            translation: [1.0, 0.0, 0.0],
+            rotation: [0.0, 0.0, math.sqrt1_2, math.sqrt1_2],
+            scale: [2.0, 2.0, 2.0],
+          ),
+        },
+      ),
+    );
+
+    runtime.update(0);
+
+    final transform = binding.nodes[0]!.localTransform.storage;
+    expect(transform[0], closeTo(0.0, 0.000001));
+    expect(transform[1], closeTo(2.0, 0.000001));
+    expect(transform[4], closeTo(-2.0, 0.000001));
+    expect(transform[5], closeTo(0.0, 0.000001));
+    expect(transform[12], closeTo(1.0, 0.000001));
+  });
+
   test('runtime motion stacks additive programmatic layers', () {
     final json = _minimalVrmJson(
       meshes: [

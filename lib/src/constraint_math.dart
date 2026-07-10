@@ -98,14 +98,8 @@ List<double>? _aimConstraint({
   if (axis == null) return null;
   final restWorldRotation = _quatMultiply(parentWorldRotation, destinationRest);
   final from = _rotateVector(restWorldRotation, _aimAxisVector(axis));
-  final sourcePosition = _matrixPosition(
-    source.worldTransform,
-    fallback: VrmVector3.zero,
-  );
-  final destinationPosition = _matrixPosition(
-    destination.worldTransform,
-    fallback: VrmVector3.zero,
-  );
+  final sourcePosition = _matrixPosition(source.worldTransform);
+  final destinationPosition = _matrixPosition(destination.worldTransform);
   final to = sourcePosition - destinationPosition;
   final aim = _fromToQuaternion(from, [to.x, to.y, to.z]);
   return _quatMultiply(

@@ -598,6 +598,58 @@ void springBoneTests() {
     );
   });
 
+  test(
+    'runtime SpringBone preserves animated identity translation and scale',
+    () {
+      final json = _minimalVrmJson()
+        ..['extensionsUsed'] = ['VRMC_vrm', 'VRMC_springBone'];
+      final nodes = json['nodes']! as List<Map<String, Object?>>;
+      nodes[1]
+        ..['translation'] = [5.0, 0.0, 0.0]
+        ..['scale'] = [2.0, 2.0, 2.0];
+      nodes[2]['translation'] = [0.0, 1.0, 0.0];
+      (json['extensions']! as Map<String, Object?>)['VRMC_springBone'] = {
+        'specVersion': '1.0',
+        'springs': [
+          {
+            'joints': [
+              {
+                'node': 1,
+                'stiffness': 0.0,
+                'gravityPower': 0.0,
+                'dragForce': 1.0,
+              },
+              {'node': 2},
+            ],
+          },
+        ],
+      };
+      final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
+      final binding = _FakeBinding();
+
+      runtime.bind(binding);
+      runtime.motion.playProgrammaticPose(
+        VrmProgrammaticPose(
+          nodePoses: {
+            1: GltfNodePose(
+              translation: [0.0, 0.0, 0.0],
+              scale: [1.0, 1.0, 1.0],
+            ),
+          },
+        ),
+      );
+      runtime.update(0);
+
+      final transform = binding.nodes[1]!.localTransform.storage;
+      expect(transform[12], 0.0);
+      expect(transform[13], 0.0);
+      expect(transform[14], 0.0);
+      expect(transform[0], closeTo(1.0, 0.000001));
+      expect(transform[5], closeTo(1.0, 0.000001));
+      expect(transform[10], closeTo(1.0, 0.000001));
+    },
+  );
+
   test('runtime SpringBone evaluates separate chains root to descendant', () {
     VrmRuntime runtime({required bool childFirst}) {
       final json = _minimalVrmJson()

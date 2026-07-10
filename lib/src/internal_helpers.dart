@@ -132,8 +132,6 @@ final class _SpringJointState {
     required this.boneAxis,
     required this.initialLocalTail,
     required this.initialLocalRotation,
-    required this.initialLocalTranslation,
-    required this.initialLocalScale,
     required VrmVector3 gravity,
   }) : previousTail = _SpringVector3.from(previousTail),
        currentTail = _SpringVector3.from(currentTail),
@@ -148,8 +146,6 @@ final class _SpringJointState {
   final VrmVector3 boneAxis;
   final VrmVector3 initialLocalTail;
   final List<double> initialLocalRotation;
-  final List<double> initialLocalTranslation;
-  final List<double> initialLocalScale;
   final _SpringVector3 gravity;
   final _SpringScratch scratch = _SpringScratch();
   final List<double> rotationScratch = List<double>.filled(4, 0);

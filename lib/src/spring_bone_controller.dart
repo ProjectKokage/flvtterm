@@ -166,8 +166,6 @@ final class VrmSpringBoneController {
       final current = nodeBinding.localTransform;
       nodeBinding.localTransform = _springOutputTransform(
         current,
-        state.initialLocalTranslation,
-        state.initialLocalScale,
         state.rotationScratch,
       );
     }
@@ -260,8 +258,6 @@ final class VrmSpringBoneController {
             boneAxis: initialLocalTail * (1 / length),
             initialLocalTail: initialLocalTail,
             initialLocalRotation: gltfNode.restRotation,
-            initialLocalTranslation: gltfNode.restTranslation,
-            initialLocalScale: gltfNode.restScale,
             gravity: _springVector(joint.gravityDir) * joint.gravityPower,
           ),
         );
