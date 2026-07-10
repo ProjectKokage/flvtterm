@@ -1,0 +1,21 @@
+name: flvtterm_flutter_scene
+description: Flutter Scene adapter for the renderer-neutral flvtterm VRM runtime.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.11.5
+  flutter: ">=3.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_scene: ">=0.16.0 <0.17.0"
+  flvtterm:
+    path: ../..
+  vector_math: ^2.2.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  lints: ^6.0.0

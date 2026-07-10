@@ -1,0 +1,19 @@
+name: flvtterm_flutter
+description: Flutter convenience helpers for the renderer-neutral flvtterm VRM core.
+version: 1.0.0
+publish_to: none
+
+environment:
+  sdk: ^3.11.5
+  flutter: ">=3.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flvtterm:
+    path: ../..
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  lints: ^6.0.0

@@ -1,0 +1,27 @@
+name: flvtterm_flutter_scene_viewer
+description: Flutter Scene viewer example for flvtterm VRM runtime integration.
+publish_to: none
+
+environment:
+  sdk: ^3.11.5
+  flutter: ">=3.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_scene: ">=0.16.0 <0.17.0"
+  flvtterm:
+    path: ../..
+  flvtterm_flutter_scene:
+    path: ../../packages/vrm_flutter_scene
+  vector_math: ^2.2.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/

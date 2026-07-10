@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  dart:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - run: dart pub get
+      - run: dart format --output=none --set-exit-if-changed .
+      - run: dart analyze --fatal-infos
+      - run: dart test
+      - run: dart pub get
+        working-directory: examples/runtime_console
+      - run: dart analyze --fatal-infos
+        working-directory: examples/runtime_console
+      - run: dart run bin/runtime_console.dart
+        working-directory: examples/runtime_console
+
+  flutter:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        package:
+          - packages/vrm_flutter
+          - packages/vrm_flutter_scene
+          - examples/flutter_scene_viewer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+        working-directory: ${{ matrix.package }}
+      - run: flutter analyze
+        working-directory: ${{ matrix.package }}
+      - run: flutter test
+        working-directory: ${{ matrix.package }}

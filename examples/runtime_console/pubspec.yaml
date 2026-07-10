@@ -1,0 +1,13 @@
+name: flvtterm_runtime_console
+description: Pure Dart console smoke example for flvtterm VRM runtime behavior.
+publish_to: none
+
+environment:
+  sdk: ^3.11.5
+
+dependencies:
+  flvtterm:
+    path: ../..
+
+dev_dependencies:
+  lints: ^6.0.0
