@@ -32,7 +32,7 @@ final class FlutterSceneVrmBindingOptions {
 /// Renderer binding from flvtterm's core runtime to Flutter Scene.
 ///
 /// The binding keeps Flutter Scene types in this optional package. Node
-/// transforms and whole-node visibility are applied directly. Morph target
+/// transforms and mesh-component visibility are applied directly. Morph target
 /// weights and texture transforms currently emit capability warnings because
 /// Flutter Scene does not document public mutators for those imported values.
 final class FlutterSceneVrmBinding implements VrmModelRootBinding {
@@ -107,6 +107,11 @@ final class FlutterSceneVrmBinding implements VrmModelRootBinding {
           _coreFromSceneTransform,
         ),
     };
+    _meshBindings = {
+      for (final entry in sceneNodes.entries)
+        if (entry.value.mesh != null)
+          entry.key: _FlutterSceneMeshBinding(this, entry.key, entry.value),
+    };
     _materialBindings = {
       for (final entry in _sceneMaterials(sceneNodes, model).entries)
         entry.key: _FlutterSceneMaterialBinding(this, entry.key, entry.value),
@@ -126,6 +131,7 @@ final class FlutterSceneVrmBinding implements VrmModelRootBinding {
   final VrmModel model;
 
   late final Map<int, _FlutterSceneNodeBinding> _nodeBindings;
+  late final Map<int, _FlutterSceneMeshBinding> _meshBindings;
   late final Map<int, _FlutterSceneMaterialBinding> _materialBindings;
   final List<VrmDiagnostic> _capabilityWarnings = [];
   final Set<String> _warningCodes = {};
@@ -157,11 +163,7 @@ final class FlutterSceneVrmBinding implements VrmModelRootBinding {
   }
 
   @override
-  VrmMeshBinding? meshByNodeIndex(int nodeIndex) {
-    final node = _nodeBindings[nodeIndex]?._node;
-    if (node?.mesh == null) return null;
-    return _FlutterSceneMeshBinding(this, nodeIndex, node!);
-  }
+  VrmMeshBinding? meshByNodeIndex(int nodeIndex) => _meshBindings[nodeIndex];
 
   @override
   VrmMaterialBinding materialByGltfIndex(int materialIndex) =>
@@ -174,7 +176,11 @@ final class FlutterSceneVrmBinding implements VrmModelRootBinding {
   void beginFrame() {}
 
   @override
-  void commitFrame() {}
+  void commitFrame() {
+    for (final mesh in _meshBindings.values) {
+      mesh.commitVisibility();
+    }
+  }
 
   void _warnOnce({
     required String code,
@@ -385,11 +391,17 @@ final class _FlutterSceneNodeBinding implements VrmNodeBinding {
 }
 
 final class _FlutterSceneMeshBinding implements VrmMeshBinding {
-  _FlutterSceneMeshBinding(this._owner, this._nodeIndex, this._node);
+  _FlutterSceneMeshBinding(this._owner, this._nodeIndex, this._node)
+    : _meshComponents = List.unmodifiable(
+        _node.getComponents<scene.MeshComponent>(),
+      );
 
   final FlutterSceneVrmBinding _owner;
   final int _nodeIndex;
   final scene.Node _node;
+  final List<scene.MeshComponent> _meshComponents;
+  var _requestedVisible = true;
+  var _visible = true;
 
   @override
   void setMorphWeight({
@@ -407,7 +419,21 @@ final class _FlutterSceneMeshBinding implements VrmMeshBinding {
 
   @override
   void setVisible(bool visible) {
-    _node.visible = visible;
+    _requestedVisible = visible;
+  }
+
+  void commitVisibility() {
+    if (_requestedVisible == _visible) return;
+    if (_requestedVisible) {
+      for (final component in _meshComponents) {
+        if (!component.isAttached) _node.addComponent(component);
+      }
+    } else {
+      for (final component in _meshComponents) {
+        if (component.isAttached) _node.removeComponent(component);
+      }
+    }
+    _visible = _requestedVisible;
   }
 }
 

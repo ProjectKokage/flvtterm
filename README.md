@@ -248,7 +248,7 @@ or by pairing the imported node tree with the parsed default-scene hierarchy.
 This preserves glTF node-array indices even when they differ from depth-first
 order. World transforms are converted back through Flutter Scene's synthesized
 import root before core constraints consume them. The adapter applies node
-transforms, model-root motion, whole-node visibility, base-color material
+transforms, model-root motion, child-safe mesh visibility, base-color material
 fallback, and MToon PBR/emissive fallback values. MToon
 materials report unlit/PBR fallback diagnostics through
 `binding.capabilityWarnings`, as do first-person `auto` meshes that would need

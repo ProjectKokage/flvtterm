@@ -241,6 +241,42 @@ void main() {
     );
   });
 
+  test('mesh visibility leaves child nodes visible', () {
+    final model = VrmModel.tryParseGlb(
+      _minimalVrmGlb(firstPersonSplit: true, meshMaterial: true),
+      validation: VrmValidationMode.permissive,
+    ).asset!;
+    final root = scene.Node(name: 'root');
+    final parent = scene.Node(
+      name: 'node0',
+      mesh: scene.Mesh(_StubGeometry(), _StubMaterial()),
+    );
+    final child = scene.Node(
+      name: 'child',
+      mesh: scene.Mesh(_StubGeometry(), _StubMaterial()),
+    );
+    parent.add(child);
+    root.add(parent);
+    final binding = FlutterSceneVrmBinding.fromRootNode(
+      root,
+      model: model,
+      options: FlutterSceneVrmBindingOptions(includeRootAsGltfNode: false),
+    );
+
+    binding.meshByNodeIndex(0)!.setVisible(false);
+    binding.commitFrame();
+
+    expect(parent.visible, isTrue);
+    expect(parent.mesh, isNull);
+    expect(child.mesh, isNotNull);
+
+    binding.meshByNodeIndex(0)!.setVisible(true);
+    binding.commitFrame();
+
+    expect(parent.mesh, isNotNull);
+    expect(child.mesh, isNotNull);
+  });
+
   test('reports MToon fallback warnings', () {
     final model = VrmModel.parseGlb(_minimalVrmGlb(mtoonMaterial: true));
     final binding = FlutterSceneVrmBinding.fromRootNode(
