@@ -55,6 +55,7 @@ _MotionSnapshot _snapshotVrmaFrame(
   GltfAnimationFrame frame, {
   bool Function(int nodeIndex)? isNodeAllowed,
   double? hipsTranslationScale,
+  Map<int, List<double>>? sourceRestWorldRotations,
 }) {
   final model = controller.model;
   final allowsNode = isNodeAllowed ?? controller._isNodeAllowed;
@@ -85,7 +86,14 @@ _MotionSnapshot _snapshotVrmaFrame(
       bone: bone,
       sourcePose: entry.value,
       sourceRestNode: sourceNode,
+      sourceRestWorldRotation:
+          (sourceRestWorldRotations ??
+              controller._vrmaRestWorldRotations)[sourceNode.index] ??
+          sourceNode.restRotation,
       destinationRestNode: destinationNode,
+      destinationRestWorldRotation:
+          controller._modelRestWorldRotations[destinationNode.index] ??
+          destinationNode.restRotation,
       hipsTranslationScale:
           hipsTranslationScale ?? controller._vrmaHipsTranslationScale,
     );

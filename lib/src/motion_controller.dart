@@ -7,7 +7,8 @@ part of '../flvtterm.dart';
 final class VrmMotionController {
   /// Creates a motion controller for [model].
   VrmMotionController(this.model)
-    : _evaluator = GltfAnimationEvaluator(model.gltf);
+    : _evaluator = GltfAnimationEvaluator(model.gltf),
+      _modelRestWorldRotations = _restWorldRotations(model.gltf);
 
   /// Parsed model backing this controller.
   final VrmModel model;
@@ -16,6 +17,7 @@ final class VrmMotionController {
   VrmHumanoidRetargeter vrmaRetargeter = const VrmFkHumanoidRetargeter();
 
   final GltfAnimationEvaluator _evaluator;
+  final Map<int, List<double>> _modelRestWorldRotations;
 
   int? _animationIndex;
   VrmAnimationAsset? _vrma;
@@ -24,6 +26,7 @@ final class VrmMotionController {
   final _additiveLayers = <_AdditiveMotionLayer>[];
   var _nextAdditiveLayerId = 0;
   GltfAnimationEvaluator? _vrmaEvaluator;
+  Map<int, List<double>> _vrmaRestWorldRotations = const {};
   GltfAnimationEvaluator? _externalGltfEvaluator;
   Set<int>? _nodeMask;
   var _vrmaHipsTranslationScale = 1.0;
@@ -211,6 +214,7 @@ final class VrmMotionController {
     _programmaticPose = null;
     _proceduralMotion = null;
     _vrmaEvaluator = null;
+    _vrmaRestWorldRotations = const {};
     _externalGltfEvaluator = null;
     _nodeMask = _resolveNodeMask(nodeMask, humanoidMask);
     _vrmaHipsTranslationScale = 1;
@@ -262,6 +266,7 @@ final class VrmMotionController {
     _programmaticPose = null;
     _proceduralMotion = null;
     _vrmaEvaluator = GltfAnimationEvaluator(animation.gltf);
+    _vrmaRestWorldRotations = _restWorldRotations(animation.gltf);
     _externalGltfEvaluator = null;
     _nodeMask = _resolveNodeMask(nodeMask, humanoidMask);
     _vrmaHipsTranslationScale = hipsTranslationScale.isFinite
@@ -314,6 +319,7 @@ final class VrmMotionController {
     _programmaticPose = null;
     _proceduralMotion = null;
     _vrmaEvaluator = null;
+    _vrmaRestWorldRotations = const {};
     _externalGltfEvaluator = GltfAnimationEvaluator(animationAsset);
     _nodeMask = _resolveNodeMask(nodeMask, humanoidMask);
     _vrmaHipsTranslationScale = 1;
@@ -347,6 +353,7 @@ final class VrmMotionController {
     _programmaticPose = pose;
     _proceduralMotion = null;
     _vrmaEvaluator = null;
+    _vrmaRestWorldRotations = const {};
     _externalGltfEvaluator = null;
     _nodeMask = _resolveNodeMask(nodeMask, humanoidMask);
     _vrmaHipsTranslationScale = 1;
@@ -382,6 +389,7 @@ final class VrmMotionController {
     _programmaticPose = null;
     _proceduralMotion = motion;
     _vrmaEvaluator = null;
+    _vrmaRestWorldRotations = const {};
     _externalGltfEvaluator = null;
     _nodeMask = _resolveNodeMask(nodeMask, humanoidMask);
     _vrmaHipsTranslationScale = 1;
@@ -441,6 +449,7 @@ final class VrmMotionController {
     _programmaticPose = null;
     _proceduralMotion = null;
     _vrmaEvaluator = null;
+    _vrmaRestWorldRotations = const {};
     _externalGltfEvaluator = null;
     _nodeMask = null;
     _vrmaHipsTranslationScale = 1;

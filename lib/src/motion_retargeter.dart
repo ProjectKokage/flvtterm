@@ -2,13 +2,18 @@ part of '../flvtterm.dart';
 
 /// Retargets one VRMA humanoid bone pose onto a destination VRM humanoid bone.
 abstract interface class VrmHumanoidRetargeter {
-  /// Converts [sourcePose] from [sourceRestNode] space to a destination pose
-  /// relative to [destinationRestNode].
+  /// Converts [sourcePose] from the source rest frame to the destination rest
+  /// frame.
+  ///
+  /// [sourceRestWorldRotation] and [destinationRestWorldRotation] include all
+  /// glTF ancestors, including nodes without humanoid assignments.
   VrmRetargetedBonePose retargetBone({
     required VrmHumanoidBone bone,
     required GltfNodePose sourcePose,
     required GltfNode sourceRestNode,
+    required List<double> sourceRestWorldRotation,
     required GltfNode destinationRestNode,
+    required List<double> destinationRestWorldRotation,
     required double hipsTranslationScale,
   });
 }
@@ -27,7 +32,7 @@ final class VrmRetargetedBonePose {
 
 /// Simple FK VRMA humanoid retargeter.
 ///
-/// Rotations are transferred by source-rest delta into destination-rest space.
+/// Rotations are normalized through source and destination world rest frames.
 /// Hips translation is applied as model-root motion using the source rest-pose
 /// delta multiplied by `hipsTranslationScale`.
 final class VrmFkHumanoidRetargeter implements VrmHumanoidRetargeter {
@@ -39,7 +44,9 @@ final class VrmFkHumanoidRetargeter implements VrmHumanoidRetargeter {
     required VrmHumanoidBone bone,
     required GltfNodePose sourcePose,
     required GltfNode sourceRestNode,
+    required List<double> sourceRestWorldRotation,
     required GltfNode destinationRestNode,
+    required List<double> destinationRestWorldRotation,
     required double hipsTranslationScale,
   }) {
     final hipsTranslation = bone == VrmHumanoidBone.hips
@@ -51,10 +58,12 @@ final class VrmFkHumanoidRetargeter implements VrmHumanoidRetargeter {
         : null;
     final rotation = sourcePose.rotation == null
         ? null
-        : _rotationConstraint(
-            sourceRest: sourceRestNode.restRotation,
+        : _retargetHumanoidRotation(
+            sourceRestLocal: sourceRestNode.restRotation,
+            sourceRestWorld: sourceRestWorldRotation,
             sourceCurrent: sourcePose.rotation!,
-            destinationRest: destinationRestNode.restRotation,
+            destinationRestLocal: destinationRestNode.restRotation,
+            destinationRestWorld: destinationRestWorldRotation,
           );
     return VrmRetargetedBonePose(
       nodePose: rotation == null ? null : GltfNodePose(rotation: rotation),
@@ -63,6 +72,60 @@ final class VrmFkHumanoidRetargeter implements VrmHumanoidRetargeter {
           : GltfNodePose(translation: hipsTranslation),
     );
   }
+}
+
+List<double> _retargetHumanoidRotation({
+  required List<double> sourceRestLocal,
+  required List<double> sourceRestWorld,
+  required List<double> sourceCurrent,
+  required List<double> destinationRestLocal,
+  required List<double> destinationRestWorld,
+}) {
+  final normalized = _quatMultiply(
+    _quatMultiply(
+      _quatMultiply(sourceRestWorld, _quatInverse(sourceRestLocal)),
+      sourceCurrent,
+    ),
+    _quatInverse(sourceRestWorld),
+  );
+  return _quatMultiply(
+    _quatMultiply(
+      _quatMultiply(destinationRestLocal, _quatInverse(destinationRestWorld)),
+      normalized,
+    ),
+    destinationRestWorld,
+  );
+}
+
+Map<int, List<double>> _restWorldRotations(GltfAsset gltf) {
+  final parents = _nodeParents(gltf);
+  final result = <int, List<double>>{};
+  for (final start in gltf.nodes) {
+    if (result.containsKey(start.index)) continue;
+    final chain = <GltfNode>[];
+    final visited = <int>{};
+    var currentIndex = start.index;
+    var world = const <double>[0, 0, 0, 1];
+    while (true) {
+      final cached = result[currentIndex];
+      if (cached != null) {
+        world = cached;
+        break;
+      }
+      if (!visited.add(currentIndex)) break;
+      final current = gltf.nodes.elementAtOrNull(currentIndex);
+      if (current == null) break;
+      chain.add(current);
+      final parent = parents[currentIndex];
+      if (parent == null) break;
+      currentIndex = parent;
+    }
+    for (final node in chain.reversed) {
+      world = List.unmodifiable(_quatMultiply(world, node.restRotation));
+      result[node.index] = world;
+    }
+  }
+  return Map.unmodifiable(result);
 }
 
 List<double>? _retargetHipsRootTranslation({

@@ -30,7 +30,7 @@ Not shipped yet:
 - VRM 0.x compatibility.
 - Built-in file/network URI loading.
 - Renderer geometry splitting for first-person `auto` meshes.
-- Advanced VRMA retargeting beyond the initial FK policy.
+- IK-based VRMA retargeting and automatic body-proportion scaling.
 - Native MToon rendering.
 
 ## Pure Dart Parsing
@@ -207,7 +207,7 @@ runtime.motion.play(
 
 Omit `animationIndex` to play the first glTF animation in the VRMA asset.
 
-Current VRMA retargeting uses `VrmFkHumanoidRetargeter` by default and can be replaced through `runtime.motion.vrmaRetargeter`. Source animation node indices are mapped to source humanoid bones, then applied to destination humanoid bones; source node indices are never written directly to destination glTF node indices. Hips translation uses the source rest-pose delta, multiplies that delta by `hipsTranslationScale`, and applies it as model root motion through `VrmModelRootBinding` when available. Bindings without `VrmModelRootBinding` fall back to composing that root motion onto the glTF scene root nodes. Non-hips humanoid translation and humanoid scale animation are validation errors.
+Current VRMA retargeting uses `VrmFkHumanoidRetargeter` by default and can be replaced through `runtime.motion.vrmaRetargeter`. Source animation node indices are mapped to source humanoid bones, normalized through the source and destination world rest rotations, then applied to destination humanoid bones; source node indices are never written directly to destination glTF node indices. Rest-frame calculation includes non-humanoid intermediary nodes. Hips translation uses the source rest-pose delta, multiplies that delta by `hipsTranslationScale`, and applies it as model root motion through `VrmModelRootBinding` when available. Bindings without `VrmModelRootBinding` fall back to composing that root motion onto the glTF scene root nodes. Non-hips humanoid translation and humanoid scale animation are validation errors.
 
 ## Flutter
 
@@ -273,5 +273,5 @@ MToon support is metadata-only in this package. All parsed `VRMC_materials_mtoon
 - First-person `auto` can classify head-influenced primitives, but runtime geometry splitting is left to renderer adapters.
 - `runtime.firstPerson.geometrySplitWarnings()` flags meshes where whole-mesh
   visibility is only a conservative fallback.
-- VRMA retargeting is FK by default with configurable hips translation scale; IK and humanoid normalization can be added behind `VrmHumanoidRetargeter`.
+- VRMA retargeting is FK with rest-frame rotation normalization and configurable hips translation scale; IK and automatic body-proportion scaling can be added behind `VrmHumanoidRetargeter`.
 - Native MToon shader rendering is not shipped yet; the Flutter Scene adapter applies a PBR/emissive fallback.

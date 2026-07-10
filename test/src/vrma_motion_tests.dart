@@ -449,6 +449,104 @@ void vrmaMotionTests() {
     expect(matrix[10], closeTo(mathCosDegrees(135), 0.0001));
   });
 
+  test('runtime motion normalizes VRMA world rest rotations', () {
+    List<double> xRotation(double degrees) {
+      final radians = degrees * math.pi / 360;
+      return [math.sin(radians), 0.0, 0.0, math.cos(radians)];
+    }
+
+    List<double> yRotation(double degrees) {
+      final radians = degrees * math.pi / 360;
+      return [0.0, math.sin(radians), 0.0, math.cos(radians)];
+    }
+
+    final modelJson = _minimalVrmJson();
+    final modelNodes = modelJson['nodes']! as List<Map<String, Object?>>;
+    modelNodes.add({
+      'name': 'destinationParent',
+      'children': [0],
+      'rotation': yRotation(-90),
+    });
+    ((modelJson['scenes']! as List<Object?>).first
+        as Map<String, Object?>)['nodes'] = [
+      modelNodes.length - 1,
+    ];
+
+    final vrmaBinary = _floats([0.0, 1.0, ...xRotation(0), ...xRotation(90)]);
+    final vrmaJson =
+        <String, Object?>{
+            'asset': {'version': '2.0'},
+            'extensionsUsed': ['VRMC_vrm_animation'],
+            'nodes': [
+              {
+                'name': 'sourceParent',
+                'children': [1],
+                'rotation': yRotation(90),
+              },
+              {'name': 'sourceHips'},
+            ],
+          }
+          ..addAll(
+            _animationStorageJson(
+              vrmaBinary.length,
+              [
+                [0, 8],
+                [8, 32],
+              ],
+              accessorTypes: const ['SCALAR', 'VEC4'],
+            ),
+          )
+          ..['animations'] = [
+            {
+              'channels': [
+                {
+                  'sampler': 0,
+                  'target': {'node': 1, 'path': 'rotation'},
+                },
+              ],
+              'samplers': [
+                {'input': 0, 'output': 1},
+              ],
+            },
+          ]
+          ..['extensions'] = {
+            'VRMC_vrm_animation': {
+              'specVersion': '1.0',
+              'humanoid': {
+                'humanBones': {
+                  'hips': {'node': 1},
+                },
+              },
+            },
+          };
+    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(modelJson)));
+    final binding = _FakeBinding();
+
+    runtime.bind(binding);
+    final vrma = VrmAnimationAsset.tryParse(
+      bytes: _glb(vrmaJson, binaryChunk: vrmaBinary),
+      validation: VrmValidationMode.permissive,
+    ).asset!;
+    runtime.motion.playVrmAnimation(vrma);
+    runtime.update(1);
+
+    final expected = _testTrs(rotation: xRotation(-90)).storage;
+    void expectExpectedRotation() {
+      final actual = binding.nodes[0]!.localTransform.storage;
+      for (var index = 0; index < actual.length; index++) {
+        expect(actual[index], closeTo(expected[index], 0.0001));
+      }
+    }
+
+    expectExpectedRotation();
+
+    runtime.motion.stop();
+    runtime.motion.addAdditiveLayer(vrma);
+    runtime.update(1);
+
+    expectExpectedRotation();
+  });
+
   test('runtime motion retargets VRMA hips translation from rest poses', () {
     final modelJson = _minimalVrmJson();
     (modelJson['nodes']! as List<Map<String, Object?>>)[0]['translation'] = [
@@ -1933,7 +2031,9 @@ final class _OffsetRetargeter implements VrmHumanoidRetargeter {
     required VrmHumanoidBone bone,
     required GltfNodePose sourcePose,
     required GltfNode sourceRestNode,
+    required List<double> sourceRestWorldRotation,
     required GltfNode destinationRestNode,
+    required List<double> destinationRestWorldRotation,
     required double hipsTranslationScale,
   }) {
     this.bone = bone;
