@@ -35,7 +35,8 @@ final class FlutterSceneVrmBindingOptions {
 /// transforms and mesh-component visibility are applied directly. Morph target
 /// weights and texture transforms currently emit capability warnings because
 /// Flutter Scene does not document public mutators for those imported values.
-final class FlutterSceneVrmBinding implements VrmModelRootBinding {
+final class FlutterSceneVrmBinding
+    implements VrmModelRootBinding, VrmModelWorldBinding {
   /// Creates a binding for a Flutter Scene GLB root.
   FlutterSceneVrmBinding.fromRootNode(
     this.root, {
@@ -43,23 +44,13 @@ final class FlutterSceneVrmBinding implements VrmModelRootBinding {
     FlutterSceneVrmBindingOptions? options,
   }) {
     options ??= FlutterSceneVrmBindingOptions();
-    _importRootLocalTransform = root.localTransform.clone();
-    final coreFromSceneTransform = vm.Matrix4.tryInvert(
-      _importRootLocalTransform,
-    );
-    _coreFromSceneTransform = coreFromSceneTransform ?? vm.Matrix4.identity();
-    if (coreFromSceneTransform == null) {
-      _warnOnce(
-        code: 'flutterScene.nonInvertibleImportRoot',
-        message:
-            'Flutter Scene import root transform is not invertible; core world transforms cannot be converted from renderer coordinates.',
-      );
-    }
     _capabilityWarnings.addAll(
       VrmFirstPersonController(model).geometrySplitWarnings(),
     );
     for (final material in model.gltf.materials) {
-      final warning = material.mtoonFallbackWarning();
+      final warning =
+          model.vrm0MtoonFallbackWarning(material.index) ??
+          material.mtoonFallbackWarning();
       if (warning != null) _capabilityWarnings.add(warning);
     }
     for (final entry in options.nodeIndexPaths.entries) {
@@ -91,6 +82,45 @@ final class FlutterSceneVrmBinding implements VrmModelRootBinding {
       );
       return true;
     });
+    for (final entry in sceneNodes.entries) {
+      if (identical(entry.value, root)) {
+        _rootGltfNodeIndex = entry.key;
+        break;
+      }
+    }
+    final rootGltfNodeIndex = _rootGltfNodeIndex;
+    if (rootGltfNodeIndex == null) {
+      _importRootLocalTransform = root.localTransform.clone();
+    } else {
+      _rootNodeLocalTransform =
+          model.gltf.nodes[rootGltfNodeIndex].restTransform;
+      final inverseRest = vm.Matrix4.tryInvert(
+        _toSceneMatrix(_rootNodeLocalTransform!),
+      );
+      if (inverseRest == null) {
+        _importRootLocalTransform = vm.Matrix4.identity();
+        _warnOnce(
+          code: 'flutterScene.nonInvertibleGltfRoot',
+          message:
+              'The glTF scene-root transform is not invertible; its importer transform could not be separated from model-root motion.',
+          gltfNodeIndex: rootGltfNodeIndex,
+        );
+      } else {
+        _importRootLocalTransform = root.localTransform.clone()
+          ..multiply(inverseRest);
+      }
+    }
+    final coreFromSceneTransform = vm.Matrix4.tryInvert(
+      _importRootLocalTransform,
+    );
+    _coreFromSceneTransform = coreFromSceneTransform ?? vm.Matrix4.identity();
+    if (coreFromSceneTransform == null) {
+      _warnOnce(
+        code: 'flutterScene.nonInvertibleImportRoot',
+        message:
+            'Flutter Scene import root transform is not invertible; core world transforms cannot be converted from renderer coordinates.',
+      );
+    }
     for (final node in model.gltf.nodes) {
       if (sceneNodes.containsKey(node.index)) continue;
       _warnOnce(
@@ -102,10 +132,9 @@ final class FlutterSceneVrmBinding implements VrmModelRootBinding {
     }
     _nodeBindings = {
       for (final entry in sceneNodes.entries)
-        entry.key: _FlutterSceneNodeBinding(
-          entry.value,
-          _coreFromSceneTransform,
-        ),
+        entry.key: entry.key == rootGltfNodeIndex
+            ? _FlutterSceneRootNodeBinding(this, entry.value)
+            : _FlutterSceneNodeBinding(entry.value, _coreFromSceneTransform),
     };
     _meshBindings = {
       for (final entry in sceneNodes.entries)
@@ -119,7 +148,10 @@ final class FlutterSceneVrmBinding implements VrmModelRootBinding {
     for (final entry in _materialBindings.entries) {
       if (entry.key < 0 || entry.key >= model.gltf.materials.length) continue;
       final material = model.gltf.materials[entry.key];
-      if (material.mtoon == null) continue;
+      if (material.mtoon == null &&
+          model.vrm0MtoonFallbackWarning(entry.key) == null) {
+        continue;
+      }
       entry.value.applyFallback(material);
     }
   }
@@ -130,13 +162,15 @@ final class FlutterSceneVrmBinding implements VrmModelRootBinding {
   /// Parsed VRM model for the same GLB bytes.
   final VrmModel model;
 
-  late final Map<int, _FlutterSceneNodeBinding> _nodeBindings;
+  late final Map<int, VrmNodeBinding> _nodeBindings;
   late final Map<int, _FlutterSceneMeshBinding> _meshBindings;
   late final Map<int, _FlutterSceneMaterialBinding> _materialBindings;
   final List<VrmDiagnostic> _capabilityWarnings = [];
   final Set<String> _warningCodes = {};
   late final vm.Matrix4 _importRootLocalTransform;
   late final vm.Matrix4 _coreFromSceneTransform;
+  int? _rootGltfNodeIndex;
+  VrmMatrix4? _rootNodeLocalTransform;
   var _modelRootMotionTransform = VrmMatrix4.identity();
 
   /// Warnings for renderer features this adapter cannot currently mutate.
@@ -147,10 +181,35 @@ final class FlutterSceneVrmBinding implements VrmModelRootBinding {
   VrmMatrix4 get modelRootMotionTransform => _modelRootMotionTransform;
 
   @override
+  VrmMatrix4 get modelWorldTransform {
+    for (final rootIndex in _defaultSceneRootNodeIndices(model)) {
+      final binding = _nodeBindings[rootIndex];
+      if (binding == null) continue;
+      final inverseLocal = vm.Matrix4.tryInvert(
+        _toSceneMatrix(binding.localTransform),
+      );
+      if (inverseLocal == null) continue;
+      return _fromSceneMatrix(
+        _toSceneMatrix(binding.worldTransform)..multiply(inverseLocal),
+      );
+    }
+    return _modelRootMotionTransform;
+  }
+
+  @override
   set modelRootMotionTransform(VrmMatrix4 value) {
     _modelRootMotionTransform = value;
-    root.localTransform = _importRootLocalTransform.clone()
-      ..multiply(_toSceneMatrix(value));
+    _applyRootTransform();
+  }
+
+  void _applyRootTransform() {
+    final transform = _importRootLocalTransform.clone()
+      ..multiply(_toSceneMatrix(_modelRootMotionTransform));
+    final rootNodeLocal = _rootNodeLocalTransform;
+    if (rootNodeLocal != null) {
+      transform.multiply(_toSceneMatrix(rootNodeLocal));
+    }
+    root.localTransform = transform;
   }
 
   @override
@@ -384,6 +443,30 @@ final class _FlutterSceneNodeBinding implements VrmNodeBinding {
   @override
   VrmMatrix4 get worldTransform => _fromSceneMatrix(
     _coreFromSceneTransform.clone()..multiply(_node.globalTransform),
+  );
+
+  @override
+  String? get debugName => _node.name.isEmpty ? null : _node.name;
+}
+
+final class _FlutterSceneRootNodeBinding implements VrmNodeBinding {
+  const _FlutterSceneRootNodeBinding(this._owner, this._node);
+
+  final FlutterSceneVrmBinding _owner;
+  final scene.Node _node;
+
+  @override
+  VrmMatrix4 get localTransform => _owner._rootNodeLocalTransform!;
+
+  @override
+  set localTransform(VrmMatrix4 value) {
+    _owner._rootNodeLocalTransform = value;
+    _owner._applyRootTransform();
+  }
+
+  @override
+  VrmMatrix4 get worldTransform => _fromSceneMatrix(
+    _owner._coreFromSceneTransform.clone()..multiply(_node.globalTransform),
   );
 
   @override

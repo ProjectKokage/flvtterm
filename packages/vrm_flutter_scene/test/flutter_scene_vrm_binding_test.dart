@@ -192,6 +192,56 @@ void main() {
     expect(root.localTransform.storage[12], 2);
   });
 
+  test('exposes outer application placement in model world space', () {
+    final model = VrmModel.parseGlb(_minimalVrmGlb());
+    final parent = scene.Node(
+      name: 'appParent',
+      localTransform: vm.Matrix4.translationValues(3, 4, 5),
+    );
+    final root = scene.Node(name: 'node0');
+    parent.add(root);
+    final binding = FlutterSceneVrmBinding.fromRootNode(
+      root,
+      model: model,
+      options: FlutterSceneVrmBindingOptions(includeRootAsGltfNode: true),
+    );
+
+    expect(binding.modelWorldTransform.storage[12], closeTo(3, 0.000001));
+    expect(binding.modelWorldTransform.storage[13], closeTo(4, 0.000001));
+    expect(binding.modelWorldTransform.storage[14], closeTo(5, 0.000001));
+  });
+
+  test('composes VRM 0.x basis with an aliased glTF scene root', () {
+    final model = VrmModel.parseGlb(_minimalVrmGlb(legacy: true));
+    final importTransform = vm.Matrix4.diagonal3Values(1, 1, -1);
+    final sourceRootLocal = vm.Matrix4.translationValues(1, 0, 0);
+    final root = scene.Node(
+      name: 'node0',
+      localTransform: importTransform.clone()..multiply(sourceRootLocal),
+    );
+    final sceneNodes = <scene.Node>[root];
+    for (var i = 1; i < _legacyNodeChildren.length; i++) {
+      sceneNodes.add(scene.Node(name: 'node$i'));
+    }
+    for (var i = 0; i < _legacyNodeChildren.length; i++) {
+      for (final child in _legacyNodeChildren[i]) {
+        sceneNodes[i].add(sceneNodes[child]);
+      }
+    }
+    final binding = FlutterSceneVrmBinding.fromRootNode(
+      root,
+      model: model,
+      options: FlutterSceneVrmBindingOptions(includeRootAsGltfNode: true),
+    );
+
+    (VrmRuntime(model)..bind(binding)).update(0);
+
+    expect(binding.nodeByGltfIndex(0).localTransform.storage[12], 1);
+    expect(root.localTransform.storage[0], -1);
+    expect(root.localTransform.storage[10], 1);
+    expect(root.localTransform.storage[12], -1);
+  });
+
   test('converts imported handedness out of core world transforms', () {
     final model = VrmModel.parseGlb(_minimalVrmGlb());
     final root = scene.Node(name: 'root')
@@ -290,9 +340,50 @@ void main() {
     expect(warning.gltfMaterialIndex, 0);
   });
 
+  test('reports legacy MToon fallback warnings', () {
+    final model = VrmModel.parseGlb(
+      _minimalVrmGlb(legacy: true, mtoonMaterial: true),
+    );
+    final binding = FlutterSceneVrmBinding.fromRootNode(
+      scene.Node(name: 'root'),
+      model: model,
+    );
+
+    final warning = binding.capabilityWarnings.singleWhere(
+      (diagnostic) => diagnostic.code == 'vrm0.mtoonFallback',
+    );
+    expect(warning.gltfMaterialIndex, 0);
+  });
+
   test('applies MToon PBR fallback values to Flutter Scene materials', () {
     final model = VrmModel.tryParseGlb(
       _minimalVrmGlb(
+        firstPersonSplit: true,
+        meshMaterial: true,
+        mtoonMaterial: true,
+      ),
+      validation: VrmValidationMode.permissive,
+    ).asset!;
+    final material = _StubMaterial();
+    final root = scene.Node(name: 'root');
+    root.add(
+      scene.Node(name: 'node0', mesh: scene.Mesh(_StubGeometry(), material)),
+    );
+
+    FlutterSceneVrmBinding.fromRootNode(
+      root,
+      model: model,
+      options: FlutterSceneVrmBindingOptions(includeRootAsGltfNode: false),
+    );
+
+    expect(material.baseColorFactor, vm.Vector4(0.2, 0.3, 0.4, 0.5));
+    expect(material.emissiveFactor, vm.Vector4(0.6, 0.7, 0.8, 1.0));
+  });
+
+  test('applies legacy MToon fallback values to Flutter Scene materials', () {
+    final model = VrmModel.tryParseGlb(
+      _minimalVrmGlb(
+        legacy: true,
         firstPersonSplit: true,
         meshMaterial: true,
         mtoonMaterial: true,
@@ -414,6 +505,24 @@ void main() {
       expect(asset.rootNode.children, isNotEmpty);
     },
   );
+
+  test('loads a VRM 0.x GLB through the Flutter Scene importer', () async {
+    final asset = await FlutterSceneVrmAsset.fromGlbBytes(
+      _minimalVrmGlb(legacy: true),
+    );
+    final runtime = VrmRuntime(asset.model)..bind(asset.binding);
+
+    runtime.update(0);
+
+    expect(asset.model.sourceVersion, VrmSourceVersion.vrm0);
+    expect(asset.model.vrm0, isNotNull);
+    for (var i = 0; i < asset.model.gltf.nodes.length; i++) {
+      expect(asset.binding.nodeByGltfIndex(i).debugName, 'node$i');
+    }
+    expect(asset.binding.modelRootMotionTransform.storage[0], -1);
+    expect(asset.binding.modelRootMotionTransform.storage[10], -1);
+    expect(asset.rootNode.children, isNotEmpty);
+  });
 }
 
 Uint8List _minimalVrmGlb({
@@ -421,17 +530,22 @@ Uint8List _minimalVrmGlb({
   bool firstPersonSplit = false,
   bool meshMaterial = false,
   bool skippedPrimitiveBeforeMaterial = false,
+  bool legacy = false,
 }) {
+  final nodeChildren = legacy ? _legacyNodeChildren : _nodeChildren;
   final binaryChunk = firstPersonSplit ? _firstPersonSplitBinary() : null;
   final jsonBytes = Uint8List.fromList(
     utf8.encode(
       jsonEncode({
         'asset': {'version': '2.0'},
         'extensionsUsed': [
-          'VRMC_vrm',
-          if (mtoonMaterial) ...['VRMC_materials_mtoon', 'KHR_materials_unlit'],
+          legacy ? 'VRM' : 'VRMC_vrm',
+          if (mtoonMaterial && !legacy) ...[
+            'VRMC_materials_mtoon',
+            'KHR_materials_unlit',
+          ],
         ],
-        'extensionsRequired': ['VRMC_vrm'],
+        'extensionsRequired': [legacy ? 'VRM' : 'VRMC_vrm'],
         'scene': 0,
         'scenes': [
           {
@@ -439,14 +553,15 @@ Uint8List _minimalVrmGlb({
           },
         ],
         'nodes': [
-          for (var i = 0; i < _nodeChildren.length; i++)
+          for (var i = 0; i < nodeChildren.length; i++)
             {
               'name': 'node$i',
+              if (legacy && i == 0) 'translation': [1.0, 0.0, 0.0],
               if (firstPersonSplit && (i == 0 || i == 3)) ...{
                 'mesh': i == 0 ? 0 : 1,
                 'skin': 0,
               },
-              if (_nodeChildren[i].isNotEmpty) 'children': _nodeChildren[i],
+              if (nodeChildren[i].isNotEmpty) 'children': nodeChildren[i],
             },
         ],
         if (firstPersonSplit)
@@ -463,7 +578,7 @@ Uint8List _minimalVrmGlb({
                   'baseColorFactor': [0.2, 0.3, 0.4, 0.5],
                 },
               if (mtoonMaterial) 'emissiveFactor': [0.6, 0.7, 0.8],
-              if (mtoonMaterial)
+              if (mtoonMaterial && !legacy)
                 'extensions': {
                   'VRMC_materials_mtoon': {'specVersion': '1.0'},
                   'KHR_materials_unlit': {},
@@ -472,20 +587,53 @@ Uint8List _minimalVrmGlb({
             if (skippedPrimitiveBeforeMaterial) {},
           ],
         'extensions': {
-          'VRMC_vrm': {
-            'specVersion': '1.0',
-            'meta': {
-              'name': 'Avatar',
-              'authors': ['Author'],
-              'licenseUrl': 'https://example.com/license',
-            },
-            'humanoid': {
-              'humanBones': {
-                for (final entry in _boneNodes.entries)
-                  entry.key: {'node': entry.value},
+          if (legacy)
+            'VRM': {
+              'specVersion': '0.0',
+              'meta': {'title': 'Legacy Avatar', 'author': 'Author'},
+              'humanoid': {
+                'humanBones': [
+                  for (final entry in _boneNodes.entries)
+                    {'bone': entry.key, 'node': entry.value},
+                  {'bone': 'chest', 'node': 15},
+                  {'bone': 'neck', 'node': 16},
+                ],
+              },
+              'firstPerson': <String, Object?>{},
+              'blendShapeMaster': {'blendShapeGroups': <Object?>[]},
+              'secondaryAnimation': {
+                'boneGroups': <Object?>[],
+                'colliderGroups': <Object?>[],
+              },
+              'materialProperties': mtoonMaterial
+                  ? [
+                      {
+                        'name': 'Face',
+                        'shader': 'VRM/MToon',
+                        'floatProperties': <String, Object?>{},
+                        'vectorProperties': <String, Object?>{},
+                        'textureProperties': <String, Object?>{},
+                        'keywordMap': <String, Object?>{},
+                        'tagMap': <String, Object?>{},
+                      },
+                    ]
+                  : <Object?>[],
+            }
+          else
+            'VRMC_vrm': {
+              'specVersion': '1.0',
+              'meta': {
+                'name': 'Avatar',
+                'authors': ['Author'],
+                'licenseUrl': 'https://example.com/license',
+              },
+              'humanoid': {
+                'humanBones': {
+                  for (final entry in _boneNodes.entries)
+                    entry.key: {'node': entry.value},
+                },
               },
             },
-          },
         },
       }),
     ),
@@ -632,6 +780,26 @@ const _nodeChildren = <List<int>>[
   [13],
   [14],
   [],
+];
+
+const _legacyNodeChildren = <List<int>>[
+  [1, 3, 6],
+  [15],
+  [],
+  [4],
+  [5],
+  [],
+  [7],
+  [8],
+  [],
+  [10],
+  [11],
+  [],
+  [13],
+  [14],
+  [],
+  [16, 9, 12],
+  [2],
 ];
 
 const _boneNodes = <String, int>{
