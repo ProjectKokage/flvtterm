@@ -1,7 +1,7 @@
 name: flvtterm
 description: Pure Dart VRM and VRMA parsing/runtime core.
-version: 1.0.0
-# repository: https://github.com/my_org/my_repo
+version: 0.2.0
+repository: https://github.com/ProjectKokage/flvtterm
 
 environment:
   sdk: ^3.11.5

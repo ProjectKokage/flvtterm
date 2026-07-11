@@ -59,7 +59,7 @@ void parserTests() {
       File('pubspec.yaml'),
       Directory('lib'),
       Directory('packages'),
-      Directory('examples'),
+      Directory('example'),
     ];
 
     for (final root in roots) {
@@ -74,7 +74,7 @@ void parserTests() {
             path.startsWith('lib/');
         if (!isSurface ||
             path.startsWith('packages/vrm_flutter_scene/') ||
-            path.startsWith('examples/')) {
+            path.startsWith('example/')) {
           continue;
         }
         final text = file.readAsStringSync();

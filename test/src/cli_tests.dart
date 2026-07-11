@@ -11,7 +11,7 @@ void cliTests() {
 
   test('CLI validates glTF with a relative external buffer', () async {
     final result = await _runCli([
-      'examples/runtime_console/minimal_external.gltf',
+      'example/runtime_console/minimal_external.gltf',
     ]);
 
     expect(result.exitCode, 0);

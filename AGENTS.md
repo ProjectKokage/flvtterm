@@ -32,7 +32,7 @@ packages/
   vrm/                         # pure Dart core: GLB/glTF parsing, VRM/VRMA schemas, runtime controllers
   vrm_flutter/                 # Flutter conveniences: asset loading, widgets/controllers that do not require a renderer
   vrm_flutter_scene/           # optional adapter; this is the only package allowed to depend on flutter_scene
-examples/
+example/
   flutter_scene_viewer/        # integration demo using vrm_flutter_scene
   runtime_console/             # pure Dart smoke tests for parser/runtime behavior
 test_assets/                   # small generated fixtures and allowed-license sample references only
