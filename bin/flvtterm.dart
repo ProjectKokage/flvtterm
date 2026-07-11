@@ -78,7 +78,8 @@ int _run(List<String> arguments) {
     return (kind: 'VRMA', validation: vrma.validation);
   }
   if (_isGlb(bytes) &&
-      (result.asset?.extensions.containsKey('VRMC_vrm') ?? false)) {
+      ((result.asset?.extensions.containsKey('VRMC_vrm') ?? false) ||
+          (result.asset?.extensions.containsKey('VRM') ?? false))) {
     final vrm = VrmModel.tryParseGlb(
       bytes,
       validation: VrmValidationMode.permissive,

@@ -31,6 +31,17 @@ abstract interface class VrmModelRootBinding implements VrmSceneBinding {
   set modelRootMotionTransform(VrmMatrix4 value);
 }
 
+/// Optional binding that exposes the avatar's complete model-to-world transform.
+///
+/// The transform maps source glTF model space through any compatibility basis,
+/// runtime-owned root motion, and application/world placement. Implement this
+/// when world-space procedural systems such as SpringBone must remain correct
+/// under an outer rotated or scaled parent.
+abstract interface class VrmModelWorldBinding implements VrmSceneBinding {
+  /// Current transform from source glTF model space to renderer world space.
+  VrmMatrix4 get modelWorldTransform;
+}
+
 /// Renderer-neutral node binding.
 abstract interface class VrmNodeBinding {
   /// Local transform in model space.

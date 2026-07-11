@@ -42,7 +42,14 @@ final class VrmSpringBoneController {
     }
     final springBone = model.springBone;
     if (springBone == null || springBone.springs.isEmpty) return;
-    if (springBone.specVersion != '1.0') return;
+    if (springBone.sourceVersion == VrmSourceVersion.vrm1 &&
+        springBone.specVersion != '1.0') {
+      return;
+    }
+    if (springBone.sourceVersion == VrmSourceVersion.vrm0 &&
+        springBone.specVersion != '0.0') {
+      return;
+    }
     if (!_initialized) {
       _initialize(springBone, binding);
     }
@@ -126,11 +133,14 @@ final class VrmSpringBoneController {
         _springConstrainTail(head, nextTail, boneLength);
       }
 
+      final scaledHitRadius =
+          state.joint.hitRadius *
+          _springPathUniformScale(state.nodePath, rootTransform);
       for (final collider in state.colliders) {
         _collideSpringTail(
           collider: collider,
           tail: nextTail,
-          hitRadius: state.joint.hitRadius,
+          hitRadius: scaledHitRadius,
           rootTransform: rootTransform,
           scratch: scratch,
         );
@@ -225,27 +235,24 @@ final class VrmSpringBoneController {
         colliders,
       );
       final centerPath = resolvePath(spring.center);
-      for (var i = 0; i + 1 < spring.joints.length; i++) {
-        final joint = spring.joints[i];
-        final node = joint.node;
-        final tailNode = spring.joints[i + 1].node;
-        if (node == null || tailNode == null) continue;
-        final gltfNode = model.gltf.nodes.elementAtOrNull(node);
-        if (gltfNode == null) continue;
-        final nodePath = resolvePath(node)!;
-        final tailPath = resolvePath(tailNode)!;
-        final tail = _springRestPathPoint(tailPath, VrmVector3.zero);
-        final initialLocalTail = _springInverseRestPathPoint(nodePath, tail);
+
+      void addState(
+        VrmSpringBoneJoint joint,
+        GltfNode gltfNode,
+        _SpringNodePath nodePath,
+        VrmVector3 initialLocalTail,
+        VrmVector3 restModelTail,
+      ) {
         final length = math.sqrt(
           initialLocalTail.x * initialLocalTail.x +
               initialLocalTail.y * initialLocalTail.y +
               initialLocalTail.z * initialLocalTail.z,
         );
-        if (length == 0) continue;
+        if (length == 0) return;
         final simulationTail = _springInitialTail(
           centerPath,
           rootTransform,
-          tail,
+          restModelTail,
         );
         _states.add(
           _SpringJointState(
@@ -258,9 +265,92 @@ final class VrmSpringBoneController {
             boneAxis: initialLocalTail * (1 / length),
             initialLocalTail: initialLocalTail,
             initialLocalRotation: gltfNode.restRotation,
-            gravity: _springVector(joint.gravityDir) * joint.gravityPower,
+            gravity:
+                _sourceDirectionToRuntime(
+                  model.sourceVersion,
+                  _springVector(joint.gravityDir),
+                ) *
+                joint.gravityPower,
           ),
         );
+      }
+
+      void addStateWithNodeTail(
+        VrmSpringBoneJoint joint,
+        GltfNode gltfNode,
+        _SpringNodePath nodePath,
+        int tailNode,
+      ) {
+        final tailPath = resolvePath(tailNode);
+        if (tailPath == null) return;
+        final tail = _springRestPathPoint(tailPath, VrmVector3.zero);
+        addState(
+          joint,
+          gltfNode,
+          nodePath,
+          _springInverseRestPathPoint(nodePath, tail),
+          tail,
+        );
+      }
+
+      void addLegacyLeafState(
+        VrmSpringBoneJoint joint,
+        GltfNode gltfNode,
+        _SpringNodePath nodePath,
+        double terminalLength,
+      ) {
+        final head = _springRestPathPoint(nodePath, VrmVector3.zero);
+        final parentPath = resolvePath(_parents[gltfNode.index]);
+        final parentHead = parentPath == null
+            ? VrmVector3.zero
+            : _springRestPathPoint(parentPath, VrmVector3.zero);
+        final direction = head - parentHead;
+        final directionLength = math.sqrt(
+          direction.x * direction.x +
+              direction.y * direction.y +
+              direction.z * direction.z,
+        );
+        if (directionLength == 0) return;
+        final tail = head + direction * (terminalLength / directionLength);
+        addState(
+          joint,
+          gltfNode,
+          nodePath,
+          _springInverseRestPathPoint(nodePath, tail),
+          tail,
+        );
+      }
+
+      if (springBone.sourceVersion == VrmSourceVersion.vrm0) {
+        final terminalLength = spring.legacyTerminalLength ?? 0;
+        for (final joint in spring.joints) {
+          final node = joint.node;
+          final gltfNode = node == null
+              ? null
+              : model.gltf.nodes.elementAtOrNull(node);
+          if (gltfNode == null) continue;
+          final nodePath = resolvePath(node)!;
+          if (gltfNode.children.isNotEmpty) {
+            addStateWithNodeTail(
+              joint,
+              gltfNode,
+              nodePath,
+              gltfNode.children.first,
+            );
+          } else if (terminalLength > 0) {
+            addLegacyLeafState(joint, gltfNode, nodePath, terminalLength);
+          }
+        }
+      } else {
+        for (var i = 0; i + 1 < spring.joints.length; i++) {
+          final joint = spring.joints[i];
+          final node = joint.node;
+          final tailNode = spring.joints[i + 1].node;
+          if (node == null || tailNode == null) continue;
+          final gltfNode = model.gltf.nodes.elementAtOrNull(node);
+          if (gltfNode == null) continue;
+          addStateWithNodeTail(joint, gltfNode, resolvePath(node)!, tailNode);
+        }
       }
     }
     _states.sort((a, b) {
@@ -285,7 +375,8 @@ final class VrmSpringBoneController {
         return false;
       }
       if (duplicateJointNodes.contains(node)) return false;
-      if (i > 0 &&
+      if (springBone.sourceVersion == VrmSourceVersion.vrm1 &&
+          i > 0 &&
           !_isDescendantOf(node, spring.joints[i - 1].node!, _parents)) {
         return false;
       }
@@ -294,6 +385,7 @@ final class VrmSpringBoneController {
     final center = spring.center;
     if (center == null) return true;
     if (model.gltf.nodes.elementAtOrNull(center) == null) return false;
+    if (springBone.sourceVersion == VrmSourceVersion.vrm0) return true;
     final firstNode = spring.joints.first.node!;
     if (center != firstNode && !_isDescendantOf(firstNode, center, _parents)) {
       return false;
@@ -371,13 +463,13 @@ final class VrmSpringBoneController {
       rootTransform,
       scratch.colliderStart,
     );
+    final collisionRadius =
+        collider.radius *
+            _springPathUniformScale(collider.nodePath, rootTransform) +
+        hitRadius;
     switch (collider.type) {
       case VrmSpringBoneColliderShapeType.sphere:
-        _springPushOutOfSphere(
-          tail,
-          scratch.colliderStart,
-          collider.radius + hitRadius,
-        );
+        _springPushOutOfSphere(tail, scratch.colliderStart, collisionRadius);
         break;
       case VrmSpringBoneColliderShapeType.capsule:
         _springPathWorldPointInto(
@@ -390,7 +482,7 @@ final class VrmSpringBoneController {
           tail,
           scratch.colliderStart,
           scratch.colliderEnd,
-          collider.radius + hitRadius,
+          collisionRadius,
         );
         break;
     }

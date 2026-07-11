@@ -67,15 +67,30 @@ List<_VrmaRetargetTarget> _buildVrmaRetargetTargets(
             sourceRestWorldRotations[sourceNode.index] ??
             sourceNode.restRotation,
         destinationNode: destinationNode,
-        destinationRestWorldRotation:
-            destinationRestWorldRotations[destinationNode.index] ??
-            destinationNode.restRotation,
+        destinationRestWorldRotation: _destinationRestWorldRotation(
+          model.sourceVersion,
+          destinationRestWorldRotations[destinationNode.index] ??
+              destinationNode.restRotation,
+        ),
         collapsedAncestors: collapsedAncestors.reversed.toList(growable: false),
       ),
     );
   }
   return List.unmodifiable(targets);
 }
+
+List<double> _destinationRestWorldRotation(
+  VrmSourceVersion version,
+  List<double> sourceWorldRotation,
+) => switch (version) {
+  VrmSourceVersion.vrm0 => _quatMultiply(const [
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+  ], sourceWorldRotation),
+  VrmSourceVersion.vrm1 => sourceWorldRotation,
+};
 
 List<_VrmaExpressionTarget> _buildVrmaExpressionTargets(
   VrmAnimationAsset animation,

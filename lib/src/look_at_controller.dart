@@ -79,7 +79,14 @@ final class VrmLookAtController {
 
     final yawPitch = _active
         ? (_targetModel != null
-              ? _yawPitchForTarget(binding, settings, _targetModel!)
+              ? _yawPitchForTarget(
+                  binding,
+                  settings,
+                  _runtimePointToSourceModel(
+                    model.sourceVersion,
+                    _targetModel!,
+                  ),
+                )
               : _targetWorld != null
               ? _yawPitchForTarget(
                   binding,
@@ -112,7 +119,8 @@ final class VrmLookAtController {
     VrmLookAt settings,
     VrmVector3 target,
   ) {
-    final head = model.vrm.humanoid.nodeFor(VrmHumanoidBone.head);
+    final head =
+        settings.originNode ?? model.vrm.humanoid.nodeFor(VrmHumanoidBone.head);
     final local = head == null
         ? target -
               VrmVector3(
@@ -121,9 +129,12 @@ final class VrmLookAtController {
                 settings.offsetFromHeadBone[2],
               )
         : _targetInLookAtSpace(binding, head, settings, target);
-    final yaw = math.atan2(local.x, local.z) * 180 / math.pi;
-    final xz = math.sqrt(local.x * local.x + local.z * local.z);
-    final pitch = math.atan2(-local.y, xz) * 180 / math.pi;
+    final runtimeLocal = _sourceDirectionToRuntime(model.sourceVersion, local);
+    final yaw = math.atan2(runtimeLocal.x, runtimeLocal.z) * 180 / math.pi;
+    final xz = math.sqrt(
+      runtimeLocal.x * runtimeLocal.x + runtimeLocal.z * runtimeLocal.z,
+    );
+    final pitch = math.atan2(-runtimeLocal.y, xz) * 180 / math.pi;
     return _YawPitch(yaw, pitch);
   }
 
@@ -246,7 +257,10 @@ final class VrmLookAtController {
   ) {
     final node = model.gltf.nodes.elementAtOrNull(nodeIndex);
     if (node == null) return;
-    final lookRotation = _yawPitchQuaternion(yawDegrees, pitchDegrees);
+    final lookRotation = _runtimeRotationToSource(
+      model.sourceVersion,
+      _yawPitchQuaternion(yawDegrees, pitchDegrees),
+    );
     final current = binding.nodeByGltfIndex(nodeIndex).localTransform;
     binding.nodeByGltfIndex(nodeIndex).localTransform = _trsMatrix(
       _matrixTranslation(current),

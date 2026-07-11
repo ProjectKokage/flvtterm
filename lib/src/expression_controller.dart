@@ -27,7 +27,7 @@ final class VrmExpressionController {
 
   /// Sets a custom expression input weight.
   void setCustom(String name, double weight) {
-    _inputs[name] = _clamp01(weight);
+    _inputs[_runtimeExpressionName(name)] = _clamp01(weight);
   }
 
   /// Clears application-set expression inputs.
@@ -42,9 +42,21 @@ final class VrmExpressionController {
   }
 
   void _setMotionInputs(Map<String, double> values) {
-    _motionInputs
-      ..clear()
-      ..addAll(values.map((key, value) => MapEntry(key, _clamp01(value))));
+    _motionInputs.clear();
+    for (final entry in values.entries) {
+      final key = _runtimeExpressionName(entry.key);
+      _motionInputs[key] = _clamp01((_motionInputs[key] ?? 0) + entry.value);
+    }
+  }
+
+  String _runtimeExpressionName(String name) {
+    if (model.sourceVersion != VrmSourceVersion.vrm0) return name;
+    if (model.vrm.expressions.all.containsKey(name)) return name;
+    final normalized = name.toUpperCase();
+    for (final customName in model.vrm.expressions.custom.keys) {
+      if (customName.toUpperCase() == normalized) return customName;
+    }
+    return name;
   }
 
   /// Evaluates clamping, binary output, and procedural override rules.
@@ -118,7 +130,7 @@ final class VrmExpressionController {
         final bases = colorBases.putIfAbsent(bind.material, () => {});
         final base = bases.putIfAbsent(
           bind.type,
-          () => _baseMaterialColor(material, bind.type),
+          () => _baseMaterialColorForModel(model, bind.material, bind.type),
         );
         colors.putIfAbsent(
           _MaterialColorKey(bind.material, bind.type),
@@ -130,7 +142,7 @@ final class VrmExpressionController {
         if (material == null) continue;
         textureTransforms.putIfAbsent(
           bind.material,
-          () => _baseTextureTransform(material),
+          () => _baseTextureTransformForModel(model, bind.material),
         );
       }
     }
@@ -162,7 +174,7 @@ final class VrmExpressionController {
         final bases = colorBases.putIfAbsent(bind.material, () => {});
         final base = bases.putIfAbsent(
           bind.type,
-          () => _baseMaterialColor(material, bind.type),
+          () => _baseMaterialColorForModel(model, bind.material, bind.type),
         );
         final key = _MaterialColorKey(bind.material, bind.type);
         final target = _materialColorTarget(bind.type, base, bind.targetValue);
@@ -173,7 +185,7 @@ final class VrmExpressionController {
       for (final bind in expression.textureTransformBinds) {
         final material = model.gltf.materials.elementAtOrNull(bind.material);
         if (material == null) continue;
-        final base = _baseTextureTransform(material);
+        final base = _baseTextureTransformForModel(model, bind.material);
         final accum = textureTransforms.putIfAbsent(bind.material, () => base);
         accum.scale = accum.scale + (bind.scale - base.scale) * weight;
         accum.offset = accum.offset + (bind.offset - base.offset) * weight;

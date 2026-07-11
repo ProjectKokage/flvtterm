@@ -111,6 +111,7 @@ VrmFirstPerson _parseFirstPerson(
     );
   }
   return VrmFirstPerson._(
+    firstPersonBone: null,
     meshAnnotations: List.unmodifiable(annotations),
     raw: raw,
   );

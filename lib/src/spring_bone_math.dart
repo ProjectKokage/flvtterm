@@ -6,6 +6,29 @@ VrmVector3 _springVector(List<double> value) => VrmVector3(
   value.length < 3 ? 0 : value[2],
 );
 
+double _springPathUniformScale(
+  _SpringNodePath path,
+  VrmMatrix4? rootTransform,
+) {
+  var scale = rootTransform == null
+      ? 1.0
+      : _springMatrixUniformScale(rootTransform);
+  for (final binding in path.bindings) {
+    scale *= _springMatrixUniformScale(binding.localTransform);
+  }
+  return scale;
+}
+
+double _springMatrixUniformScale(VrmMatrix4 matrix) {
+  final m = matrix.storage;
+  final determinant =
+      m[0] * (m[5] * m[10] - m[9] * m[6]) -
+      m[4] * (m[1] * m[10] - m[9] * m[2]) +
+      m[8] * (m[1] * m[6] - m[5] * m[2]);
+  if (!determinant.isFinite) return 1;
+  return math.pow(determinant.abs(), 1 / 3).toDouble();
+}
+
 VrmVector3 _springRestPathPoint(_SpringNodePath path, VrmVector3 point) =>
     _springTransformPoint(path, point, rest: true, reference: false);
 
@@ -15,6 +38,10 @@ VrmVector3 _springInverseRestPathPoint(
 ) => _springInverseTransformPoint(path, point, rest: true, reference: false);
 
 VrmMatrix4? _springRootTransform(VrmSceneBinding? binding) {
+  if (binding is VrmModelWorldBinding) {
+    final transform = binding.modelWorldTransform;
+    return _isIdentityMatrix(transform) ? null : transform;
+  }
   if (binding is! VrmModelRootBinding) return null;
   final transform = binding.modelRootMotionTransform;
   return _isIdentityMatrix(transform) ? null : transform;

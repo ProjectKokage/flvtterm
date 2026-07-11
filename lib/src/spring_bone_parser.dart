@@ -17,6 +17,7 @@ VrmSpringBone? _parseSpringBone(
   }
   final raw = _object(extensionValue);
   return VrmSpringBone._(
+    sourceVersion: VrmSourceVersion.vrm1,
     specVersion: _string(raw['specVersion']),
     colliders: [
       for (var i = 0; i < _list(raw['colliders']).length; i++)
@@ -144,6 +145,7 @@ VrmSpringBoneSpring _parseSpringBoneSpring(
     ],
     colliderGroups: _intList(raw['colliderGroups']),
     center: _int(raw['center']),
+    legacyTerminalLength: null,
     raw: raw,
   );
 }

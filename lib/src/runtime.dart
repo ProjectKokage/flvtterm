@@ -117,12 +117,15 @@ final class VrmRuntime {
         if (material == null) continue;
         binding
             .materialByGltfIndex(bind.material)
-            .setColor(bind.type, _baseMaterialColor(material, bind.type));
+            .setColor(
+              bind.type,
+              _baseMaterialColorForModel(model, bind.material, bind.type),
+            );
       }
       for (final bind in expression.textureTransformBinds) {
         final material = model.gltf.materials.elementAtOrNull(bind.material);
         if (material == null) continue;
-        final transform = _baseTextureTransform(material);
+        final transform = _baseTextureTransformForModel(model, bind.material);
         binding
             .materialByGltfIndex(bind.material)
             .setTextureTransform(
@@ -132,6 +135,12 @@ final class VrmRuntime {
       }
     }
   }
+}
+
+List<int> _activeSceneRootNodeIndices(GltfAsset gltf) {
+  final sceneIndex = gltf.scene ?? (gltf.scenes.isEmpty ? null : 0);
+  if (sceneIndex == null) return const [];
+  return gltf.scenes.elementAtOrNull(sceneIndex)?.nodes ?? const [];
 }
 
 /// Applies first-person mesh visibility policy to a scene binding.

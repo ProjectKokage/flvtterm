@@ -1,6 +1,23 @@
 part of '../flvtterm.dart';
 
-/// VRM 1.0 humanoid bone names.
+/// VRM specification family used by a parsed model asset.
+enum VrmSourceVersion {
+  /// Legacy VRM 0.x assets using the root `VRM` extension.
+  vrm0('0.0', 'VRM'),
+
+  /// VRM 1.0 assets using the root `VRMC_vrm` extension.
+  vrm1('1.0', 'VRMC_vrm');
+
+  const VrmSourceVersion(this.specVersion, this.extensionName);
+
+  /// Canonical extension specification version.
+  final String specVersion;
+
+  /// Root glTF extension name used by this family.
+  final String extensionName;
+}
+
+/// Humanoid bone names shared by VRM 0.x and VRM 1.0.
 enum VrmHumanoidBone {
   /// Hips bone.
   hips('hips', true),

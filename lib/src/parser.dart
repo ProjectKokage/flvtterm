@@ -35,16 +35,39 @@ final class _Parser {
     }
 
     _validateRequiredExtensions(gltf, sink, _supportedVrmExtensions);
-    final vrm = _parseVrmExtension(gltf, sink);
-    final springBone = _parseSpringBone(gltf.json, sink);
-    if (springBone != null) {
-      _validateSpringBone(gltf, springBone, sink);
+    final rootExtensions = _object(gltf.json['extensions']);
+    final hasVrm1 = rootExtensions.containsKey('VRMC_vrm');
+    final hasVrm0 = rootExtensions.containsKey('VRM');
+    if (hasVrm1 && hasVrm0) {
+      sink.error(
+        'vrm.ambiguousVersionExtensions',
+        'A model must not declare both VRMC_vrm and legacy VRM root extensions; VRMC_vrm takes precedence in permissive mode.',
+        jsonPath: r'$.extensions',
+      );
+    }
+
+    VrmExtension? vrm;
+    Vrm0Extension? vrm0;
+    VrmSpringBone? springBone;
+    if (hasVrm1 || !hasVrm0) {
+      vrm = _parseVrmExtension(gltf, sink);
+      springBone = _parseSpringBone(gltf.json, sink);
+      if (springBone != null) {
+        _validateSpringBone(gltf, springBone, sink);
+      }
+    } else {
+      vrm0 = _parseVrm0Extension(gltf, sink, mode);
+      if (vrm0 != null) {
+        vrm = _normalizeVrm0Extension(gltf, vrm0, sink);
+        springBone = _normalizeVrm0SpringBone(gltf, vrm0, sink);
+      }
     }
     VrmModel? model;
     if (vrm != null) {
       model = VrmModel._(
         gltf: gltf,
         vrm: vrm,
+        vrm0: vrm0,
         springBone: springBone,
         validation: VrmValidationResult(sink.diagnostics),
       );
@@ -153,6 +176,7 @@ const _supportedGltfExtensions = {
 };
 
 const _supportedVrmExtensions = {
+  'VRM',
   'VRMC_vrm',
   'VRMC_materials_mtoon',
   'VRMC_springBone',

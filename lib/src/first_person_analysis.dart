@@ -117,7 +117,9 @@ List<bool>? _primitiveVertexHeadInfluence(
   final mesh = model.gltf.meshes.elementAtOrNull(node.mesh!);
   final primitive = mesh?.primitives.elementAtOrNull(primitiveIndex);
   final skin = model.gltf.skins.elementAtOrNull(node.skin!);
-  final head = model.vrm.humanoid.nodeFor(VrmHumanoidBone.head);
+  final head =
+      model.vrm.firstPerson.firstPersonBone ??
+      model.vrm.humanoid.nodeFor(VrmHumanoidBone.head);
   if (primitive == null || skin == null || head == null) return null;
   final vertexCount = _primitiveVertexCount(model.gltf, primitive);
   if (vertexCount == null) return null;

@@ -64,6 +64,53 @@ VrmMatrix4 _multiplyMatrices(VrmMatrix4 a, VrmMatrix4 b) {
   ]);
 }
 
+VrmMatrix4? _tryInvertAffineMatrix(VrmMatrix4 matrix) {
+  final m = matrix.storage;
+  final a = m[0];
+  final b = m[4];
+  final c = m[8];
+  final d = m[1];
+  final e = m[5];
+  final f = m[9];
+  final g = m[2];
+  final h = m[6];
+  final i = m[10];
+  final determinant =
+      a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
+  if (!determinant.isFinite || determinant.abs() < 1e-12) return null;
+  final inverseDeterminant = 1 / determinant;
+  final i00 = (e * i - f * h) * inverseDeterminant;
+  final i01 = (c * h - b * i) * inverseDeterminant;
+  final i02 = (b * f - c * e) * inverseDeterminant;
+  final i10 = (f * g - d * i) * inverseDeterminant;
+  final i11 = (a * i - c * g) * inverseDeterminant;
+  final i12 = (c * d - a * f) * inverseDeterminant;
+  final i20 = (d * h - e * g) * inverseDeterminant;
+  final i21 = (b * g - a * h) * inverseDeterminant;
+  final i22 = (a * e - b * d) * inverseDeterminant;
+  final tx = m[12];
+  final ty = m[13];
+  final tz = m[14];
+  return VrmMatrix4([
+    i00,
+    i10,
+    i20,
+    0,
+    i01,
+    i11,
+    i21,
+    0,
+    i02,
+    i12,
+    i22,
+    0,
+    -(i00 * tx + i01 * ty + i02 * tz),
+    -(i10 * tx + i11 * ty + i12 * tz),
+    -(i20 * tx + i21 * ty + i22 * tz),
+    1,
+  ]);
+}
+
 VrmVector3 _transformPoint(VrmMatrix4 matrix, VrmVector3 point) {
   final m = matrix.storage;
   return VrmVector3(

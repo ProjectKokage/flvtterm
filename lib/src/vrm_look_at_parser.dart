@@ -49,6 +49,7 @@ VrmLookAt? _parseLookAt(Object? value, _DiagnosticSink sink) {
   if (invalidType) return null;
   return VrmLookAt._(
     type: VrmLookAtType.fromSpecName(type),
+    originNode: null,
     offsetFromHeadBone: _doubleList(raw['offsetFromHeadBone'], 3, const [
       0,
       0,

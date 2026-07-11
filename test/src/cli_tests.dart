@@ -150,6 +150,20 @@ void cliTests() {
     expect(result.exitCode, 0);
     expect(result.stdout, contains('VRM: 0 errors, 0 warnings'));
   });
+
+  test('CLI detects legacy VRM 0.x GLB by root extension', () async {
+    final directory = await Directory.systemTemp.createTemp('flvtterm_cli_');
+    addTearDown(() async {
+      if (await directory.exists()) await directory.delete(recursive: true);
+    });
+    final file = File('${directory.path}/legacy-avatar.glb');
+    await file.writeAsBytes(_glb(_minimalVrm0Json()));
+
+    final result = await _runCli([file.path]);
+
+    expect(result.exitCode, 0);
+    expect(result.stdout, contains('VRM: 0 errors, 0 warnings'));
+  });
 }
 
 Future<ProcessResult> _runCli(List<String> arguments) {

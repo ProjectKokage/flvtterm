@@ -87,6 +87,7 @@ VrmExtension? _parseVrmExtension(GltfAsset gltf, _DiagnosticSink sink) {
       : null;
 
   return VrmExtension._(
+    sourceVersion: VrmSourceVersion.vrm1,
     specVersion: specVersion,
     meta: meta,
     humanoid: humanoid,

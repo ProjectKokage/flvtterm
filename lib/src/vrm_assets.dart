@@ -1,21 +1,99 @@
 part of '../flvtterm.dart';
 
-/// Parsed VRM 1.0 model asset.
+/// Parsed VRM 0.x or VRM 1.0 model asset.
 final class VrmModel {
   VrmModel._({
     required this.gltf,
     required this.vrm,
+    required this.vrm0,
     required this.springBone,
     required this.validation,
-  });
+  }) : sourceToRuntimeTransform = vrm.sourceVersion == VrmSourceVersion.vrm0
+           ? _vrm0SourceToRuntimeTransform
+           : VrmMatrix4.identity();
 
   /// glTF data for the model.
   final GltfAsset gltf;
 
-  /// VRMC_vrm extension data.
+  /// Runtime-facing extension data normalized from the source version.
   final VrmExtension vrm;
 
-  /// VRMC_springBone extension data, when present.
+  /// Typed legacy extension data for a VRM 0.x asset.
+  ///
+  /// This remains null for VRM 1.0. Use it for legacy metadata, Unity
+  /// material properties, or other fields that cannot be represented
+  /// losslessly by the normalized runtime-facing [vrm] view.
+  final Vrm0Extension? vrm0;
+
+  /// Source specification family.
+  VrmSourceVersion get sourceVersion => vrm.sourceVersion;
+
+  /// Whether this model was loaded from a legacy VRM 0.x extension.
+  bool get isVrm0 => sourceVersion == VrmSourceVersion.vrm0;
+
+  /// Whether this model was loaded from a VRM 1.0 extension.
+  bool get isVrm1 => sourceVersion == VrmSourceVersion.vrm1;
+
+  /// Transform from the source model convention to the runtime convention.
+  ///
+  /// Runtime model space always faces +Z. VRM 0.x source glTF faces -Z, so its
+  /// transform is a 180-degree Y rotation. VRM 1.0 uses identity.
+  final VrmMatrix4 sourceToRuntimeTransform;
+
+  /// Returns the legacy material-property entry aligned with [materialIndex].
+  Vrm0MaterialProperty? vrm0MaterialPropertyForGltfIndex(int materialIndex) {
+    if (materialIndex < 0) return null;
+    return vrm0?.materialProperties.elementAtOrNull(materialIndex);
+  }
+
+  /// Selects the preferred renderer path for one material across VRM versions.
+  GltfMaterialRenderMode preferredRenderModeForMaterial(
+    int materialIndex, {
+    bool supportsMToon = true,
+  }) {
+    final material = gltf.materials.elementAtOrNull(materialIndex);
+    if (material == null) return GltfMaterialRenderMode.pbr;
+    final legacyShader = vrm0MaterialPropertyForGltfIndex(
+      materialIndex,
+    )?.shader;
+    if (_vrm0ShaderUsesMToon(legacyShader)) {
+      if (supportsMToon) return GltfMaterialRenderMode.mtoon;
+      return material.unlit
+          ? GltfMaterialRenderMode.unlit
+          : GltfMaterialRenderMode.pbr;
+    }
+    if (_vrm0ShaderIsUnlit(legacyShader)) {
+      return GltfMaterialRenderMode.unlit;
+    }
+    return material.preferredRenderMode(supportsMToon: supportsMToon);
+  }
+
+  /// Returns a capability warning when legacy MToon must use glTF fallback.
+  VrmDiagnostic? vrm0MtoonFallbackWarning(
+    int materialIndex, {
+    bool supportsMToon = false,
+  }) {
+    final property = vrm0MaterialPropertyForGltfIndex(materialIndex);
+    if (property == null ||
+        !_vrm0ShaderUsesMToon(property.shader) ||
+        supportsMToon) {
+      return null;
+    }
+    final fallback = preferredRenderModeForMaterial(
+      materialIndex,
+      supportsMToon: false,
+    );
+    return VrmDiagnostic(
+      severity: const VrmWarning(),
+      code: 'vrm0.mtoonFallback',
+      message:
+          'Renderer does not support legacy ${property.shader} for material $materialIndex; use ${fallback.specName} fallback.',
+      jsonPath: '\$.extensions.VRM.materialProperties[$materialIndex]',
+      gltfMaterialIndex: materialIndex,
+    );
+  }
+
+  /// Normalized SpringBone data, when present in either VRM version.
   final VrmSpringBone? springBone;
 
   /// Validation diagnostics from parsing.
@@ -141,7 +219,9 @@ final class VrmModel {
     ]);
   }
 
-  /// Parses a VRM GLB, throwing in strict mode when validation fails.
+  /// Parses a VRM 0.x or VRM 1.0 GLB.
+  ///
+  /// Throws in strict mode when version-specific validation fails.
   static VrmModel parseGlb(
     Uint8List bytes, {
     VrmValidationMode validation = VrmValidationMode.strict,
@@ -159,13 +239,45 @@ final class VrmModel {
     return asset;
   }
 
-  /// Parses a VRM GLB without throwing for user asset validation failures.
+  /// Parses either VRM version without throwing for asset validation failures.
   static VrmParseResult<VrmModel> tryParseGlb(
     Uint8List bytes, {
     VrmValidationMode validation = VrmValidationMode.strict,
     GltfUriResolver? uriResolver,
   }) => _Parser.parseVrmGlb(bytes, validation, uriResolver: uriResolver);
 }
+
+final _vrm0SourceToRuntimeTransform = VrmMatrix4(const [
+  -1,
+  0,
+  0,
+  0,
+  0,
+  1,
+  0,
+  0,
+  0,
+  0,
+  -1,
+  0,
+  0,
+  0,
+  0,
+  1,
+]);
+
+bool _vrm0ShaderUsesMToon(String? shader) =>
+    shader == 'VRM/MToon' || shader == 'VRM/UnlitTransparentZWrite';
+
+bool _vrm0ShaderIsUnlit(String? shader) =>
+    shader == 'UniGLTF/UniUnlit' ||
+    shader == 'VRM/UnlitTexture' ||
+    shader == 'VRM/UnlitCutout' ||
+    shader == 'VRM/UnlitTransparent' ||
+    shader == 'Unlit/Color' ||
+    shader == 'Unlit/Texture' ||
+    shader == 'Unlit/Transparent' ||
+    shader == 'Unlit/Transparent Cutout';
 
 /// Parsed VRMC_vrm_animation 1.0 extension.
 final class VrmAnimationExtension {

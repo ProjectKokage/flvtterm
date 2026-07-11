@@ -46,6 +46,36 @@ VrmVector4 _baseMaterialColor(GltfMaterial material, String type) {
   };
 }
 
+VrmVector4 _baseMaterialColorForModel(
+  VrmModel model,
+  int materialIndex,
+  String type,
+) {
+  final legacy = model.vrm0MaterialPropertyForGltfIndex(materialIndex);
+  final legacyKey = switch (type) {
+    'color' => '_Color',
+    'emissionColor' => '_EmissionColor',
+    'shadeColor' => '_ShadeColor',
+    'matcapColor' => '_MatCapColor',
+    'rimColor' => '_RimColor',
+    'outlineColor' => '_OutlineColor',
+    _ => null,
+  };
+  final values = legacyKey == null ? null : legacy?.vectorProperties[legacyKey];
+  if (values != null && values.length >= 3) {
+    return VrmVector4(
+      values[0],
+      values[1],
+      values[2],
+      values.length >= 4 ? values[3] : 1,
+    );
+  }
+  final material = model.gltf.materials.elementAtOrNull(materialIndex);
+  return material == null
+      ? VrmVector4.zero
+      : _baseMaterialColor(material, type);
+}
+
 VrmVector4 _materialColorTarget(
   String type,
   VrmVector4 base,
@@ -61,6 +91,26 @@ _TextureTransformAccum _baseTextureTransform(GltfMaterial material) {
     scale: transform?.scale ?? VrmVector2.one,
     offset: transform?.offset ?? VrmVector2.zero,
   );
+}
+
+_TextureTransformAccum _baseTextureTransformForModel(
+  VrmModel model,
+  int materialIndex,
+) {
+  final legacy = model
+      .vrm0MaterialPropertyForGltfIndex(materialIndex)
+      ?.vectorProperties['_MainTex'];
+  if (legacy != null && legacy.length >= 4) {
+    final scale = VrmVector2(legacy[0], legacy[1]);
+    return _TextureTransformAccum(
+      scale: scale,
+      offset: VrmVector2(legacy[2], 1 - legacy[3] - scale.y),
+    );
+  }
+  final material = model.gltf.materials.elementAtOrNull(materialIndex);
+  return material == null
+      ? _TextureTransformAccum(scale: VrmVector2.one, offset: VrmVector2.zero)
+      : _baseTextureTransform(material);
 }
 
 GltfTextureTransform? _firstTextureTransform(GltfMaterial material) {

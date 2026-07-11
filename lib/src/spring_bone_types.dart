@@ -1,8 +1,9 @@
 part of '../flvtterm.dart';
 
-/// Parsed `VRMC_springBone` root extension.
+/// Runtime-facing spring data parsed from VRM 0.x or `VRMC_springBone`.
 final class VrmSpringBone {
   VrmSpringBone._({
+    required this.sourceVersion,
     required this.specVersion,
     required List<VrmSpringBoneCollider> colliders,
     required List<VrmSpringBoneColliderGroup> colliderGroups,
@@ -13,7 +14,13 @@ final class VrmSpringBone {
        springs = List.unmodifiable(springs),
        raw = _immutableJsonValue(raw) as Map<String, Object?>;
 
-  /// VRMC_springBone spec version.
+  /// Specification family from which this data was normalized.
+  final VrmSourceVersion sourceVersion;
+
+  /// Runtime spring-data version.
+  ///
+  /// Legacy VRM 0.x data is normalized to canonical `0.0`, including
+  /// permissive source assets that omitted their root `specVersion`.
   final String? specVersion;
 
   /// Collider definitions.
@@ -128,6 +135,7 @@ final class VrmSpringBoneSpring {
     required List<VrmSpringBoneJoint> joints,
     required List<int> colliderGroups,
     required this.center,
+    required this.legacyTerminalLength,
     required Map<String, Object?> raw,
   }) : joints = List.unmodifiable(joints),
        colliderGroups = List.unmodifiable(colliderGroups),
@@ -139,7 +147,10 @@ final class VrmSpringBoneSpring {
   /// Optional spring name.
   final String? name;
 
-  /// Joint chain.
+  /// Spring joints in evaluation order.
+  ///
+  /// VRM 1.0 stores a linear chain. A normalized VRM 0.x spring stores the
+  /// complete root subtree in root-to-descendant order, including branches.
   final List<VrmSpringBoneJoint> joints;
 
   /// Collider group indices used by this spring.
@@ -147,6 +158,12 @@ final class VrmSpringBoneSpring {
 
   /// Optional center node index.
   final int? center;
+
+  /// Synthetic terminal length used by legacy VRM 0.x leaf joints.
+  ///
+  /// VRM 0.x implicitly extends terminal joints by 7 cm. VRM 1.0 leaves this
+  /// null because its terminal must be represented by an explicit node.
+  final double? legacyTerminalLength;
 
   /// Raw spring object, preserved.
   final Map<String, Object?> raw;

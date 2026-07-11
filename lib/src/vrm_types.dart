@@ -1,8 +1,9 @@
 part of '../flvtterm.dart';
 
-/// Parsed VRM 1.0 root extension.
+/// Runtime-facing VRM extension data normalized from VRM 0.x or VRM 1.0.
 final class VrmExtension {
   VrmExtension._({
+    required this.sourceVersion,
     required this.specVersion,
     required this.meta,
     required this.humanoid,
@@ -12,7 +13,10 @@ final class VrmExtension {
     required Map<String, Object?> raw,
   }) : raw = _immutableJsonValue(raw) as Map<String, Object?>;
 
-  /// VRMC_vrm spec version.
+  /// Specification family from which this data was parsed.
+  final VrmSourceVersion sourceVersion;
+
+  /// Source extension specification version.
   final String? specVersion;
 
   /// Model metadata.
@@ -162,10 +166,17 @@ final class VrmHumanBone {
 /// VRM first-person settings.
 final class VrmFirstPerson {
   VrmFirstPerson._({
+    required this.firstPersonBone,
     required List<VrmFirstPersonMeshAnnotation> meshAnnotations,
     required Map<String, Object?> raw,
   }) : meshAnnotations = List.unmodifiable(meshAnnotations),
        raw = _immutableJsonValue(raw) as Map<String, Object?>;
+
+  /// Node used for `auto` visibility classification.
+  ///
+  /// VRM 0.x may declare any node. VRM 1.0 leaves this null and uses the
+  /// humanoid head bone.
+  final int? firstPersonBone;
 
   /// Mesh annotation entries.
   final List<VrmFirstPersonMeshAnnotation> meshAnnotations;
@@ -368,6 +379,7 @@ enum VrmLookAtType {
 final class VrmLookAt {
   VrmLookAt._({
     required this.type,
+    required this.originNode,
     required List<double> offsetFromHeadBone,
     required this.rangeMapHorizontalInner,
     required this.rangeMapHorizontalOuter,
@@ -380,7 +392,16 @@ final class VrmLookAt {
   /// LookAt target type.
   final VrmLookAtType type;
 
-  /// Offset from head bone in head-local space.
+  /// Optional source node used as the gaze origin.
+  ///
+  /// This preserves VRM 0.x `firstPersonBone`. When null, the humanoid head is
+  /// used as required by VRM 1.0.
+  final int? originNode;
+
+  /// Offset from the gaze origin node in that node's local space.
+  ///
+  /// The origin is the humanoid head for VRM 1.0 and [originNode] when a
+  /// legacy VRM 0.x asset declares `firstPersonBone`.
   final List<double> offsetFromHeadBone;
 
   /// Horizontal inner range map.
@@ -395,7 +416,10 @@ final class VrmLookAt {
   /// Vertical up range map.
   final VrmLookAtRangeMap rangeMapVerticalUp;
 
-  /// Raw LookAt object, preserved.
+  /// Raw source container, preserved.
+  ///
+  /// This is the `lookAt` object for VRM 1.0 and the containing
+  /// `firstPerson` object for VRM 0.x.
   final Map<String, Object?> raw;
 }
 
@@ -405,14 +429,21 @@ final class VrmLookAtRangeMap {
   VrmLookAtRangeMap({
     required this.inputMaxValue,
     required this.outputScale,
+    List<double> curve = const [],
     Map<String, Object?> raw = const {},
-  }) : raw = _immutableJsonValue(raw) as Map<String, Object?>;
+  }) : curve = List.unmodifiable(curve),
+       raw = _immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Max input angle value.
   final double inputMaxValue;
 
   /// Output scale.
   final double outputScale;
+
+  /// Packed VRM 0.x curve keys as `time, value, inTangent, outTangent`.
+  ///
+  /// VRM 1.0 range maps are linear and leave this list empty.
+  final List<double> curve;
 
   /// Raw range map object, preserved.
   final Map<String, Object?> raw;

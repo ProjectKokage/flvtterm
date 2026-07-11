@@ -6,9 +6,11 @@ abstract interface class VrmHumanoidRetargeter {
   /// frame.
   ///
   /// [sourceRestWorldRotation] and [destinationRestWorldRotation] include all
-  /// glTF ancestors, including nodes without humanoid assignments. When the
-  /// destination omits source humanoid ancestors, [sourcePose] includes their
-  /// normalized rotations collapsed into this bone.
+  /// glTF ancestors, including nodes without humanoid assignments. The
+  /// destination frame also includes any source-to-runtime model basis, such
+  /// as the persistent Y-180 rotation used for VRM 0.x. When the destination
+  /// omits source humanoid ancestors, [sourcePose] includes their normalized
+  /// rotations collapsed into this bone.
   VrmRetargetedBonePose retargetBone({
     required VrmHumanoidBone bone,
     required GltfNodePose sourcePose,
