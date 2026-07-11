@@ -167,30 +167,28 @@ const _glbVersion = 2;
 const _jsonChunkType = 0x4e4f534a;
 const _binChunkType = 0x004e4942;
 
-const _supportedGltfExtensions = {
-  'VRMC_materials_mtoon',
-  'VRMC_node_constraint',
+const _supportedCommonGltfExtensions = {
   'KHR_materials_unlit',
   'KHR_texture_transform',
   'KHR_materials_emissive_strength',
+};
+
+const _supportedGltfExtensions = {
+  ..._supportedCommonGltfExtensions,
+  'VRMC_materials_mtoon',
+  'VRMC_node_constraint',
 };
 
 const _supportedVrmExtensions = {
+  ..._supportedGltfExtensions,
   'VRM',
   'VRMC_vrm',
-  'VRMC_materials_mtoon',
   'VRMC_springBone',
-  'VRMC_node_constraint',
-  'KHR_materials_unlit',
-  'KHR_texture_transform',
-  'KHR_materials_emissive_strength',
 };
 
 const _supportedVrmaExtensions = {
+  ..._supportedCommonGltfExtensions,
   'VRMC_vrm_animation',
-  'KHR_materials_unlit',
-  'KHR_texture_transform',
-  'KHR_materials_emissive_strength',
 };
 
 bool _looksLikeGlb(Uint8List bytes) {

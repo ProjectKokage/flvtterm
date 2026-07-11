@@ -1795,6 +1795,45 @@ void parserTests() {
           .map((d) => d.jsonPath),
       containsAll([r'$.images[0].uri', r'$.images[1].uri', r'$.images[2].uri']),
     );
+    expect(
+      result.validation.errors
+          .where((d) => d.code == 'gltf.invalidImageMimeType')
+          .map((d) => d.jsonPath),
+      [r'$.images[2].uri'],
+    );
+  });
+
+  test('generic glTF parser accepts case-insensitive base64 markers', () {
+    final result = GltfAsset.tryParse(
+      bytes: Uint8List.fromList(
+        utf8.encode(
+          jsonEncode({
+            'asset': {'version': '2.0'},
+            'buffers': [
+              {
+                'byteLength': 1,
+                'uri': 'data:application/octet-stream;BASE64,AQ==',
+              },
+            ],
+            'images': [
+              {'uri': 'data:image/png;BaSe64,AQ=='},
+            ],
+          }),
+        ),
+      ),
+      validation: VrmValidationMode.permissive,
+    );
+
+    expect(result.asset!.buffers.single.data, [1]);
+    expect(result.asset!.images.single.data, [1]);
+    expect(
+      result.validation.errors.where(
+        (d) =>
+            d.code == 'gltf.invalidBufferDataUri' ||
+            d.code == 'gltf.invalidImageDataUri',
+      ),
+      isEmpty,
+    );
   });
 
   test('generic glTF parser warns for texture without source', () {

@@ -77,39 +77,9 @@ VrmVector4 _vector3As4(Object? value, VrmVector4 fallback) {
   return list.length == 3 ? VrmVector4(list[0], list[1], list[2], 1) : fallback;
 }
 
-final class _MorphKey {
-  const _MorphKey(this.node, this.primitive, this.morph);
+typedef _MorphKey = ({int node, int primitive, int morph});
 
-  final int node;
-  final int primitive;
-  final int morph;
-
-  @override
-  bool operator ==(Object other) =>
-      other is _MorphKey &&
-      other.node == node &&
-      other.primitive == primitive &&
-      other.morph == morph;
-
-  @override
-  int get hashCode => Object.hash(node, primitive, morph);
-}
-
-final class _MaterialColorKey {
-  const _MaterialColorKey(this.material, this.type);
-
-  final int material;
-  final String type;
-
-  @override
-  bool operator ==(Object other) =>
-      other is _MaterialColorKey &&
-      other.material == material &&
-      other.type == type;
-
-  @override
-  int get hashCode => Object.hash(material, type);
-}
+typedef _MaterialColorKey = ({int material, String type});
 
 final class _TextureTransformAccum {
   _TextureTransformAccum({
@@ -207,43 +177,8 @@ final class _SpringColliderState {
   final double radius;
 }
 
-extension on List<GltfBuffer> {
-  GltfBuffer? elementAtOrNull(int index) =>
-      index < 0 || index >= length ? null : this[index];
-}
-
-extension on List<GltfNode> {
-  GltfNode? elementAtOrNull(int index) =>
-      index < 0 || index >= length ? null : this[index];
-}
-
-extension on List<GltfMesh> {
-  GltfMesh? elementAtOrNull(int index) =>
-      index < 0 || index >= length ? null : this[index];
-}
-
-extension on List<GltfMaterial> {
-  GltfMaterial? elementAtOrNull(int index) =>
-      index < 0 || index >= length ? null : this[index];
-}
-
-extension on List<GltfSkin> {
-  GltfSkin? elementAtOrNull(int index) =>
-      index < 0 || index >= length ? null : this[index];
-}
-
-extension on List<GltfAccessor> {
-  GltfAccessor? elementAtOrNull(int index) =>
-      index < 0 || index >= length ? null : this[index];
-}
-
-extension on List<VrmSpringBoneCollider> {
-  VrmSpringBoneCollider? elementAtOrNull(int index) =>
-      index < 0 || index >= length ? null : this[index];
-}
-
-extension on List<VrmSpringBoneColliderGroup> {
-  VrmSpringBoneColliderGroup? elementAtOrNull(int index) =>
+extension<T> on List<T> {
+  T? elementAtOrNull(int index) =>
       index < 0 || index >= length ? null : this[index];
 }
 

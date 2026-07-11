@@ -78,6 +78,51 @@ void runtimeTests() {
     expect(binding.committed, 1);
   });
 
+  test('runtime resets expression materials before a throwing frame', () {
+    final model = VrmModel.parseGlb(
+      _glb(
+        _minimalVrmJson(
+          materials: const [
+            {
+              'pbrMetallicRoughness': {
+                'baseColorFactor': [1.0, 1.0, 1.0, 1.0],
+              },
+            },
+          ],
+          expressions: const {
+            'preset': {
+              'happy': {
+                'materialColorBinds': [
+                  {
+                    'material': 0,
+                    'type': 'color',
+                    'targetValue': [0.5, 0.5, 0.5, 1.0],
+                  },
+                ],
+              },
+            },
+          },
+        ),
+      ),
+    );
+    final binding = _FakeBinding();
+    final runtime = VrmRuntime(model)
+      ..expressions.setPreset(VrmExpressionPreset.happy, 1);
+
+    runtime.bind(binding);
+    runtime.update(0);
+    expect(
+      binding.materials[0]!.colors['color'],
+      const VrmVector4(0.5, 0.5, 0.5, 1),
+    );
+
+    runtime.motion.playProceduralMotion((_) => throw StateError('boom'));
+
+    expect(() => runtime.update(0), throwsStateError);
+    expect(binding.materials[0]!.colors['color'], VrmVector4.white);
+    expect(binding.committed, 2);
+  });
+
   test('runtime applies frame work in documented order', () {
     final model = VrmModel.tryParseGlb(
       _glb(
