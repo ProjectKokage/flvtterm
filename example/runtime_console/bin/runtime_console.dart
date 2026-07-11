@@ -114,16 +114,10 @@ final class _ConsoleBinding implements VrmSceneBinding {
   _ConsoleBinding(VrmModel model) {
     for (final node in model.gltf.nodes) {
       _nodes[node.index] = _ConsoleNode(node.name, node.restTransform);
-      if (node.mesh != null) _meshes[node.index] = _ConsoleMesh();
-    }
-    for (final material in model.gltf.materials) {
-      _materials[material.index] = _ConsoleMaterial();
     }
   }
 
   final _nodes = <int, _ConsoleNode>{};
-  final _meshes = <int, _ConsoleMesh>{};
-  final _materials = <int, _ConsoleMaterial>{};
   var committedFrames = 0;
 
   @override
@@ -136,10 +130,10 @@ final class _ConsoleBinding implements VrmSceneBinding {
 
   @override
   VrmMaterialBinding materialByGltfIndex(int materialIndex) =>
-      _materials.putIfAbsent(materialIndex, _ConsoleMaterial.new);
+      const _ConsoleMaterial();
 
   @override
-  VrmMeshBinding? meshByNodeIndex(int nodeIndex) => _meshes[nodeIndex];
+  VrmMeshBinding? meshByNodeIndex(int nodeIndex) => null;
 
   @override
   VrmNodeBinding nodeByGltfIndex(int nodeIndex) => _nodes.putIfAbsent(
@@ -161,19 +155,9 @@ final class _ConsoleNode implements VrmNodeBinding {
   VrmMatrix4 get worldTransform => localTransform;
 }
 
-final class _ConsoleMesh implements VrmMeshBinding {
-  @override
-  void setMorphWeight({
-    required int primitiveIndex,
-    required int morphIndex,
-    required double weight,
-  }) {}
-
-  @override
-  void setVisible(bool visible) {}
-}
-
 final class _ConsoleMaterial implements VrmMaterialBinding {
+  const _ConsoleMaterial();
+
   @override
   void setColor(String parameter, VrmVector4 value) {}
 

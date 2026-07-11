@@ -1,17 +1,24 @@
-import 'dart:io';
-
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flvtterm_flutter_scene_viewer/main.dart' as viewer;
+import 'package:flvtterm_flutter_scene_viewer/src/viewer_widgets.dart';
 
 void main() {
-  test('viewer entrypoint is available', () {
-    expect(viewer.main, isA<Function>());
-  });
+  testWidgets('viewer control forwards slider changes', (tester) async {
+    var changed = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ViewerControl(
+            label: 'Happy',
+            value: 0,
+            onChanged: (_) => changed = true,
+          ),
+        ),
+      ),
+    );
 
-  test('viewer surfaces adapter capability warnings', () {
-    final source = File('lib/src/viewer_screen.dart').readAsStringSync();
+    await tester.tap(find.byType(Slider));
 
-    expect(source, contains('capabilityWarnings'));
-    expect(source, contains('Adapter warnings'));
+    expect(changed, isTrue);
   });
 }

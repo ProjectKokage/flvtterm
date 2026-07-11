@@ -19,10 +19,7 @@ void cliTests() {
   });
 
   test('CLI rejects external buffer traversal', () async {
-    final directory = await Directory.systemTemp.createTemp('flvtterm_cli_');
-    addTearDown(() async {
-      if (await directory.exists()) await directory.delete(recursive: true);
-    });
+    final directory = await _temporaryDirectory();
     final assetDirectory = Directory('${directory.path}/asset')..createSync();
     File('${directory.path}/outside.bin').writeAsBytesSync([1, 2, 3, 4]);
     final file = File('${assetDirectory.path}/model.gltf');
@@ -42,10 +39,7 @@ void cliTests() {
   });
 
   test('CLI rejects external buffer symlink escape', () async {
-    final directory = await Directory.systemTemp.createTemp('flvtterm_cli_');
-    addTearDown(() async {
-      if (await directory.exists()) await directory.delete(recursive: true);
-    });
+    final directory = await _temporaryDirectory();
     final assetDirectory = Directory('${directory.path}/asset')..createSync();
     final outside = File('${directory.path}/outside.bin')
       ..writeAsBytesSync([1, 2, 3, 4]);
@@ -72,10 +66,7 @@ void cliTests() {
   });
 
   test('CLI validates VRMA files by extension', () async {
-    final directory = await Directory.systemTemp.createTemp('flvtterm_cli_');
-    addTearDown(() async {
-      if (await directory.exists()) await directory.delete(recursive: true);
-    });
+    final directory = await _temporaryDirectory();
     final file = File('${directory.path}/idle.vrma');
     await file.writeAsString(
       jsonEncode({
@@ -94,10 +85,7 @@ void cliTests() {
   });
 
   test('CLI detects VRMA JSON glTF by root extension', () async {
-    final directory = await Directory.systemTemp.createTemp('flvtterm_cli_');
-    addTearDown(() async {
-      if (await directory.exists()) await directory.delete(recursive: true);
-    });
+    final directory = await _temporaryDirectory();
     final file = File('${directory.path}/idle.gltf');
     await file.writeAsString(
       jsonEncode({
@@ -116,10 +104,7 @@ void cliTests() {
   });
 
   test('CLI detects VRMA GLB by root extension', () async {
-    final directory = await Directory.systemTemp.createTemp('flvtterm_cli_');
-    addTearDown(() async {
-      if (await directory.exists()) await directory.delete(recursive: true);
-    });
+    final directory = await _temporaryDirectory();
     final file = File('${directory.path}/idle.glb');
     await file.writeAsBytes(
       _glb({
@@ -138,10 +123,7 @@ void cliTests() {
   });
 
   test('CLI detects VRM GLB by root extension', () async {
-    final directory = await Directory.systemTemp.createTemp('flvtterm_cli_');
-    addTearDown(() async {
-      if (await directory.exists()) await directory.delete(recursive: true);
-    });
+    final directory = await _temporaryDirectory();
     final file = File('${directory.path}/avatar.glb');
     await file.writeAsBytes(_glb(_minimalVrmJson()));
 
@@ -152,10 +134,7 @@ void cliTests() {
   });
 
   test('CLI detects legacy VRM 0.x GLB by root extension', () async {
-    final directory = await Directory.systemTemp.createTemp('flvtterm_cli_');
-    addTearDown(() async {
-      if (await directory.exists()) await directory.delete(recursive: true);
-    });
+    final directory = await _temporaryDirectory();
     final file = File('${directory.path}/legacy-avatar.glb');
     await file.writeAsBytes(_glb(_minimalVrm0Json()));
 
@@ -167,31 +146,14 @@ void cliTests() {
 }
 
 Future<ProcessResult> _runCli(List<String> arguments) {
-  return Process.run(_dartExecutable(), ['bin/flvtterm.dart', ...arguments]);
+  return Process.run(Platform.resolvedExecutable, [
+    'bin/flvtterm.dart',
+    ...arguments,
+  ]);
 }
 
-String _dartExecutable() {
-  final executable = Platform.resolvedExecutable;
-  final name = executable.split(Platform.pathSeparator).last;
-  if (name == 'dart' || name == 'dart.exe') return executable;
-
-  final marker = [
-    'bin',
-    'cache',
-    'artifacts',
-    'engine',
-  ].join(Platform.pathSeparator);
-  final index = executable.indexOf(
-    '${Platform.pathSeparator}$marker${Platform.pathSeparator}',
-  );
-  if (index == -1) return executable;
-
-  return [
-    executable.substring(0, index),
-    'bin',
-    'cache',
-    'dart-sdk',
-    'bin',
-    Platform.isWindows ? 'dart.exe' : 'dart',
-  ].join(Platform.pathSeparator);
+Future<Directory> _temporaryDirectory() async {
+  final directory = await Directory.systemTemp.createTemp('flvtterm_cli_');
+  addTearDown(() => directory.delete(recursive: true));
+  return directory;
 }
