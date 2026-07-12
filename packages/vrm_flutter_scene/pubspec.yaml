@@ -1,21 +1,23 @@
 name: flvtterm_flutter_scene
 description: Flutter Scene adapter for the renderer-neutral flvtterm VRM runtime.
-version: 0.2.1
+version: 0.2.2
 publish_to: none
 
 environment:
   sdk: ^3.11.5
-  flutter: ">=3.0.0"
+  flutter: ">=3.29.0"
 
 dependencies:
   flutter:
     sdk: flutter
-  flutter_scene: ">=0.16.0 <0.17.0"
+  # The adapter uses Flutter Scene's internal reusable GPU-buffer shim for
+  # skinned morph targets. Keep this exact until that surface is public.
+  flutter_scene: 0.17.0
   flvtterm:
     path: ../..
-  vector_math: ^2.2.0
+  vector_math: ^2.4.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  lints: ^6.0.0
+  lints: ^6.1.0

@@ -248,7 +248,7 @@ runtime.motion.play(
 
 Omit `animationIndex` to play the first glTF animation in the VRMA asset.
 
-Current VRMA retargeting uses `VrmFkHumanoidRetargeter` by default and can be replaced through `runtime.motion.vrmaRetargeter`. Source animation node indices are mapped to source humanoid bones, normalized through the source and destination world rest rotations, then applied to destination humanoid bones; source node indices are never written directly to destination glTF node indices. Rest-frame calculation includes non-humanoid intermediary nodes. When the source has an optional humanoid bone that the destination omits, its normalized rotation is composed into the nearest descendants shared by both humanoids. Hips translation uses the source rest-pose delta, multiplies that delta by `hipsTranslationScale`, and applies it as model root motion through `VrmModelRootBinding` when available. Bindings without `VrmModelRootBinding` fall back to composing that root motion onto the glTF scene root nodes. Non-hips humanoid translation and humanoid scale animation are validation errors.
+Current VRMA retargeting uses `VrmFkHumanoidRetargeter` by default and can be replaced through `runtime.motion.vrmaRetargeter`. Source animation node indices are mapped to source humanoid bones, normalized through the source and destination world rest rotations, then applied to destination humanoid bones; source node indices are never written directly to destination glTF node indices. Rest-frame calculation includes non-humanoid intermediary nodes. When the source has an optional humanoid bone that the destination omits, its normalized rotation is composed into the nearest descendants shared by both humanoids. Hips translation uses the source rest-pose delta, multiplies that delta by `hipsTranslationScale`, rotates it through the source hips parent's rest-world frame, and applies it as model root motion through `VrmModelRootBinding` when available. Bindings without `VrmModelRootBinding` fall back to composing that root motion onto the glTF scene root nodes. Non-hips humanoid translation and humanoid scale animation are validation errors.
 For VRM 0.x destinations, semantic VRMA bone rotations are converted through
 the legacy source basis and hips root motion composes with the persistent
 model-orientation transform.
@@ -292,12 +292,19 @@ or by pairing the imported node tree with the parsed default-scene hierarchy.
 This preserves glTF node-array indices even when they differ from depth-first
 order. World transforms are converted back through Flutter Scene's synthesized
 import root before core constraints consume them. The adapter applies node
-transforms, model-root motion, child-safe mesh visibility, base-color material
-fallback, and MToon PBR/emissive fallback values. MToon
+transforms, model-root motion, child-safe mesh visibility, supported
+POSITION/NORMAL morph targets, base-color material fallback, and MToon
+PBR/emissive fallback values. Morph writes are staged until `commitFrame`,
+composed from immutable base vertices, and uploaded once per changed primitive
+through one reusable buffer. `binding.supportsVisibleMorphTargets` is true only
+when every declared morph-bearing mesh was attached successfully. This path is
+deliberately pinned to Flutter Scene 0.17.0 because reusable skinned vertex
+buffers are currently exposed only by its internal GPU shim. MToon
 materials report unlit/PBR fallback diagnostics through
 `binding.capabilityWarnings`, as do first-person `auto` meshes that would need
-geometry splitting. Missing Flutter Scene mutators for imported morph target
-weights and texture transforms are reported through
+geometry splitting. Unsupported morph layouts fail conservatively with a
+capability diagnostic and retain their imported neutral geometry. Texture
+transforms remain unsupported and are reported through
 `binding.capabilityWarnings`.
 
 Pure Dart smoke example: run `dart run bin/runtime_console.dart [avatar.vrm]`

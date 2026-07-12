@@ -111,18 +111,18 @@ packages:
     dependency: transitive
     description:
       name: flutter_gpu_shaders
-      sha256: "855b19a80a003c0c6a5ec6dcfa6bbb8fab36e23149d41ccc4c961a8df6849f6f"
+      sha256: "191ae97721e56e498040f9be8bd26f981793d682e74ea24a76b59ed24b9ab3cb"
       url: "https://pub.dev"
     source: hosted
-    version: "0.4.5"
+    version: "0.5.1"
   flutter_scene:
     dependency: "direct main"
     description:
       name: flutter_scene
-      sha256: "55063dc7ed5596419fd767f62564eeb0ac524bfd33c712801163b8766d751d75"
+      sha256: d85ea9577ec143042c9b7fb1cfbd19bddd263a8389fe9a4cee2569fad20da309
       url: "https://pub.dev"
     source: hosted
-    version: "0.16.0"
+    version: "0.17.0"
   flutter_test:
     dependency: "direct dev"
     description: flutter
@@ -134,14 +134,14 @@ packages:
       path: "../.."
       relative: true
     source: path
-    version: "0.2.0"
+    version: "0.2.2"
   flvtterm_flutter_scene:
     dependency: "direct main"
     description:
       path: "../../packages/vrm_flutter_scene"
       relative: true
     source: path
-    version: "0.2.0"
+    version: "0.2.2"
   hooks:
     dependency: transitive
     description:
@@ -365,4 +365,4 @@ packages:
     version: "3.1.3"
 sdks:
   dart: ">=3.11.5 <4.0.0"
-  flutter: ">=3.29.0-1.0.pre.242"
+  flutter: ">=3.29.0"

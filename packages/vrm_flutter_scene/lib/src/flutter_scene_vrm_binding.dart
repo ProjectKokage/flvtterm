@@ -2,6 +2,9 @@ import 'package:flutter_scene/scene.dart' as scene;
 import 'package:flvtterm/flvtterm.dart';
 import 'package:vector_math/vector_math.dart' as vm;
 
+import 'flutter_scene_morph_target_primitive.dart';
+import 'morph_target_blender.dart';
+
 /// Controls how [FlutterSceneVrmBinding] maps glTF node indices to
 /// Flutter Scene nodes.
 final class FlutterSceneVrmBindingOptions {
@@ -32,9 +35,10 @@ final class FlutterSceneVrmBindingOptions {
 /// Renderer binding from flvtterm's core runtime to Flutter Scene.
 ///
 /// The binding keeps Flutter Scene types in this optional package. Node
-/// transforms and mesh-component visibility are applied directly. Morph target
-/// weights and texture transforms currently emit capability warnings because
-/// Flutter Scene does not document public mutators for those imported values.
+/// transforms, mesh-component visibility, and supported morph target weights
+/// are applied directly. Texture transforms still emit capability warnings
+/// because Flutter Scene does not document a public mutator for imported
+/// texture transforms.
 final class FlutterSceneVrmBinding
     implements VrmModelRootBinding, VrmModelWorldBinding {
   /// Creates a binding for a Flutter Scene GLB root.
@@ -136,10 +140,16 @@ final class FlutterSceneVrmBinding
             ? _FlutterSceneRootNodeBinding(this, entry.value)
             : _FlutterSceneNodeBinding(entry.value, _coreFromSceneTransform),
     };
+    final morphTargetDataFactory = MorphTargetDataFactory(model.gltf);
     _meshBindings = {
       for (final entry in sceneNodes.entries)
         if (entry.value.mesh != null)
-          entry.key: _FlutterSceneMeshBinding(this, entry.key, entry.value),
+          entry.key: _FlutterSceneMeshBinding(
+            this,
+            entry.key,
+            entry.value,
+            morphTargetDataFactory,
+          ),
     };
     _materialBindings = {
       for (final entry in _sceneMaterials(sceneNodes, model).entries)
@@ -176,6 +186,26 @@ final class FlutterSceneVrmBinding
   /// Warnings for renderer features this adapter cannot currently mutate.
   List<VrmDiagnostic> get capabilityWarnings =>
       List.unmodifiable(_capabilityWarnings);
+
+  /// Whether every morph-bearing mesh in this binding has visible, reusable
+  /// Flutter Scene morph geometry.
+  bool get supportsVisibleMorphTargets {
+    final declared = model.gltf.nodes.where((node) {
+      final meshIndex = node.mesh;
+      if (meshIndex == null || meshIndex >= model.gltf.meshes.length) {
+        return false;
+      }
+      return model.gltf.meshes[meshIndex].primitives.any(
+        (primitive) => primitive.targets.isNotEmpty,
+      );
+    });
+    return declared.isNotEmpty &&
+        declared.every(
+          (node) =>
+              _meshBindings[node.index]?.supportsAllDeclaredMorphTargets ??
+              false,
+        );
+  }
 
   @override
   VrmMatrix4 get modelRootMotionTransform => _modelRootMotionTransform;
@@ -237,6 +267,7 @@ final class FlutterSceneVrmBinding
   @override
   void commitFrame() {
     for (final mesh in _meshBindings.values) {
+      mesh.commitMorphTargets();
       mesh.commitVisibility();
     }
   }
@@ -474,17 +505,38 @@ final class _FlutterSceneRootNodeBinding implements VrmNodeBinding {
 }
 
 final class _FlutterSceneMeshBinding implements VrmMeshBinding {
-  _FlutterSceneMeshBinding(this._owner, this._nodeIndex, this._node)
-    : _meshComponents = List.unmodifiable(
+  _FlutterSceneMeshBinding(
+    this._owner,
+    this._nodeIndex,
+    this._node,
+    MorphTargetDataFactory morphTargetDataFactory,
+  ) : _meshComponents = List.unmodifiable(
         _node.getComponents<scene.MeshComponent>(),
-      );
+      ) {
+    _installMorphTargets(morphTargetDataFactory);
+  }
 
   final FlutterSceneVrmBinding _owner;
   final int _nodeIndex;
   final scene.Node _node;
   final List<scene.MeshComponent> _meshComponents;
+  final Map<int, FlutterSceneMorphTargetPrimitive> _morphPrimitives = {};
+  final Map<int, String> _morphFailures = {};
   var _requestedVisible = true;
   var _visible = true;
+
+  bool get declaresMorphTargets {
+    final meshIndex = _owner.model.gltf.nodes[_nodeIndex].mesh;
+    if (meshIndex == null || meshIndex >= _owner.model.gltf.meshes.length) {
+      return false;
+    }
+    return _owner.model.gltf.meshes[meshIndex].primitives.any(
+      (primitive) => primitive.targets.isNotEmpty,
+    );
+  }
+
+  bool get supportsAllDeclaredMorphTargets =>
+      declaresMorphTargets && _morphFailures.isEmpty;
 
   @override
   void setMorphWeight({
@@ -492,12 +544,27 @@ final class _FlutterSceneMeshBinding implements VrmMeshBinding {
     required int morphIndex,
     required double weight,
   }) {
-    _owner._warnOnce(
-      code: 'flutterScene.unsupportedMorphTarget',
-      message:
-          'Flutter Scene does not expose a documented morph target weight mutator for imported meshes.',
-      gltfNodeIndex: _nodeIndex,
-    );
+    final primitive = _morphPrimitives[primitiveIndex];
+    if (primitive == null) {
+      _owner._warnOnce(
+        code: 'flutterScene.unsupportedMorphTarget',
+        message:
+            _morphFailures[primitiveIndex] ??
+            'The imported Flutter Scene primitive has no reusable morph '
+                'geometry.',
+        gltfNodeIndex: _nodeIndex,
+      );
+      return;
+    }
+    if (!primitive.setWeight(morphIndex, weight)) {
+      _owner._warnOnce(
+        code: 'flutterScene.invalidMorphTargetWrite',
+        message:
+            'A morph target write used an out-of-range index or non-finite '
+            'weight and was ignored.',
+        gltfNodeIndex: _nodeIndex,
+      );
+    }
   }
 
   @override
@@ -517,6 +584,118 @@ final class _FlutterSceneMeshBinding implements VrmMeshBinding {
       }
     }
     _visible = _requestedVisible;
+  }
+
+  void commitMorphTargets() {
+    for (final primitive in _morphPrimitives.values) {
+      primitive.commit();
+    }
+  }
+
+  void _installMorphTargets(MorphTargetDataFactory dataFactory) {
+    final gltfNode = _owner.model.gltf.nodes[_nodeIndex];
+    final meshIndex = gltfNode.mesh;
+    if (meshIndex == null || meshIndex >= _owner.model.gltf.meshes.length) {
+      return;
+    }
+    final gltfMesh = _owner.model.gltf.meshes[meshIndex];
+    if (!gltfMesh.primitives.any((primitive) => primitive.targets.isNotEmpty)) {
+      return;
+    }
+    final sceneMesh = _node.mesh;
+    final pending =
+        <
+          ({
+            int primitiveIndex,
+            scene.Geometry geometry,
+            MorphTargetPrimitiveData data,
+          })
+        >[];
+    String? failure;
+    var scenePrimitiveIndex = 0;
+    for (
+      var primitiveIndex = 0;
+      primitiveIndex < gltfMesh.primitives.length;
+      primitiveIndex++
+    ) {
+      final gltfPrimitive = gltfMesh.primitives[primitiveIndex];
+      if (gltfPrimitive.mode != 4) {
+        if (gltfPrimitive.targets.isNotEmpty) {
+          failure = 'Only TRIANGLES morph primitives are supported.';
+        }
+        continue;
+      }
+      if (gltfPrimitive.targets.isNotEmpty) {
+        final scenePrimitives = sceneMesh?.primitives;
+        if (scenePrimitives == null ||
+            scenePrimitiveIndex >= scenePrimitives.length) {
+          failure = 'Flutter Scene did not import the morph-bearing primitive.';
+        } else {
+          final result = dataFactory.build(gltfPrimitive);
+          final data = result.data;
+          final geometry = scenePrimitives[scenePrimitiveIndex].geometry;
+          final geometryMatches = data == null
+              ? false
+              : data.isSkinned
+              ? geometry is scene.SkinnedGeometry
+              : geometry is scene.UnskinnedGeometry &&
+                    geometry is! scene.SkinnedGeometry;
+          if (data == null) {
+            failure = result.failure ?? 'Morph primitive data is unsupported.';
+          } else if (!geometryMatches) {
+            failure =
+                'Flutter Scene imported a vertex layout that does not match '
+                'the parsed morph primitive.';
+          } else {
+            pending.add((
+              primitiveIndex: primitiveIndex,
+              geometry: geometry,
+              data: data,
+            ));
+          }
+        }
+      }
+      scenePrimitiveIndex++;
+    }
+    if (failure != null) {
+      for (
+        var primitiveIndex = 0;
+        primitiveIndex < gltfMesh.primitives.length;
+        primitiveIndex++
+      ) {
+        if (gltfMesh.primitives[primitiveIndex].targets.isNotEmpty) {
+          _morphFailures[primitiveIndex] = failure;
+        }
+      }
+      return;
+    }
+    final prepared =
+        <({int primitiveIndex, FlutterSceneMorphTargetPrimitive primitive})>[];
+    try {
+      for (final entry in pending) {
+        prepared.add((
+          primitiveIndex: entry.primitiveIndex,
+          primitive: FlutterSceneMorphTargetPrimitive.prepare(
+            entry.geometry,
+            entry.data,
+          ),
+        ));
+      }
+    } on Object {
+      failure =
+          'Flutter Scene could not prepare reusable GPU morph geometry for '
+          'this mesh.';
+    }
+    if (failure != null) {
+      for (final entry in pending) {
+        _morphFailures[entry.primitiveIndex] = failure;
+      }
+      return;
+    }
+    for (final entry in prepared) {
+      entry.primitive.activate();
+      _morphPrimitives[entry.primitiveIndex] = entry.primitive;
+    }
   }
 }
 
