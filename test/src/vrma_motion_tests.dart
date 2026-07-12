@@ -716,6 +716,79 @@ void vrmaMotionTests() {
     expect(binding.nodes[0]!.localTransform.storage[13], 10.0);
   });
 
+  test('runtime motion rotates hips translation through its source parent', () {
+    const halfSqrt = 0.7071067811865476;
+    final vrmaBinary = _floats([0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0]);
+    final vrmaJson =
+        <String, Object?>{
+            'asset': {'version': '2.0'},
+            'extensionsUsed': ['VRMC_vrm_animation'],
+            'nodes': [
+              {
+                'name': 'rotatedParent',
+                'rotation': [0.0, halfSqrt, 0.0, halfSqrt],
+                'children': [1],
+              },
+              {
+                'name': 'sourceHips',
+                'translation': [0.0, 1.0, 0.0],
+                'rotation': [0.0, 0.0, halfSqrt, halfSqrt],
+              },
+            ],
+          }
+          ..addAll(
+            _animationStorageJson(vrmaBinary.length, [
+              [0, 8],
+              [8, 24],
+            ]),
+          )
+          ..['animations'] = [
+            {
+              'channels': [
+                {
+                  'sampler': 0,
+                  'target': {'node': 1, 'path': 'translation'},
+                },
+              ],
+              'samplers': [
+                {'input': 0, 'output': 1},
+              ],
+            },
+          ]
+          ..['extensions'] = {
+            'VRMC_vrm_animation': {
+              'specVersion': '1.0',
+              'humanoid': {
+                'humanBones': {
+                  'hips': {'node': 1},
+                },
+              },
+            },
+          };
+    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
+    final binding = _FakeBinding();
+    final destinationHipsRest = List<double>.of(
+      runtime.model.gltf.nodes[0].restTransform.storage,
+    );
+    final vrma = VrmAnimationAsset.parse(
+      bytes: _glb(vrmaJson, binaryChunk: vrmaBinary),
+      validation: VrmValidationMode.permissive,
+    );
+
+    runtime.bind(binding);
+    runtime.motion.playVrmAnimation(vrma);
+    runtime.update(1.0);
+
+    final root = binding.modelRootMotionTransform.storage;
+    expect(root[12], closeTo(0, 0.000001));
+    expect(root[13], closeTo(0, 0.000001));
+    expect(root[14], closeTo(-1, 0.000001));
+    expect(
+      binding.nodes[0]!.localTransform.storage,
+      orderedEquals(destinationHipsRest),
+    );
+  });
+
   test('runtime motion masks VRMA hips root motion', () {
     final vrmaBinary = _floats([0.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0]);
     final vrmaJson =

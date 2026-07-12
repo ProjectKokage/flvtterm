@@ -57,6 +57,10 @@ final class VrmFkHumanoidRetargeter implements VrmHumanoidRetargeter {
         ? _retargetHipsRootTranslation(
             sourceRest: sourceRestNode.restTranslation,
             sourceCurrent: sourcePose.translation,
+            sourceParentRestWorldRotation: _quatMultiply(
+              sourceRestWorldRotation,
+              _quatInverse(sourceRestNode.restRotation),
+            ),
             scale: hipsTranslationScale,
           )
         : null;
@@ -149,12 +153,40 @@ Map<int, List<double>> _restWorldRotations(GltfAsset gltf) {
 List<double>? _retargetHipsRootTranslation({
   required List<double> sourceRest,
   required List<double>? sourceCurrent,
+  required List<double> sourceParentRestWorldRotation,
   required double scale,
 }) {
   if (sourceCurrent == null) return null;
-  return [
+  final localDelta = [
     (sourceCurrent[0] - sourceRest[0]) * scale,
     (sourceCurrent[1] - sourceRest[1]) * scale,
     (sourceCurrent[2] - sourceRest[2]) * scale,
+  ];
+  return _rotateVectorPreservingLength(
+    sourceParentRestWorldRotation,
+    localDelta,
+  );
+}
+
+List<double> _rotateVectorPreservingLength(
+  List<double> rotation,
+  List<double> vector,
+) {
+  final q = _normalize(rotation);
+  final axis = [q[0], q[1], q[2]];
+  final scalar = q[3];
+  final axisDotVector = _vectorDot(axis, vector);
+  final axisLengthSquared = _vectorDot(axis, axis);
+  final cross = _vectorCross(axis, vector);
+  return [
+    2 * axisDotVector * axis[0] +
+        (scalar * scalar - axisLengthSquared) * vector[0] +
+        2 * scalar * cross[0],
+    2 * axisDotVector * axis[1] +
+        (scalar * scalar - axisLengthSquared) * vector[1] +
+        2 * scalar * cross[1],
+    2 * axisDotVector * axis[2] +
+        (scalar * scalar - axisLengthSquared) * vector[2] +
+        2 * scalar * cross[2],
   ];
 }
