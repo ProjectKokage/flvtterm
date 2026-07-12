@@ -1,3 +1,13 @@
+## 0.2.2
+
+- Add visible POSITION/NORMAL morph-target composition to the pinned Flutter
+  Scene 0.17.0 adapter, using one reusable vertex buffer per supported
+  primitive and one upload per dirty frame.
+- Rotate VRMA hips translation from its source-parent rest frame into model
+  space before publishing model-root motion.
+- Add regression coverage for blended/reset morph geometry and rotated-parent
+  VRMA hips translation.
+
 ## 0.2.1
 
 - Reorganize core sources by subsystem and reduce parser/runtime duplication

@@ -8,7 +8,7 @@ jobs:
   dart:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dart-lang/setup-dart@v1
         with:
           sdk: stable
@@ -32,7 +32,7 @@ jobs:
           - packages/vrm_flutter_scene
           - example/flutter_scene_viewer
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
