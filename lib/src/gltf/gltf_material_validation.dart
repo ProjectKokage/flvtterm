@@ -749,10 +749,11 @@ Iterable<({String key, VrmTextureInfo? texture})> _mtoonTextureEntries(
   }
 }
 
-Iterable<({String key, VrmTextureInfo texture})> _mtoonTextures(
+Iterable<({String key, VrmTextureInfo texture})> _mtoonUvTextures(
   VrmMToonMaterial mtoon,
 ) sync* {
   for (final entry in _mtoonTextureEntries(mtoon)) {
+    if (entry.key == 'matcapTexture') continue;
     final texture = entry.texture;
     if (texture != null) yield (key: entry.key, texture: texture);
   }

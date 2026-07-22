@@ -57,7 +57,7 @@ VrmMToonMaterial? _parseMToonMaterial(Object? value) {
     specVersion: _string(raw['specVersion']),
     transparentWithZWrite: _bool(raw['transparentWithZWrite']) ?? false,
     renderQueueOffsetNumber: _int(raw['renderQueueOffsetNumber']) ?? 0,
-    shadeColorFactor: _vector3As4(raw['shadeColorFactor'], VrmVector4.white),
+    shadeColorFactor: _vector3As4(raw['shadeColorFactor'], black),
     shadeMultiplyTexture: _parseTextureInfo(raw['shadeMultiplyTexture']),
     shadingShiftFactor: _double(raw['shadingShiftFactor']) ?? 0,
     shadingShiftTexture: _parseTextureInfo(

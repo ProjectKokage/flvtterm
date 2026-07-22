@@ -165,6 +165,54 @@ void gltfMeshTests() {
     );
   });
 
+  test('does not require TEXCOORD attributes for an MToon MatCap', () {
+    final json = {
+      'asset': {'version': '2.0'},
+      'extensionsUsed': ['VRMC_materials_mtoon'],
+      'accessors': [
+        {
+          'componentType': 5126,
+          'count': 3,
+          'type': 'VEC3',
+          'min': [0.0, 0.0, 0.0],
+          'max': [1.0, 1.0, 1.0],
+        },
+      ],
+      'textures': [<String, Object?>{}],
+      'materials': [
+        {
+          'extensions': {
+            'VRMC_materials_mtoon': {
+              'specVersion': '1.0',
+              'matcapTexture': {'index': 0},
+            },
+          },
+        },
+      ],
+      'meshes': [
+        {
+          'primitives': [
+            {
+              'material': 0,
+              'attributes': {'POSITION': 0},
+            },
+          ],
+        },
+      ],
+    };
+
+    final result = GltfAsset.tryParse(
+      bytes: Uint8List.fromList(utf8.encode(jsonEncode(json))),
+      validation: VrmValidationMode.permissive,
+    );
+
+    expect(result.asset, isNotNull);
+    expect(
+      result.validation.errors.map((diagnostic) => diagnostic.code),
+      isNot(contains('gltf.missingTextureCoordinateAttribute')),
+    );
+  });
+
   test('reports tangent accessors with invalid handedness values', () {
     final tangent = _floats([0.0, 0.0, 1.0, 0.5]);
     final json = {

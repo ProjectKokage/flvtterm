@@ -601,7 +601,7 @@ Iterable<VrmTextureInfo> _materialTextures(GltfMaterial material) sync* {
   }
   final mtoon = material.mtoon;
   if (mtoon == null) return;
-  for (final entry in _mtoonTextures(mtoon)) {
+  for (final entry in _mtoonUvTextures(mtoon)) {
     yield entry.texture;
   }
 }

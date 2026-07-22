@@ -243,7 +243,7 @@ void materialTests() {
       model.gltf.materials[1].preferredRenderMode(supportsMToon: false),
       GltfMaterialRenderMode.pbr,
     );
-    expect(defaultMToon.shadeColorFactor, VrmVector4.white);
+    expect(defaultMToon.shadeColorFactor, VrmVector4(0, 0, 0, 1));
     expect(defaultMToon.parametricRimColorFactor, VrmVector4(0, 0, 0, 1));
     expect(defaultMToon.outlineColorFactor, VrmVector4(0, 0, 0, 1));
   });
