@@ -1407,6 +1407,44 @@ void vrm0CompatibilityTests() {
       },
     );
 
+    test('keeps legacy unlit transparent depth write distinct from MToon', () {
+      final json = _minimalVrm0Json(
+        materials: [
+          {'name': 'HairTip', 'alphaMode': 'BLEND'},
+        ],
+        materialProperties: [
+          _vrm0MaterialProperty(
+            name: 'HairTip',
+            shader: 'VRM/UnlitTransparentZWrite',
+          ),
+        ],
+      );
+
+      final model = VrmModel.parseGlb(_glb(json));
+
+      expect(
+        model.preferredRenderModeForMaterial(0),
+        GltfMaterialRenderMode.unlit,
+      );
+      expect(
+        model.preferredRenderModeForMaterial(0, supportsMToon: false),
+        GltfMaterialRenderMode.unlit,
+      );
+      expect(model.vrm0MaterialRequiresTransparentZWrite(0), isTrue);
+      expect(model.vrm0MtoonFallbackWarning(0), isNull);
+      final warning = model.vrm0TransparentZWriteFallbackWarning(0)!;
+      expect(warning.code, 'vrm0.transparentZWriteFallback');
+      expect(warning.jsonPath, r'$.extensions.VRM.materialProperties[0]');
+      expect(warning.gltfMaterialIndex, 0);
+      expect(
+        model.vrm0TransparentZWriteFallbackWarning(
+          0,
+          supportsTransparentZWrite: true,
+        ),
+        isNull,
+      );
+    });
+
     test('keeps source indices after malformed legacy array entries', () {
       final json = _minimalVrm0Json();
       final bones = _vrm0HumanBones(json);

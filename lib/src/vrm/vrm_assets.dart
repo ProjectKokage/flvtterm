@@ -46,6 +46,11 @@ final class VrmModel {
     return vrm0?.materialProperties.elementAtOrNull(materialIndex);
   }
 
+  /// Whether a legacy unlit material requests alpha blending with depth write.
+  bool vrm0MaterialRequiresTransparentZWrite(int materialIndex) =>
+      vrm0MaterialPropertyForGltfIndex(materialIndex)?.shader ==
+      'VRM/UnlitTransparentZWrite';
+
   /// Selects the preferred renderer path for one material across VRM versions.
   GltfMaterialRenderMode preferredRenderModeForMaterial(
     int materialIndex, {
@@ -88,6 +93,25 @@ final class VrmModel {
       code: 'vrm0.mtoonFallback',
       message:
           'Renderer does not support legacy ${property.shader} for material $materialIndex; use ${fallback.specName} fallback.',
+      jsonPath: '\$.extensions.VRM.materialProperties[$materialIndex]',
+      gltfMaterialIndex: materialIndex,
+    );
+  }
+
+  /// Returns a warning when legacy transparent depth write is unsupported.
+  VrmDiagnostic? vrm0TransparentZWriteFallbackWarning(
+    int materialIndex, {
+    bool supportsTransparentZWrite = false,
+  }) {
+    if (!vrm0MaterialRequiresTransparentZWrite(materialIndex) ||
+        supportsTransparentZWrite) {
+      return null;
+    }
+    return VrmDiagnostic(
+      severity: const VrmWarning(),
+      code: 'vrm0.transparentZWriteFallback',
+      message:
+          'Renderer does not support depth writes for legacy VRM/UnlitTransparentZWrite material $materialIndex; use ordinary unlit alpha blending fallback.',
       jsonPath: '\$.extensions.VRM.materialProperties[$materialIndex]',
       gltfMaterialIndex: materialIndex,
     );
@@ -266,14 +290,14 @@ final _vrm0SourceToRuntimeTransform = VrmMatrix4(const [
   1,
 ]);
 
-bool _vrm0ShaderUsesMToon(String? shader) =>
-    shader == 'VRM/MToon' || shader == 'VRM/UnlitTransparentZWrite';
+bool _vrm0ShaderUsesMToon(String? shader) => shader == 'VRM/MToon';
 
 bool _vrm0ShaderIsUnlit(String? shader) =>
     shader == 'UniGLTF/UniUnlit' ||
     shader == 'VRM/UnlitTexture' ||
     shader == 'VRM/UnlitCutout' ||
     shader == 'VRM/UnlitTransparent' ||
+    shader == 'VRM/UnlitTransparentZWrite' ||
     shader == 'Unlit/Color' ||
     shader == 'Unlit/Texture' ||
     shader == 'Unlit/Transparent' ||
