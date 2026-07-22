@@ -275,17 +275,25 @@ The intended adapter flow is:
 final bytes = await rootBundle.load('assets/avatar.vrm').then(
   (data) => data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
 );
-final model = VrmModel.parseGlb(bytes);
-
-final rootNode = await scene.Node.fromGlbBytes(bytes);
-final binding = FlutterSceneVrmBinding.fromRootNode(rootNode, model: model);
-
-final runtime = VrmRuntime(model)..bind(binding);
+final asset = await FlutterSceneVrmAsset.fromGlbBytes(bytes);
+final runtime = VrmRuntime(asset.model)..bind(asset.binding);
 runtime.update(1 / 60);
 ```
 
-For the common case, `FlutterSceneVrmAsset.fromGlbBytes(bytes)` performs those
-three steps and returns the parsed model, imported root node, and binding.
+`FlutterSceneVrmAsset` returns the parsed model, imported root node, and
+binding. It is also the material-correct import path: external resources are
+resolved once by core and replayed to Flutter Scene, referenced images are
+uploaded as straight-alpha RGBA, and imported PBR/unlit material occurrences
+are replaced generically rather than by model-specific indices. The corrected
+color pass implements glTF `OPAQUE`, `MASK`, and `BLEND`, `doubleSided`,
+base-level sampler filtering/address modes, and independent UV0
+`KHR_texture_transform` values for base color, metallic-roughness, normal,
+occlusion, and emissive textures. `alphaCorrectedMaterialIndices` and
+`straightAlphaTextureIndices` expose what was replaced for diagnostics.
+
+Constructing a `FlutterSceneVrmBinding` around a separately imported
+`scene.Node` remains available for custom importers, but it cannot retroactively
+correct that importer's texture pixels or material shaders.
 
 The adapter maps glTF node indices through explicit index paths when available,
 or by pairing the imported node tree with the parsed default-scene hierarchy.
@@ -303,9 +311,10 @@ buffers are currently exposed only by its internal GPU shim. MToon
 materials report unlit/PBR fallback diagnostics through
 `binding.capabilityWarnings`, as do first-person `auto` meshes that would need
 geometry splitting. Unsupported morph layouts fail conservatively with a
-capability diagnostic and retain their imported neutral geometry. Texture
-transforms remain unsupported and are reported through
-`binding.capabilityWarnings`.
+capability diagnostic and retain their imported neutral geometry. The adapter
+also reports explicit capability diagnostics for nonzero texture-coordinate
+sets, mipmapped minification filters (the pinned importer uploads one mip),
+legacy transparent depth-write, and `MASK` depth/shadow auxiliary passes.
 
 Pure Dart smoke example: run `dart run bin/runtime_console.dart [avatar.vrm]`
 from `example/runtime_console`. With a path, the example reports permissive
@@ -333,6 +342,9 @@ MToon fallback diagnostics are available through
   visibility is only a conservative fallback.
 - VRMA retargeting is FK with rest-frame rotation normalization and configurable hips translation scale; IK and automatic body-proportion scaling can be added behind `VrmHumanoidRetargeter`.
 - Native MToon shader rendering is not shipped yet; the Flutter Scene adapter applies a PBR/emissive fallback.
+- Flutter Scene 0.17.0 applies `MASK` cutoff in the corrected color pass, but
+  its separate depth/SSAO and shadow passes still use the primitive's full
+  silhouette.
 - Unknown VRM 0.x Unity shader properties remain available in
   `Vrm0MaterialProperty.raw` but are not applied by the generic material
   binding interface.

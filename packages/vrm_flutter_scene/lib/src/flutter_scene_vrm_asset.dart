@@ -2,6 +2,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_scene/scene.dart' as scene;
 import 'package:flvtterm/flvtterm.dart';
 
+import 'flutter_scene_material_corrections.dart';
+import 'flutter_scene_resolved_import.dart';
 import 'flutter_scene_vrm_binding.dart';
 
 /// Parsed VRM model, imported Flutter Scene root, and runtime binding.
@@ -10,7 +12,14 @@ final class FlutterSceneVrmAsset {
     required this.model,
     required this.rootNode,
     required this.binding,
-  });
+    required Set<int> alphaCorrectedMaterialIndices,
+    required Set<int> straightAlphaTextureIndices,
+  }) : alphaCorrectedMaterialIndices = Set.unmodifiable(
+         alphaCorrectedMaterialIndices,
+       ),
+       straightAlphaTextureIndices = Set.unmodifiable(
+         straightAlphaTextureIndices,
+       );
 
   /// Parsed renderer-neutral VRM model.
   final VrmModel model;
@@ -20,6 +29,13 @@ final class FlutterSceneVrmAsset {
 
   /// Binding from the parsed model to [rootNode].
   final FlutterSceneVrmBinding binding;
+
+  /// glTF material indices whose alpha mode and sidedness were restored after
+  /// Flutter Scene import.
+  final Set<int> alphaCorrectedMaterialIndices;
+
+  /// glTF texture indices decoded and uploaded as straight-alpha RGBA.
+  final Set<int> straightAlphaTextureIndices;
 
   /// Loads a VRM GLB from bytes into both flvtterm core and Flutter Scene.
   static Future<FlutterSceneVrmAsset> fromGlbBytes(
@@ -33,10 +49,13 @@ final class FlutterSceneVrmAsset {
       validation: validation,
       uriResolver: uriResolver,
     );
-    final rootNode = await scene.Node.fromGlbBytes(bytes);
+    final rootNode = await importResolvedFlutterSceneGlb(bytes, model);
+    final corrections = await correctFlutterSceneMaterials(rootNode, model);
     return FlutterSceneVrmAsset._(
       model: model,
       rootNode: rootNode,
+      alphaCorrectedMaterialIndices: corrections.alphaCorrectedMaterialIndices,
+      straightAlphaTextureIndices: corrections.straightAlphaTextureIndices,
       binding: FlutterSceneVrmBinding.fromRootNode(
         rootNode,
         model: model,

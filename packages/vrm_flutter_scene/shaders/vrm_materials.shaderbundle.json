@@ -1,0 +1,10 @@
+{
+  "VrmUnlitFragment": {
+    "type": "fragment",
+    "file": "shaders/vrm_unlit.frag"
+  },
+  "VrmPbrFragment": {
+    "type": "fragment",
+    "file": "shaders/vrm_pbr.frag"
+  }
+}

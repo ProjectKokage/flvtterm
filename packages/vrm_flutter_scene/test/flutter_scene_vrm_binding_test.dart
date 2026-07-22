@@ -5,6 +5,7 @@ import 'package:flutter_scene/src/gpu/gpu.dart' as gpu;
 import 'package:flutter_scene/scene.dart' as scene;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flvtterm/flvtterm.dart';
+import 'package:flvtterm_flutter_scene/src/flutter_scene_material_corrections.dart';
 import 'package:flvtterm_flutter_scene/vrm_flutter_scene.dart';
 import 'package:vector_math/vector_math.dart' as vm;
 
@@ -355,19 +356,130 @@ void main() {
     expect(warning.gltfMaterialIndex, 0);
   });
 
-  test('applies MToon PBR fallback values to Flutter Scene materials', () {
+  test('reports legacy transparent depth-write fallback warnings', () {
+    final model = VrmModel.parseGlb(
+      _minimalVrmGlb(legacy: true, transparentZWriteMaterial: true),
+    );
+    final binding = FlutterSceneVrmBinding.fromRootNode(
+      scene.Node(name: 'root'),
+      model: model,
+    );
+
+    final warning = binding.capabilityWarnings.singleWhere(
+      (diagnostic) => diagnostic.code == 'vrm0.transparentZWriteFallback',
+    );
+    expect(warning.gltfMaterialIndex, 0);
+  });
+
+  test('reports MASK auxiliary-pass fallback warnings', () {
+    final model = VrmModel.tryParseGlb(
+      _minimalVrmGlb(materialAlphaMode: 'MASK'),
+      validation: VrmValidationMode.permissive,
+    ).asset!;
+    final binding = FlutterSceneVrmBinding.fromRootNode(
+      scene.Node(name: 'root'),
+      model: model,
+    );
+
+    final warning = binding.capabilityWarnings.singleWhere(
+      (diagnostic) =>
+          diagnostic.code == 'flutterScene.maskAuxiliaryPassFallback',
+    );
+    expect(warning.gltfMaterialIndex, 0);
+  });
+
+  test('warns for nonzero effective texture coordinate sets', () {
+    const cases = [
+      (texCoord: 1, transformTexCoord: null, expected: 1),
+      (texCoord: 1, transformTexCoord: 0, expected: null),
+      (texCoord: 0, transformTexCoord: 2, expected: 2),
+    ];
+
+    for (final testCase in cases) {
+      final model = VrmModel.tryParseGlb(
+        _minimalVrmGlb(
+          materialTextureTexCoord: testCase.texCoord,
+          textureTransformTexCoord: testCase.transformTexCoord,
+        ),
+        validation: VrmValidationMode.permissive,
+      ).asset!;
+      final binding = FlutterSceneVrmBinding.fromRootNode(
+        scene.Node(name: 'root'),
+        model: model,
+      );
+      final warnings = binding.capabilityWarnings.where(
+        (diagnostic) =>
+            diagnostic.code == 'flutterScene.unsupportedTextureCoordinateSet',
+      );
+
+      if (testCase.expected == null) {
+        expect(warnings, isEmpty);
+      } else {
+        final warning = warnings.single;
+        expect(warning.gltfMaterialIndex, 0);
+        expect(warning.message, contains('TEXCOORD_${testCase.expected}'));
+      }
+    }
+  });
+
+  test('warns once per material texture for mipmapped samplers', () {
+    const cases = [
+      (minFilter: 9729, warns: false),
+      (minFilter: 9984, warns: true),
+      (minFilter: 9987, warns: true),
+    ];
+
+    for (final testCase in cases) {
+      final model = VrmModel.tryParseGlb(
+        _minimalVrmGlb(
+          samplerMinFilter: testCase.minFilter,
+          duplicateMaterialTextureSlot: true,
+        ),
+        validation: VrmValidationMode.permissive,
+      ).asset!;
+      final binding = FlutterSceneVrmBinding.fromRootNode(
+        scene.Node(name: 'root'),
+        model: model,
+      );
+      final warnings = binding.capabilityWarnings
+          .where(
+            (diagnostic) =>
+                diagnostic.code == 'flutterScene.unsupportedMipmappedSampler',
+          )
+          .toList();
+
+      if (!testCase.warns) {
+        expect(warnings, isEmpty);
+      } else {
+        expect(warnings, hasLength(1));
+        expect(warnings.single.gltfMaterialIndex, 0);
+        expect(warnings.single.message, contains('${testCase.minFilter}'));
+      }
+    }
+  });
+
+  test('applies MToon fallback values to every material occurrence', () {
     final model = VrmModel.tryParseGlb(
       _minimalVrmGlb(
         firstPersonSplit: true,
         meshMaterial: true,
         mtoonMaterial: true,
+        sharedMaterialPrimitives: true,
       ),
       validation: VrmValidationMode.permissive,
     ).asset!;
-    final material = _StubMaterial();
+    final materials = [_StubMaterial(), _StubMaterial()];
     final root = scene.Node(name: 'root');
     root.add(
-      scene.Node(name: 'node0', mesh: scene.Mesh(_StubGeometry(), material)),
+      scene.Node(
+        name: 'node0',
+        mesh: scene.Mesh.primitives(
+          primitives: [
+            for (final material in materials)
+              scene.MeshPrimitive(_StubGeometry(), material),
+          ],
+        ),
+      ),
     );
 
     FlutterSceneVrmBinding.fromRootNode(
@@ -376,8 +488,10 @@ void main() {
       options: FlutterSceneVrmBindingOptions(includeRootAsGltfNode: false),
     );
 
-    expect(material.baseColorFactor, vm.Vector4(0.2, 0.3, 0.4, 0.5));
-    expect(material.emissiveFactor, vm.Vector4(0.6, 0.7, 0.8, 1.0));
+    for (final material in materials) {
+      expect(material.baseColorFactor, vm.Vector4(0.2, 0.3, 0.4, 0.5));
+      expect(material.emissiveFactor, vm.Vector4(0.6, 0.7, 0.8, 1.0));
+    }
   });
 
   test('applies legacy MToon fallback values to Flutter Scene materials', () {
@@ -406,15 +520,27 @@ void main() {
     expect(material.emissiveFactor, vm.Vector4(0.6, 0.7, 0.8, 1.0));
   });
 
-  test('maps color binds to Flutter Scene material fallback fields', () {
+  test('maps color binds to every Flutter Scene material occurrence', () {
     final model = VrmModel.tryParseGlb(
-      _minimalVrmGlb(firstPersonSplit: true, meshMaterial: true),
+      _minimalVrmGlb(
+        firstPersonSplit: true,
+        meshMaterial: true,
+        sharedMaterialPrimitives: true,
+      ),
       validation: VrmValidationMode.permissive,
     ).asset!;
-    final material = _StubMaterial();
+    final materials = [_StubMaterial(), _StubMaterial()];
     final root = scene.Node(name: 'root');
     root.add(
-      scene.Node(name: 'node0', mesh: scene.Mesh(_StubGeometry(), material)),
+      scene.Node(
+        name: 'node0',
+        mesh: scene.Mesh.primitives(
+          primitives: [
+            for (final material in materials)
+              scene.MeshPrimitive(_StubGeometry(), material),
+          ],
+        ),
+      ),
     );
     final binding = FlutterSceneVrmBinding.fromRootNode(
       root,
@@ -429,9 +555,71 @@ void main() {
         .materialByGltfIndex(0)
         .setColor('emissionColor', VrmVector4(0.5, 0.6, 0.7, 1.0));
 
-    expect(material.baseColorFactor, vm.Vector4(0.1, 0.2, 0.3, 0.4));
-    expect(material.emissiveFactor, vm.Vector4(0.5, 0.6, 0.7, 1.0));
+    for (final material in materials) {
+      expect(material.baseColorFactor, vm.Vector4(0.1, 0.2, 0.3, 0.4));
+      expect(material.emissiveFactor, vm.Vector4(0.5, 0.6, 0.7, 1.0));
+    }
   });
+
+  test(
+    'maps per-texture transforms to every corrected material occurrence',
+    () {
+      final model = VrmModel.tryParseGlb(
+        _minimalVrmGlb(
+          firstPersonSplit: true,
+          meshMaterial: true,
+          sharedMaterialPrimitives: true,
+        ),
+        validation: VrmValidationMode.permissive,
+      ).asset!;
+      final materials = [_StubPerTextureMaterial(), _StubPerTextureMaterial()];
+      final root = scene.Node(name: 'root');
+      root.add(
+        scene.Node(
+          name: 'node0',
+          mesh: scene.Mesh.primitives(
+            primitives: [
+              for (final material in materials)
+                scene.MeshPrimitive(_StubGeometry(), material),
+            ],
+          ),
+        ),
+      );
+      final binding = FlutterSceneVrmBinding.fromRootNode(
+        root,
+        model: model,
+        options: FlutterSceneVrmBindingOptions(includeRootAsGltfNode: false),
+      );
+      final materialBinding =
+          binding.materialByGltfIndex(0) as VrmPerTextureMaterialBinding;
+
+      materialBinding.setTextureTransformForTexture(
+        VrmMaterialTextureSlot.baseColor,
+        scale: const VrmVector2(2, 3),
+        offset: const VrmVector2(0.1, 0.2),
+      );
+      materialBinding.setTextureTransformForTexture(
+        VrmMaterialTextureSlot.emissive,
+        scale: const VrmVector2(4, 5),
+        offset: const VrmVector2(0.3, 0.4),
+      );
+
+      for (final material in materials) {
+        expect(material.transforms[VrmMaterialTextureSlot.baseColor], (
+          scale: const VrmVector2(2, 3),
+          offset: const VrmVector2(0.1, 0.2),
+        ));
+        expect(material.transforms[VrmMaterialTextureSlot.emissive], (
+          scale: const VrmVector2(4, 5),
+          offset: const VrmVector2(0.3, 0.4),
+        ));
+      }
+      expect(
+        binding.capabilityWarnings.map((warning) => warning.code),
+        isNot(contains('flutterScene.unsupportedTextureTransform')),
+      );
+    },
+  );
 
   test('aligns materials after skipped non-triangle primitives', () {
     final model = VrmModel.tryParseGlb(
@@ -527,11 +715,22 @@ void main() {
 
 Uint8List _minimalVrmGlb({
   bool mtoonMaterial = false,
+  bool transparentZWriteMaterial = false,
   bool firstPersonSplit = false,
   bool meshMaterial = false,
   bool skippedPrimitiveBeforeMaterial = false,
+  bool sharedMaterialPrimitives = false,
+  int? materialTextureTexCoord,
+  int? textureTransformTexCoord,
+  int? samplerMinFilter,
+  String? materialAlphaMode,
+  bool duplicateMaterialTextureSlot = false,
   bool legacy = false,
 }) {
+  final hasMaterialTexture =
+      materialTextureTexCoord != null ||
+      textureTransformTexCoord != null ||
+      samplerMinFilter != null;
   final nodeChildren = legacy ? _legacyNodeChildren : _nodeChildren;
   final binaryChunk = firstPersonSplit ? _firstPersonSplitBinary() : null;
   final jsonBytes = Uint8List.fromList(
@@ -544,6 +743,7 @@ Uint8List _minimalVrmGlb({
             'VRMC_materials_mtoon',
             'KHR_materials_unlit',
           ],
+          if (textureTransformTexCoord != null) 'KHR_texture_transform',
         ],
         'extensionsRequired': [legacy ? 'VRM' : 'VRMC_vrm'],
         'scene': 0,
@@ -569,15 +769,33 @@ Uint8List _minimalVrmGlb({
             binaryChunk!,
             material: meshMaterial ? 0 : null,
             skippedPrimitiveBeforeMaterial: skippedPrimitiveBeforeMaterial,
+            sharedMaterialPrimitives: sharedMaterialPrimitives,
           ),
-        if (mtoonMaterial || meshMaterial)
+        if (mtoonMaterial ||
+            transparentZWriteMaterial ||
+            meshMaterial ||
+            hasMaterialTexture ||
+            materialAlphaMode != null)
           'materials': [
             {
-              if (mtoonMaterial)
+              'alphaMode': ?materialAlphaMode,
+              if (mtoonMaterial || hasMaterialTexture)
                 'pbrMetallicRoughness': {
-                  'baseColorFactor': [0.2, 0.3, 0.4, 0.5],
+                  if (mtoonMaterial) 'baseColorFactor': [0.2, 0.3, 0.4, 0.5],
+                  if (hasMaterialTexture)
+                    'baseColorTexture': {
+                      'index': 0,
+                      'texCoord': ?materialTextureTexCoord,
+                      if (textureTransformTexCoord != null)
+                        'extensions': {
+                          'KHR_texture_transform': {
+                            'texCoord': textureTransformTexCoord,
+                          },
+                        },
+                    },
                 },
               if (mtoonMaterial) 'emissiveFactor': [0.6, 0.7, 0.8],
+              if (duplicateMaterialTextureSlot) 'emissiveTexture': {'index': 0},
               if (mtoonMaterial && !legacy)
                 'extensions': {
                   'VRMC_materials_mtoon': {'specVersion': '1.0'},
@@ -586,6 +804,21 @@ Uint8List _minimalVrmGlb({
             },
             if (skippedPrimitiveBeforeMaterial) {},
           ],
+        if (hasMaterialTexture) ...{
+          'textures': [
+            {'source': 0, if (samplerMinFilter != null) 'sampler': 0},
+          ],
+          if (samplerMinFilter != null)
+            'samplers': [
+              {'minFilter': samplerMinFilter},
+            ],
+          'images': [
+            {
+              'uri':
+                  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+            },
+          ],
+        },
         'extensions': {
           if (legacy)
             'VRM': {
@@ -605,11 +838,13 @@ Uint8List _minimalVrmGlb({
                 'boneGroups': <Object?>[],
                 'colliderGroups': <Object?>[],
               },
-              'materialProperties': mtoonMaterial
+              'materialProperties': (mtoonMaterial || transparentZWriteMaterial)
                   ? [
                       {
-                        'name': 'Face',
-                        'shader': 'VRM/MToon',
+                        'name': transparentZWriteMaterial ? 'HairTip' : 'Face',
+                        'shader': transparentZWriteMaterial
+                            ? 'VRM/UnlitTransparentZWrite'
+                            : 'VRM/MToon',
                         'floatProperties': <String, Object?>{},
                         'vectorProperties': <String, Object?>{},
                         'textureProperties': <String, Object?>{},
@@ -700,10 +935,41 @@ final class _StubMaterial extends scene.Material {
   }
 }
 
+final class _StubPerTextureMaterial extends scene.Material
+    implements FlutterScenePerTextureMaterial {
+  final transforms =
+      <VrmMaterialTextureSlot, ({VrmVector2 scale, VrmVector2 offset})>{};
+
+  @override
+  Set<VrmMaterialTextureSlot> get textureTransformSlots => const {
+    VrmMaterialTextureSlot.baseColor,
+    VrmMaterialTextureSlot.emissive,
+  };
+
+  @override
+  void setTextureTransformForTexture(
+    VrmMaterialTextureSlot slot, {
+    required VrmVector2 scale,
+    required VrmVector2 offset,
+  }) {
+    transforms[slot] = (scale: scale, offset: offset);
+  }
+
+  @override
+  void bind(
+    gpu.RenderPass pass,
+    gpu.HostBuffer transientsBuffer,
+    scene.Lighting lighting,
+  ) {
+    throw UnsupportedError('Stub material is not renderable');
+  }
+}
+
 Map<String, Object?> _firstPersonSplitGltfData(
   Uint8List binary, {
   int? material,
   bool skippedPrimitiveBeforeMaterial = false,
+  bool sharedMaterialPrimitives = false,
 }) => {
   'meshes': [
     {
@@ -715,7 +981,13 @@ Map<String, Object?> _firstPersonSplitGltfData(
         },
         {
           'mode': skippedPrimitiveBeforeMaterial ? 4 : 0,
-          if (skippedPrimitiveBeforeMaterial) 'material': 1,
+          ..._materialEntry(
+            skippedPrimitiveBeforeMaterial
+                ? 1
+                : sharedMaterialPrimitives
+                ? material
+                : null,
+          ),
           'attributes': {'JOINTS_0': 2, 'WEIGHTS_0': 3},
         },
       ],

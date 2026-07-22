@@ -2,6 +2,7 @@ import 'package:flutter_scene/scene.dart' as scene;
 import 'package:flvtterm/flvtterm.dart';
 import 'package:vector_math/vector_math.dart' as vm;
 
+import 'flutter_scene_material_corrections.dart';
 import 'flutter_scene_morph_target_primitive.dart';
 import 'morph_target_blender.dart';
 
@@ -36,9 +37,9 @@ final class FlutterSceneVrmBindingOptions {
 ///
 /// The binding keeps Flutter Scene types in this optional package. Node
 /// transforms, mesh-component visibility, and supported morph target weights
-/// are applied directly. Texture transforms still emit capability warnings
-/// because Flutter Scene does not document a public mutator for imported
-/// texture transforms.
+/// are applied directly. Materials produced by [FlutterSceneVrmAsset] also
+/// accept independent expression-driven texture transforms through the
+/// adapter's exact-version material seam.
 final class FlutterSceneVrmBinding
     implements VrmModelRootBinding, VrmModelWorldBinding {
   /// Creates a binding for a Flutter Scene GLB root.
@@ -56,6 +57,41 @@ final class FlutterSceneVrmBinding
           model.vrm0MtoonFallbackWarning(material.index) ??
           material.mtoonFallbackWarning();
       if (warning != null) _capabilityWarnings.add(warning);
+      final transparentZWriteWarning = model
+          .vrm0TransparentZWriteFallbackWarning(material.index);
+      if (transparentZWriteWarning != null) {
+        _capabilityWarnings.add(transparentZWriteWarning);
+      }
+      if (material.alphaMode == GltfAlphaMode.mask) {
+        _warnOnce(
+          code: 'flutterScene.maskAuxiliaryPassFallback',
+          message:
+              'Flutter Scene 0.17.0 applies MASK alpha cutoff in the color pass, but its depth and shadow auxiliary passes render the full primitive silhouette.',
+          gltfMaterialIndex: material.index,
+        );
+      }
+      final checkedTextureIndices = <int>{};
+      for (final texture in _uvAccessedMaterialTextures(material)) {
+        final texCoord = texture.textureTransform?.texCoord ?? texture.texCoord;
+        if (texCoord != 0) {
+          _warnOnce(
+            code: 'flutterScene.unsupportedTextureCoordinateSet',
+            message:
+                'Flutter Scene imports only TEXCOORD_0; material ${material.index} requests TEXCOORD_$texCoord.',
+            gltfMaterialIndex: material.index,
+          );
+        }
+        if (!checkedTextureIndices.add(texture.index)) continue;
+        final minFilter = _mipmappedSamplerMinFilter(model.gltf, texture.index);
+        if (minFilter == null) continue;
+        _warnOnce(
+          code: 'flutterScene.unsupportedMipmappedSampler',
+          message:
+              'Flutter Scene uploads only one mip level; material ${material.index} texture ${texture.index} requests minFilter $minFilter.',
+          gltfMaterialIndex: material.index,
+          detailKey: 'texture:${texture.index}',
+        );
+      }
     }
     for (final entry in options.nodeIndexPaths.entries) {
       if (entry.key < 0 || entry.key >= model.gltf.nodes.length) {
@@ -258,7 +294,7 @@ final class FlutterSceneVrmBinding
   VrmMaterialBinding materialByGltfIndex(int materialIndex) =>
       _materialBindings.putIfAbsent(
         materialIndex,
-        () => _FlutterSceneMaterialBinding(this, materialIndex, null),
+        () => _FlutterSceneMaterialBinding(this, materialIndex, const []),
       );
 
   @override
@@ -277,8 +313,9 @@ final class FlutterSceneVrmBinding
     required String message,
     int? gltfNodeIndex,
     int? gltfMaterialIndex,
+    String? detailKey,
   }) {
-    final key = '$code:$gltfNodeIndex:$gltfMaterialIndex';
+    final key = '$code:$gltfNodeIndex:$gltfMaterialIndex:$detailKey';
     if (!_warningCodes.add(key)) return;
     _capabilityWarnings.add(
       VrmDiagnostic(
@@ -289,6 +326,40 @@ final class FlutterSceneVrmBinding
         gltfMaterialIndex: gltfMaterialIndex,
       ),
     );
+  }
+}
+
+int? _mipmappedSamplerMinFilter(GltfAsset gltf, int textureIndex) {
+  if (textureIndex < 0 || textureIndex >= gltf.textures.length) return null;
+  final samplerIndex = gltf.textures[textureIndex].sampler;
+  if (samplerIndex == null ||
+      samplerIndex < 0 ||
+      samplerIndex >= gltf.samplers.length) {
+    return null;
+  }
+  final minFilter = gltf.samplers[samplerIndex].minFilter;
+  return minFilter != null && minFilter >= 9984 && minFilter <= 9987
+      ? minFilter
+      : null;
+}
+
+Iterable<VrmTextureInfo> _uvAccessedMaterialTextures(
+  GltfMaterial material,
+) sync* {
+  final textures = <VrmTextureInfo?>[
+    material.baseColorTexture,
+    material.metallicRoughnessTexture,
+    material.normalTexture,
+    material.occlusionTexture,
+    material.emissiveTexture,
+    material.mtoon?.shadeMultiplyTexture,
+    material.mtoon?.shadingShiftTexture,
+    material.mtoon?.rimMultiplyTexture,
+    material.mtoon?.outlineWidthMultiplyTexture,
+    material.mtoon?.uvAnimationMaskTexture,
+  ];
+  for (final texture in textures) {
+    if (texture != null) yield texture;
   }
 }
 
@@ -414,11 +485,11 @@ void _mapNodeHierarchy({
   }
 }
 
-Map<int, scene.Material> _sceneMaterials(
+Map<int, List<scene.Material>> _sceneMaterials(
   Map<int, scene.Node> nodes,
   VrmModel model,
 ) {
-  final materials = <int, scene.Material>{};
+  final materials = <int, List<scene.Material>>{};
   for (final entry in nodes.entries) {
     final nodeIndex = entry.key;
     if (nodeIndex < 0 || nodeIndex >= model.gltf.nodes.length) continue;
@@ -438,7 +509,11 @@ Map<int, scene.Material> _sceneMaterials(
     ) {
       final materialIndex = gltfPrimitives[i].material;
       if (materialIndex == null) continue;
-      materials.putIfAbsent(materialIndex, () => scenePrimitives[i].material);
+      final sceneMaterial = scenePrimitives[i].material;
+      final occurrences = materials.putIfAbsent(materialIndex, () => []);
+      if (!occurrences.any((material) => identical(material, sceneMaterial))) {
+        occurrences.add(sceneMaterial);
+      }
     }
   }
   return materials;
@@ -699,16 +774,17 @@ final class _FlutterSceneMeshBinding implements VrmMeshBinding {
   }
 }
 
-final class _FlutterSceneMaterialBinding implements VrmMaterialBinding {
+final class _FlutterSceneMaterialBinding
+    implements VrmPerTextureMaterialBinding {
   _FlutterSceneMaterialBinding(
     this._owner,
     this._materialIndex,
-    this._material,
-  );
+    List<scene.Material> materials,
+  ) : _materials = List.unmodifiable(materials);
 
   final FlutterSceneVrmBinding? _owner;
   final int _materialIndex;
-  final dynamic _material;
+  final List<scene.Material> _materials;
 
   void applyFallback(GltfMaterial material) {
     setColor('color', material.baseColorFactor);
@@ -717,8 +793,7 @@ final class _FlutterSceneMaterialBinding implements VrmMaterialBinding {
 
   @override
   void setColor(String parameter, VrmVector4 value) {
-    final material = _material;
-    if (material == null) {
+    if (_materials.isEmpty) {
       _owner?._warnOnce(
         code: 'flutterScene.missingMaterial',
         message: 'Flutter Scene material $_materialIndex was not found.',
@@ -726,34 +801,37 @@ final class _FlutterSceneMaterialBinding implements VrmMaterialBinding {
       );
       return;
     }
-    try {
-      switch (parameter) {
-        case 'color':
+    if (parameter != 'color' && parameter != 'emissionColor') {
+      _warnUnsupportedColor();
+      return;
+    }
+    var unsupported = false;
+    for (final sceneMaterial in _materials) {
+      final dynamic material = sceneMaterial;
+      try {
+        if (parameter == 'color') {
           material.baseColorFactor = vm.Vector4(
             value.x,
             value.y,
             value.z,
             value.w,
           );
-          return;
-        case 'emissionColor':
+        } else {
           material.emissiveFactor = vm.Vector4(
             value.x,
             value.y,
             value.z,
             value.w,
           );
-          return;
+        }
+      } on Object {
+        unsupported = true;
       }
-    } on Object {
-      _owner?._warnOnce(
-        code: 'flutterScene.unsupportedMaterialColor',
-        message:
-            'Flutter Scene fallback binding only maps VRM color and emissionColor binds.',
-        gltfMaterialIndex: _materialIndex,
-      );
-      return;
     }
+    if (unsupported) _warnUnsupportedColor();
+  }
+
+  void _warnUnsupportedColor() {
     _owner?._warnOnce(
       code: 'flutterScene.unsupportedMaterialColor',
       message:
@@ -767,11 +845,47 @@ final class _FlutterSceneMaterialBinding implements VrmMaterialBinding {
     required VrmVector2 scale,
     required VrmVector2 offset,
   }) {
+    setTextureTransformForTexture(
+      VrmMaterialTextureSlot.baseColor,
+      scale: scale,
+      offset: offset,
+    );
+  }
+
+  @override
+  void setTextureTransformForTexture(
+    VrmMaterialTextureSlot slot, {
+    required VrmVector2 scale,
+    required VrmVector2 offset,
+  }) {
+    var unsupported = _materials.isEmpty;
+    for (final material in _materials) {
+      final FlutterScenePerTextureMaterial? transformMaterial =
+          switch (material) {
+            FlutterScenePerTextureMaterial value => value,
+            _ => null,
+          };
+      if (transformMaterial == null) {
+        unsupported = true;
+        continue;
+      }
+      if (!transformMaterial.textureTransformSlots.contains(slot)) {
+        unsupported = true;
+        continue;
+      }
+      transformMaterial.setTextureTransformForTexture(
+        slot,
+        scale: scale,
+        offset: offset,
+      );
+    }
+    if (!unsupported) return;
     _owner?._warnOnce(
       code: 'flutterScene.unsupportedTextureTransform',
       message:
-          'Flutter Scene does not expose a documented texture transform mutator for imported materials.',
+          'Flutter Scene cannot update the ${slot.name} texture transform for every occurrence of material $_materialIndex.',
       gltfMaterialIndex: _materialIndex,
+      detailKey: 'slot:${slot.name}',
     );
   }
 }
