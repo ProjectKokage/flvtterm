@@ -134,14 +134,14 @@ packages:
       path: "../.."
       relative: true
     source: path
-    version: "0.2.2"
+    version: "0.2.3"
   flvtterm_flutter_scene:
     dependency: "direct main"
     description:
       path: "../../packages/vrm_flutter_scene"
       relative: true
     source: path
-    version: "0.2.2"
+    version: "0.2.3"
   hooks:
     dependency: transitive
     description:

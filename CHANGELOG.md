@@ -1,3 +1,14 @@
+## 0.2.3
+
+- Preserve glTF and VRM material semantics in the Flutter Scene import path,
+  including straight-alpha textures, alpha modes, double-sided rendering,
+  sampler settings, and independent texture UV transforms.
+- Preserve per-texture UV transform bases when applying expression binds and
+  expose an optional renderer-neutral per-texture material binding.
+- Correct MToon texture semantics and classify VRM 0.x transparent Z-write
+  materials as unlit, with adapter capability diagnostics for remaining
+  Flutter Scene limitations.
+
 ## 0.2.2
 
 - Add visible POSITION/NORMAL morph-target composition to the pinned Flutter
