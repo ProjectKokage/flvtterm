@@ -396,8 +396,10 @@ final class _FakeMesh implements VrmMeshBinding {
   }
 }
 
-final class _FakeMaterial implements VrmMaterialBinding {
+final class _FakeMaterial implements VrmPerTextureMaterialBinding {
   final colors = <String, VrmVector4>{};
+  final textureTransforms =
+      <VrmMaterialTextureSlot, ({VrmVector2 scale, VrmVector2 offset})>{};
   VrmVector2? scale;
   VrmVector2? offset;
 
@@ -411,6 +413,17 @@ final class _FakeMaterial implements VrmMaterialBinding {
     required VrmVector2 scale,
     required VrmVector2 offset,
   }) {
+    this.scale = scale;
+    this.offset = offset;
+  }
+
+  @override
+  void setTextureTransformForTexture(
+    VrmMaterialTextureSlot slot, {
+    required VrmVector2 scale,
+    required VrmVector2 offset,
+  }) {
+    textureTransforms[slot] = (scale: scale, offset: offset);
     this.scale = scale;
     this.offset = offset;
   }

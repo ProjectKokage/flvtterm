@@ -81,3 +81,55 @@ abstract interface class VrmMaterialBinding {
     required VrmVector2 offset,
   });
 }
+
+/// One UV-accessed texture slot on a renderer material.
+///
+/// MToon's MatCap is intentionally absent because it is sampled from the
+/// view-space normal rather than mesh UVs.
+enum VrmMaterialTextureSlot {
+  /// glTF PBR base-color texture.
+  baseColor,
+
+  /// glTF PBR metallic-roughness texture.
+  metallicRoughness,
+
+  /// glTF normal texture.
+  normal,
+
+  /// glTF occlusion texture.
+  occlusion,
+
+  /// glTF emissive texture.
+  emissive,
+
+  /// MToon shade-multiply texture.
+  mtoonShadeMultiply,
+
+  /// MToon shading-shift texture.
+  mtoonShadingShift,
+
+  /// MToon rim-multiply texture.
+  mtoonRimMultiply,
+
+  /// MToon outline-width-multiply texture.
+  mtoonOutlineWidthMultiply,
+
+  /// MToon UV-animation-mask texture.
+  mtoonUvAnimationMask,
+}
+
+/// Optional material binding that preserves each texture's authored UV base.
+///
+/// The runtime uses this interface when available so expression interpolation
+/// can start from a distinct `KHR_texture_transform` for every UV-accessed
+/// texture. Bindings that only implement [VrmMaterialBinding] retain the
+/// material-wide compatibility path.
+abstract interface class VrmPerTextureMaterialBinding
+    implements VrmMaterialBinding {
+  /// Sets one UV-accessed texture slot's scale and offset.
+  void setTextureTransformForTexture(
+    VrmMaterialTextureSlot slot, {
+    required VrmVector2 scale,
+    required VrmVector2 offset,
+  });
+}

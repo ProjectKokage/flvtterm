@@ -190,6 +190,98 @@ void expressionLookAtTests() {
     expect(binding.committed, 2);
   });
 
+  test('preserves per-texture UV bases and excludes MToon MatCap', () {
+    final json = _minimalVrmJson(
+      materials: [
+        {
+          'pbrMetallicRoughness': {
+            'baseColorTexture': {
+              'index': 0,
+              'extensions': {
+                'KHR_texture_transform': {
+                  'scale': [2.0, 4.0],
+                  'offset': [0.0, 0.25],
+                },
+              },
+            },
+          },
+          'emissiveTexture': {
+            'index': 0,
+            'extensions': {
+              'KHR_texture_transform': {
+                'scale': [4.0, 6.0],
+                'offset': [0.25, 0.5],
+              },
+            },
+          },
+          'extensions': {
+            'VRMC_materials_mtoon': {
+              'specVersion': '1.0',
+              'matcapTexture': {
+                'index': 0,
+                'extensions': {
+                  'KHR_texture_transform': {
+                    'scale': [9.0, 9.0],
+                    'offset': [0.75, 0.75],
+                  },
+                },
+              },
+            },
+          },
+        },
+      ],
+      expressions: {
+        'custom': {
+          'uv': {
+            'textureTransformBinds': [
+              {
+                'material': 0,
+                'scale': [6.0, 8.0],
+                'offset': [0.5, 0.75],
+              },
+            ],
+          },
+        },
+      },
+    );
+    json['textures'] = [<String, Object?>{}];
+    (json['extensionsUsed']! as List<Object?>)
+      ..add('KHR_texture_transform')
+      ..add('VRMC_materials_mtoon');
+    final model = VrmModel.parseGlb(_glb(json));
+    final binding = _FakeBinding();
+    final runtime = VrmRuntime(model)..bind(binding);
+
+    runtime.expressions.setCustom('uv', 0.5);
+    runtime.update(0);
+
+    final transforms = binding.materials[0]!.textureTransforms;
+    expect(transforms.keys, {
+      VrmMaterialTextureSlot.baseColor,
+      VrmMaterialTextureSlot.emissive,
+    });
+    expect(transforms[VrmMaterialTextureSlot.baseColor], (
+      scale: const VrmVector2(4, 6),
+      offset: const VrmVector2(0.25, 0.5),
+    ));
+    expect(transforms[VrmMaterialTextureSlot.emissive], (
+      scale: const VrmVector2(5, 7),
+      offset: const VrmVector2(0.375, 0.625),
+    ));
+
+    runtime.expressions.clear();
+    runtime.update(0);
+
+    expect(transforms[VrmMaterialTextureSlot.baseColor], (
+      scale: const VrmVector2(2, 4),
+      offset: const VrmVector2(0, 0.25),
+    ));
+    expect(transforms[VrmMaterialTextureSlot.emissive], (
+      scale: const VrmVector2(4, 6),
+      offset: const VrmVector2(0.25, 0.5),
+    ));
+  });
+
   test(
     'expression blend override scales mouth and suppresses binary targets',
     () {

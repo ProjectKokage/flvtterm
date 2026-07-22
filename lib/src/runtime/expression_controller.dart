@@ -105,7 +105,8 @@ final class VrmExpressionController {
     final morphs = <_MorphKey, double>{};
     final colorBases = <int, Map<String, VrmVector4>>{};
     final colors = <_MaterialColorKey, VrmVector4>{};
-    final textureTransforms = <int, _TextureTransformAccum>{};
+    final textureTransforms =
+        <int, Map<VrmMaterialTextureSlot, _TextureTransformAccum>>{};
 
     for (final expression in definitions.values) {
       for (final bind in expression.morphTargetBinds) {
@@ -143,7 +144,7 @@ final class VrmExpressionController {
         if (material == null) continue;
         textureTransforms.putIfAbsent(
           bind.material,
-          () => _baseTextureTransformForModel(model, bind.material),
+          () => _baseTextureTransformsForModel(model, bind.material),
         );
       }
     }
@@ -190,10 +191,21 @@ final class VrmExpressionController {
       for (final bind in expression.textureTransformBinds) {
         final material = model.gltf.materials.elementAtOrNull(bind.material);
         if (material == null) continue;
-        final base = _baseTextureTransformForModel(model, bind.material);
-        final accum = textureTransforms.putIfAbsent(bind.material, () => base);
-        accum.scale = accum.scale + (bind.scale - base.scale) * weight;
-        accum.offset = accum.offset + (bind.offset - base.offset) * weight;
+        final bases = _baseTextureTransformsForModel(model, bind.material);
+        final accumulators = textureTransforms.putIfAbsent(
+          bind.material,
+          () => _baseTextureTransformsForModel(model, bind.material),
+        );
+        for (final entry in bases.entries) {
+          final base = entry.value;
+          final accum = accumulators.putIfAbsent(
+            entry.key,
+            () =>
+                _TextureTransformAccum(scale: base.scale, offset: base.offset),
+          );
+          accum.scale = accum.scale + (bind.scale - base.scale) * weight;
+          accum.offset = accum.offset + (bind.offset - base.offset) * weight;
+        }
       }
     }
 
@@ -212,12 +224,10 @@ final class VrmExpressionController {
           .setColor(entry.key.type, entry.value);
     }
     for (final entry in textureTransforms.entries) {
-      binding
-          .materialByGltfIndex(entry.key)
-          .setTextureTransform(
-            scale: entry.value.scale,
-            offset: entry.value.offset,
-          );
+      _setTextureTransforms(
+        binding.materialByGltfIndex(entry.key),
+        entry.value,
+      );
     }
   }
 }

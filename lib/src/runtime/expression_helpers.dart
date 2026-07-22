@@ -86,49 +86,110 @@ VrmVector4 _materialColorTarget(
 }
 
 _TextureTransformAccum _baseTextureTransform(GltfMaterial material) {
-  final transform = _firstTextureTransform(material);
-  return _TextureTransformAccum(
-    scale: transform?.scale ?? VrmVector2.one,
-    offset: transform?.offset ?? VrmVector2.zero,
-  );
+  final transforms = _baseTextureTransforms(material);
+  if (transforms.isEmpty) return _TextureTransformAccum();
+  final first = transforms.values.first;
+  return _TextureTransformAccum(scale: first.scale, offset: first.offset);
 }
 
-_TextureTransformAccum _baseTextureTransformForModel(
-  VrmModel model,
-  int materialIndex,
-) {
+Map<VrmMaterialTextureSlot, _TextureTransformAccum>
+_baseTextureTransformsForModel(VrmModel model, int materialIndex) {
+  final result = <VrmMaterialTextureSlot, _TextureTransformAccum>{};
   final legacy = model
       .vrm0MaterialPropertyForGltfIndex(materialIndex)
       ?.vectorProperties['_MainTex'];
   if (legacy != null && legacy.length >= 4) {
     final scale = VrmVector2(legacy[0], legacy[1]);
-    return _TextureTransformAccum(
+    result[VrmMaterialTextureSlot.baseColor] = _TextureTransformAccum(
       scale: scale,
       offset: VrmVector2(legacy[2], 1 - legacy[3] - scale.y),
     );
+  } else if (model.isVrm0) {
+    // Legacy material-value binds target Unity's conceptual _MainTex even when
+    // the glTF fallback omits a base-color texture reference.
+    result[VrmMaterialTextureSlot.baseColor] = _TextureTransformAccum();
   }
   final material = model.gltf.materials.elementAtOrNull(materialIndex);
-  return material == null
-      ? _TextureTransformAccum(scale: VrmVector2.one, offset: VrmVector2.zero)
-      : _baseTextureTransform(material);
+  if (material == null) return result;
+  for (final entry in _baseTextureTransforms(material).entries) {
+    result.putIfAbsent(entry.key, () => entry.value);
+  }
+  return result;
 }
 
-GltfTextureTransform? _firstTextureTransform(GltfMaterial material) {
-  for (final texture in [
-    material.baseColorTexture,
-    material.metallicRoughnessTexture,
-    material.normalTexture,
-    material.occlusionTexture,
-    material.emissiveTexture,
-    material.mtoon?.shadeMultiplyTexture,
-    material.mtoon?.shadingShiftTexture,
-    material.mtoon?.matcapTexture,
-    material.mtoon?.rimMultiplyTexture,
-    material.mtoon?.outlineWidthMultiplyTexture,
-    material.mtoon?.uvAnimationMaskTexture,
-  ]) {
-    final transform = texture?.textureTransform;
-    if (transform != null) return transform;
+Map<VrmMaterialTextureSlot, _TextureTransformAccum> _baseTextureTransforms(
+  GltfMaterial material,
+) {
+  final result = <VrmMaterialTextureSlot, _TextureTransformAccum>{};
+  for (final entry in _uvAccessedMaterialTextures(material)) {
+    final transform = entry.texture.textureTransform;
+    result[entry.slot] = _TextureTransformAccum(
+      scale: transform?.scale ?? VrmVector2.one,
+      offset: transform?.offset ?? VrmVector2.zero,
+    );
   }
-  return null;
+  return result;
+}
+
+Iterable<({VrmMaterialTextureSlot slot, VrmTextureInfo texture})>
+_uvAccessedMaterialTextures(GltfMaterial material) sync* {
+  final textures = <({VrmMaterialTextureSlot slot, VrmTextureInfo? texture})>[
+    (
+      slot: VrmMaterialTextureSlot.baseColor,
+      texture: material.baseColorTexture,
+    ),
+    (
+      slot: VrmMaterialTextureSlot.metallicRoughness,
+      texture: material.metallicRoughnessTexture,
+    ),
+    (slot: VrmMaterialTextureSlot.normal, texture: material.normalTexture),
+    (
+      slot: VrmMaterialTextureSlot.occlusion,
+      texture: material.occlusionTexture,
+    ),
+    (slot: VrmMaterialTextureSlot.emissive, texture: material.emissiveTexture),
+    (
+      slot: VrmMaterialTextureSlot.mtoonShadeMultiply,
+      texture: material.mtoon?.shadeMultiplyTexture,
+    ),
+    (
+      slot: VrmMaterialTextureSlot.mtoonShadingShift,
+      texture: material.mtoon?.shadingShiftTexture,
+    ),
+    (
+      slot: VrmMaterialTextureSlot.mtoonRimMultiply,
+      texture: material.mtoon?.rimMultiplyTexture,
+    ),
+    (
+      slot: VrmMaterialTextureSlot.mtoonOutlineWidthMultiply,
+      texture: material.mtoon?.outlineWidthMultiplyTexture,
+    ),
+    (
+      slot: VrmMaterialTextureSlot.mtoonUvAnimationMask,
+      texture: material.mtoon?.uvAnimationMaskTexture,
+    ),
+  ];
+  for (final entry in textures) {
+    final texture = entry.texture;
+    if (texture != null) yield (slot: entry.slot, texture: texture);
+  }
+}
+
+void _setTextureTransforms(
+  VrmMaterialBinding binding,
+  Map<VrmMaterialTextureSlot, _TextureTransformAccum> transforms,
+) {
+  if (transforms.isEmpty) return;
+  if (binding is VrmPerTextureMaterialBinding) {
+    for (final entry in transforms.entries) {
+      binding.setTextureTransformForTexture(
+        entry.key,
+        scale: entry.value.scale,
+        offset: entry.value.offset,
+      );
+    }
+    return;
+  }
+  final transform = transforms.values.first;
+  binding.setTextureTransform(scale: transform.scale, offset: transform.offset);
 }

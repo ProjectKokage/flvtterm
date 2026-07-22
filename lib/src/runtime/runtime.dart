@@ -125,13 +125,10 @@ final class VrmRuntime {
       for (final bind in expression.textureTransformBinds) {
         final material = model.gltf.materials.elementAtOrNull(bind.material);
         if (material == null) continue;
-        final transform = _baseTextureTransformForModel(model, bind.material);
-        binding
-            .materialByGltfIndex(bind.material)
-            .setTextureTransform(
-              scale: transform.scale,
-              offset: transform.offset,
-            );
+        _setTextureTransforms(
+          binding.materialByGltfIndex(bind.material),
+          _baseTextureTransformsForModel(model, bind.material),
+        );
       }
     }
   }
