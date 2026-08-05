@@ -1,7 +1,7 @@
-// Flutter Scene 0.17.0 keeps the render-pass and texture-allocation types used
+// Flutter Scene 0.19.0 keeps the render-pass and texture-allocation types used
 // by imported materials internal. This adapter is exact-version pinned while
 // that compatibility seam exists.
-// ignore_for_file: implementation_imports, public_member_api_docs
+// ignore_for_file: implementation_imports, invalid_use_of_internal_member, public_member_api_docs
 
 import 'dart:math' as math;
 import 'dart:typed_data';
@@ -77,8 +77,7 @@ Future<FlutterSceneMaterialCorrectionResult> correctFlutterSceneMaterials(
             imported is scene.PhysicallyBasedMaterial)) {
       final sourceTexture = switch (imported) {
         scene.UnlitMaterial material => material.baseColorTexture,
-        scene.PhysicallyBasedMaterial material =>
-          scene.Material.whitePlaceholder(material.baseColorTexture),
+        scene.PhysicallyBasedMaterial material => material.baseColorTexture,
         _ => throw StateError('Unreachable Flutter Scene material type.'),
       };
       final sourceFactor = switch (imported) {
@@ -95,16 +94,22 @@ Future<FlutterSceneMaterialCorrectionResult> correctFlutterSceneMaterials(
         gltfMaterial.baseColorTexture?.index,
         sourceTexture,
       );
+      final baseColorSampler = _samplerForTexture(
+        model.gltf,
+        gltfMaterial.baseColorTexture?.index,
+      );
       slot.primitive.material = _CorrectedUnlitMaterial(
         sourceBaseColorFactor: sourceFactor,
         vertexColorWeight: vertexColorWeight,
         material: gltfMaterial,
         fragmentShader: unlitShader,
-        baseColorTexture: baseTexture ?? sourceTexture,
-        baseColorSampler: _samplerForTexture(
-          model.gltf,
-          gltfMaterial.baseColorTexture?.index,
-        ),
+        baseColorTexture:
+            baseTexture ??
+            scene.GpuTextureSource(
+              scene.Material.getWhitePlaceholderTexture(),
+              sampler: baseColorSampler,
+            ),
+        baseColorSampler: baseColorSampler,
       );
       correctedMaterials.add(gltfMaterial.index);
       continue;
@@ -169,10 +174,13 @@ final class _StraightTextureCache {
   _StraightTextureCache(this.gltf);
 
   final GltfAsset gltf;
-  final Map<int, gpu.Texture> _textures = {};
+  final Map<int, scene.TextureSource> _textures = {};
   final Set<int> correctedTextureIndices = {};
 
-  Future<gpu.Texture?> resolve(int? textureIndex, gpu.Texture? imported) async {
+  Future<scene.TextureSource?> resolve(
+    int? textureIndex,
+    scene.TextureSource? imported,
+  ) async {
     if (textureIndex == null) return imported;
     final cached = _textures[textureIndex];
     if (cached != null) return cached;
@@ -188,12 +196,14 @@ final class _StraightTextureCache {
     final encoded = gltf.images[imageIndex].data;
     if (encoded == null) return imported;
     final decoded = await _decodeStraightRgba(encoded);
-    final texture = gpu.gpuContext.createTexture(
-      gpu.StorageMode.hostVisible,
+    final texture = scene.Texture2D.fromPixels(
+      decoded.rgba.buffer.asUint8List(
+        decoded.rgba.offsetInBytes,
+        decoded.rgba.lengthInBytes,
+      ),
       decoded.width,
       decoded.height,
     );
-    texture.overwrite(decoded.rgba);
     _textures[textureIndex] = texture;
     correctedTextureIndices.add(textureIndex);
     return texture;
@@ -238,7 +248,7 @@ final class _CorrectedUnlitMaterial extends scene.ShaderMaterial
     required this.vertexColorWeight,
     required GltfMaterial material,
     required gpu.Shader fragmentShader,
-    required gpu.Texture baseColorTexture,
+    required scene.TextureSource baseColorTexture,
     required gpu.SamplerOptions baseColorSampler,
   }) : _alphaMode = material.alphaMode,
        _alphaCutoff = material.alphaCutoff,
@@ -260,7 +270,7 @@ final class _CorrectedUnlitMaterial extends scene.ShaderMaterial
 
   final GltfAlphaMode _alphaMode;
   final double _alphaCutoff;
-  final gpu.Texture _baseColorTexture;
+  final scene.TextureSource _baseColorTexture;
   final gpu.SamplerOptions _baseColorSampler;
   _TextureTransform _textureTransform;
   vm.Vector4 baseColorFactor;
@@ -290,7 +300,7 @@ final class _CorrectedUnlitMaterial extends scene.ShaderMaterial
   @override
   void bind(
     gpu.RenderPass pass,
-    gpu.HostBuffer transientsBuffer,
+    scene.TransientWriter transientsBuffer,
     scene.Lighting lighting,
   ) {
     isOpaqueOverride = _alphaMode != GltfAlphaMode.blend;
@@ -306,7 +316,7 @@ final class _CorrectedUnlitMaterial extends scene.ShaderMaterial
           vertexColorWeight,
           _alphaMode.index.toDouble(),
           _alphaCutoff,
-          0,
+          lodFade,
         ]),
       ),
     );
@@ -389,7 +399,7 @@ final class _CorrectedPbrMaterial extends scene.PhysicallyBasedMaterial
   @override
   void bind(
     gpu.RenderPass pass,
-    gpu.HostBuffer transientsBuffer,
+    scene.TransientWriter transientsBuffer,
     scene.Lighting lighting,
   ) {
     final originalAlpha = baseColorFactor.a;
@@ -417,27 +427,27 @@ final class _CorrectedPbrMaterial extends scene.PhysicallyBasedMaterial
     );
     pass.bindTexture(
       fragmentShader.getUniformSlot('base_color_texture'),
-      scene.Material.whitePlaceholder(baseColorTexture),
+      scene.Material.whitePlaceholder(baseColorTexture?.sampledTexture),
       sampler: baseColorSampler,
     );
     pass.bindTexture(
       fragmentShader.getUniformSlot('metallic_roughness_texture'),
-      scene.Material.whitePlaceholder(metallicRoughnessTexture),
+      scene.Material.whitePlaceholder(metallicRoughnessTexture?.sampledTexture),
       sampler: metallicRoughnessSampler,
     );
     pass.bindTexture(
       fragmentShader.getUniformSlot('normal_texture'),
-      scene.Material.normalPlaceholder(normalTexture),
+      scene.Material.normalPlaceholder(normalTexture?.sampledTexture),
       sampler: normalSampler,
     );
     pass.bindTexture(
       fragmentShader.getUniformSlot('occlusion_texture'),
-      scene.Material.whitePlaceholder(occlusionTexture),
+      scene.Material.whitePlaceholder(occlusionTexture?.sampledTexture),
       sampler: occlusionSampler,
     );
     pass.bindTexture(
       fragmentShader.getUniformSlot('emissive_texture'),
-      scene.Material.whitePlaceholder(emissiveTexture),
+      scene.Material.whitePlaceholder(emissiveTexture?.sampledTexture),
       sampler: emissiveSampler,
     );
   }
@@ -554,9 +564,12 @@ gpu.SamplerOptions _samplerForTexture(GltfAsset gltf, int? textureIndex) {
       null || 9729 => gpu.MinMagFilter.linear,
       _ => gpu.MinMagFilter.nearest,
     },
-    // Runtime-imported textures currently have one mip level. Preserve the
-    // authored base-level filtering, but do not pretend mip filtering exists.
-    mipFilter: gpu.MipFilter.nearest,
+    // Texture2D builds the mip chain; preserve the authored nearest/linear
+    // choice between adjacent levels.
+    mipFilter: switch (sampler?.minFilter) {
+      9986 || 9987 => gpu.MipFilter.linear,
+      _ => gpu.MipFilter.nearest,
+    },
     widthAddressMode: _addressMode(sampler?.wrapS),
     heightAddressMode: _addressMode(sampler?.wrapT),
   );

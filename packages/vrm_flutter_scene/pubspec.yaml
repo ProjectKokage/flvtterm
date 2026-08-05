@@ -5,15 +5,15 @@ publish_to: none
 
 environment:
   sdk: ^3.11.5
-  flutter: ">=3.29.0"
+  flutter: ">=3.47.0-0.1.pre"
 
 dependencies:
   flutter:
     sdk: flutter
   flutter_gpu_shaders: 0.5.1
-  # The adapter uses Flutter Scene's internal reusable GPU-buffer shim for
-  # skinned morph targets. Keep this exact until that surface is public.
-  flutter_scene: 0.17.0
+  # The adapter uses Flutter Scene internals for reusable morph buffers and
+  # corrected VRM material bindings. Keep this exact.
+  flutter_scene: 0.19.0
   flvtterm:
     path: ../..
   hooks: 2.0.2

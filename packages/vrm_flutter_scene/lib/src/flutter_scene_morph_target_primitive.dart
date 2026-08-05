@@ -1,4 +1,4 @@
-// Flutter Scene 0.17.0 deliberately keeps reusable GPU buffer types internal.
+// Flutter Scene 0.19.0 deliberately keeps reusable GPU buffer types internal.
 // This package is exact-version pinned while this compatibility seam exists.
 // ignore_for_file: implementation_imports, public_member_api_docs
 

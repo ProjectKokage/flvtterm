@@ -138,7 +138,7 @@ final class MorphTargetDataFactory {
       if (unsupportedSemantics.isNotEmpty) {
         return MorphTargetPrimitiveBuildResult.unsupported(
           'Morph semantics ${unsupportedSemantics.join(', ')} are not '
-          'represented by Flutter Scene 0.17.0 vertex layouts.',
+          'represented by the pinned Flutter Scene vertex layouts.',
         );
       }
       final positionDelta = switch (target['POSITION']) {

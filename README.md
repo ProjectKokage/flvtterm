@@ -311,15 +311,17 @@ PBR/emissive fallback values. Morph writes are staged until `commitFrame`,
 composed from immutable base vertices, and uploaded once per changed primitive
 through one reusable buffer. `binding.supportsVisibleMorphTargets` is true only
 when every declared morph-bearing mesh was attached successfully. This path is
-deliberately pinned to Flutter Scene 0.17.0 because reusable skinned vertex
-buffers are currently exposed only by its internal GPU shim. MToon
+deliberately pinned to Flutter Scene 0.19.0 because reusable skinned vertex
+buffers and corrected material bindings still depend on internal renderer
+seams. MToon
 materials report unlit/PBR fallback diagnostics through
 `binding.capabilityWarnings`, as do first-person `auto` meshes that would need
 geometry splitting. Unsupported morph layouts fail conservatively with a
 capability diagnostic and retain their imported neutral geometry. The adapter
 also reports explicit capability diagnostics for nonzero texture-coordinate
-sets, mipmapped minification filters (the pinned importer uploads one mip),
-legacy transparent depth-write, and `MASK` depth/shadow auxiliary passes.
+sets, legacy transparent depth-write, and `MASK` depth/shadow auxiliary
+passes. Flutter Scene 0.19 builds texture mip chains, so authored mipmapped
+minification filters no longer produce an unsupported-sampler warning.
 
 Pure Dart smoke example: run `dart run bin/runtime_console.dart [avatar.vrm]`
 from `example/runtime_console`. With a path, the example reports permissive
@@ -347,9 +349,8 @@ MToon fallback diagnostics are available through
   visibility is only a conservative fallback.
 - VRMA retargeting is FK with rest-frame rotation normalization and configurable hips translation scale; IK and automatic body-proportion scaling can be added behind `VrmHumanoidRetargeter`.
 - Native MToon shader rendering is not shipped yet; the Flutter Scene adapter applies a PBR/emissive fallback.
-- Flutter Scene 0.17.0 applies `MASK` cutoff in the corrected color pass, but
-  its separate depth/SSAO and shadow passes still use the primitive's full
-  silhouette.
+- The adapter applies `MASK` cutoff in its corrected color pass, but keeps a
+  conservative warning for separate depth/SSAO and shadow auxiliary passes.
 - Unknown VRM 0.x Unity shader properties remain available in
   `Vrm0MaterialProperty.raw` but are not applied by the generic material
   binding interface.

@@ -371,7 +371,7 @@ void main() {
     expect(warning.gltfMaterialIndex, 0);
   });
 
-  test('reports MASK auxiliary-pass fallback warnings', () {
+  test('reports corrected MASK auxiliary-pass fallback warnings', () {
     final model = VrmModel.tryParseGlb(
       _minimalVrmGlb(materialAlphaMode: 'MASK'),
       validation: VrmValidationMode.permissive,
@@ -422,17 +422,11 @@ void main() {
     }
   });
 
-  test('warns once per material texture for mipmapped samplers', () {
-    const cases = [
-      (minFilter: 9729, warns: false),
-      (minFilter: 9984, warns: true),
-      (minFilter: 9987, warns: true),
-    ];
-
-    for (final testCase in cases) {
+  test('accepts mipmapped material samplers', () {
+    for (final minFilter in const [9984, 9987]) {
       final model = VrmModel.tryParseGlb(
         _minimalVrmGlb(
-          samplerMinFilter: testCase.minFilter,
+          samplerMinFilter: minFilter,
           duplicateMaterialTextureSlot: true,
         ),
         validation: VrmValidationMode.permissive,
@@ -447,14 +441,7 @@ void main() {
                 diagnostic.code == 'flutterScene.unsupportedMipmappedSampler',
           )
           .toList();
-
-      if (!testCase.warns) {
-        expect(warnings, isEmpty);
-      } else {
-        expect(warnings, hasLength(1));
-        expect(warnings.single.gltfMaterialIndex, 0);
-        expect(warnings.single.message, contains('${testCase.minFilter}'));
-      }
+      expect(warnings, isEmpty);
     }
   });
 
@@ -912,11 +899,12 @@ final class _StubGeometry extends scene.Geometry {
   @override
   void bind(
     gpu.RenderPass pass,
-    gpu.HostBuffer transientsBuffer,
+    scene.TransientWriter transientsBuffer,
     vm.Matrix4 modelTransform,
     vm.Matrix4 cameraTransform,
-    vm.Vector3 cameraPosition,
-  ) {
+    vm.Vector3 cameraPosition, {
+    gpu.Shader? shaderOverride,
+  }) {
     throw UnsupportedError('Stub geometry is not renderable');
   }
 }
@@ -928,7 +916,7 @@ final class _StubMaterial extends scene.Material {
   @override
   void bind(
     gpu.RenderPass pass,
-    gpu.HostBuffer transientsBuffer,
+    scene.TransientWriter transientsBuffer,
     scene.Lighting lighting,
   ) {
     throw UnsupportedError('Stub material is not renderable');
@@ -958,7 +946,7 @@ final class _StubPerTextureMaterial extends scene.Material
   @override
   void bind(
     gpu.RenderPass pass,
-    gpu.HostBuffer transientsBuffer,
+    scene.TransientWriter transientsBuffer,
     scene.Lighting lighting,
   ) {
     throw UnsupportedError('Stub material is not renderable');

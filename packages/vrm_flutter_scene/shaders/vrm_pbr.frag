@@ -5,6 +5,7 @@
 #include <material_engine_lighting.glsl>
 #include <material_inputs.glsl>
 #include <material_lighting.glsl>
+#include <lod_fade.glsl>
 
 uniform TextureInfo {
   vec4 base_color_scale_offset;
@@ -55,7 +56,8 @@ void Surface(inout MaterialInputs material) {
     vec2 normal_uv =
         TransformUv(v_texture_coords, texture_info.normal_scale_offset,
                     texture_info.normal_rotation);
-    normal = PerturbNormal(normal_texture, normal, v_viewvector, normal_uv);
+    normal = PerturbNormal(normal_texture, normal, v_viewvector, normal_uv,
+                           frag_info.normal_scale);
   }
   material.normal = normal;
 
@@ -88,6 +90,7 @@ void Surface(inout MaterialInputs material) {
 }
 
 void main() {
+  ApplyLodFade(frag_info.fade);
   MaterialInputs material = InitMaterialInputs();
   Surface(material);
   frag_color = EvaluateLighting(material);

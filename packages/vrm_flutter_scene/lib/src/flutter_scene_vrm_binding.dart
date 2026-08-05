@@ -66,11 +66,10 @@ final class FlutterSceneVrmBinding
         _warnOnce(
           code: 'flutterScene.maskAuxiliaryPassFallback',
           message:
-              'Flutter Scene 0.17.0 applies MASK alpha cutoff in the color pass, but its depth and shadow auxiliary passes render the full primitive silhouette.',
+              'The adapter applies MASK alpha cutoff in its corrected color material, but auxiliary depth and shadow passes may render the full primitive silhouette.',
           gltfMaterialIndex: material.index,
         );
       }
-      final checkedTextureIndices = <int>{};
       for (final texture in _uvAccessedMaterialTextures(material)) {
         final texCoord = texture.textureTransform?.texCoord ?? texture.texCoord;
         if (texCoord != 0) {
@@ -81,16 +80,6 @@ final class FlutterSceneVrmBinding
             gltfMaterialIndex: material.index,
           );
         }
-        if (!checkedTextureIndices.add(texture.index)) continue;
-        final minFilter = _mipmappedSamplerMinFilter(model.gltf, texture.index);
-        if (minFilter == null) continue;
-        _warnOnce(
-          code: 'flutterScene.unsupportedMipmappedSampler',
-          message:
-              'Flutter Scene uploads only one mip level; material ${material.index} texture ${texture.index} requests minFilter $minFilter.',
-          gltfMaterialIndex: material.index,
-          detailKey: 'texture:${texture.index}',
-        );
       }
     }
     for (final entry in options.nodeIndexPaths.entries) {
@@ -327,20 +316,6 @@ final class FlutterSceneVrmBinding
       ),
     );
   }
-}
-
-int? _mipmappedSamplerMinFilter(GltfAsset gltf, int textureIndex) {
-  if (textureIndex < 0 || textureIndex >= gltf.textures.length) return null;
-  final samplerIndex = gltf.textures[textureIndex].sampler;
-  if (samplerIndex == null ||
-      samplerIndex < 0 ||
-      samplerIndex >= gltf.samplers.length) {
-    return null;
-  }
-  final minFilter = gltf.samplers[samplerIndex].minFilter;
-  return minFilter != null && minFilter >= 9984 && minFilter <= 9987
-      ? minFilter
-      : null;
 }
 
 Iterable<VrmTextureInfo> _uvAccessedMaterialTextures(

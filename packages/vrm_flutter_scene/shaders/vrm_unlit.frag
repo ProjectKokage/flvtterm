@@ -3,9 +3,11 @@ uniform MaterialInfo {
   float vertex_color_weight;
   float alpha_mode;
   float alpha_cutoff;
-  float padding;
+  float fade;
 }
 material_info;
+
+#include <lod_fade.glsl>
 
 uniform TextureInfo {
   vec4 base_color_scale_offset;
@@ -34,6 +36,7 @@ vec2 TransformUv(vec2 uv, vec4 scale_offset, vec4 rotation) {
 }
 
 void main() {
+  ApplyLodFade(material_info.fade);
   vec4 vertex_color =
       mix(vec4(1), v_color, material_info.vertex_color_weight);
   vec2 uv = TransformUv(v_texture_coords,

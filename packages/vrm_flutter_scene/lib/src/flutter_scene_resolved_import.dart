@@ -37,8 +37,8 @@ final class FlutterSceneResolvedImport {
 
     if (gltf.buffers.length > 1) {
       throw UnsupportedError(
-        'Flutter Scene 0.17.0 imports at most one glTF buffer; the parsed '
-        'asset contains ${gltf.buffers.length}.',
+        'The pinned Flutter Scene runtime importer accepts at most one glTF '
+        'buffer; the parsed asset contains ${gltf.buffers.length}.',
       );
     }
 
