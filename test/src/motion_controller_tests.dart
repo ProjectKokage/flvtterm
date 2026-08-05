@@ -1636,10 +1636,17 @@ void motionControllerTests() {
     runtime.update(0);
 
     expect(binding.modelRootMotionTransform.storage[12], 3.0);
+    expect(
+      runtime.motion.additiveLayerModelRootTranslation(layerId),
+      const VrmVector3(2.0, 0.0, 0.0),
+      reason:
+          'The per-layer query must exclude the base VRMA root contribution.',
+    );
 
     runtime.motion.removeAdditiveLayer(layerId);
     runtime.update(0);
     expect(binding.modelRootMotionTransform.storage[12], 1.0);
+    expect(runtime.motion.additiveLayerModelRootTranslation(layerId), isNull);
   });
 
   test('runtime motion ignores non-finite morph weights', () {

@@ -5,6 +5,27 @@ extension VrmAdditiveMotionLayers on VrmMotionController {
   /// Number of active additive layers.
   int get additiveLayerCount => _additiveLayers.length;
 
+  /// Returns one layer's latest weighted model-root translation.
+  ///
+  /// The value is isolated from every other base or additive layer and uses
+  /// the latest frame evaluated by [VrmRuntime.update]. A layer without a
+  /// finite VRMA hips-translation contribution, or an unknown [layerId],
+  /// returns null.
+  VrmVector3? additiveLayerModelRootTranslation(int layerId) {
+    for (final layer in _additiveLayers) {
+      if (layer.id != layerId) continue;
+      final translation = layer.frame.modelRootPose?.translation;
+      if (!_hasFiniteLength(translation, 3)) return null;
+      final values = translation!;
+      return VrmVector3(
+        values[0] * layer.weight,
+        values[1] * layer.weight,
+        values[2] * layer.weight,
+      );
+    }
+    return null;
+  }
+
   /// Adds any supported motion [source] as an additive layer.
   ///
   /// An [int] selects an embedded glTF animation. [GltfAsset],

@@ -228,6 +228,11 @@ runtime.motion.seekAdditiveLayer(layerId, const Duration(milliseconds: 300));
 runtime.motion.removeAdditiveLayer(layerId);
 ```
 
+After `runtime.update`, `additiveLayerModelRootTranslation(layerId)` returns
+that layer's latest weighted model-root translation without contributions from
+other layers. This supports application-owned camera tracking without treating
+an idle layer as command locomotion.
+
 Generic glTF layers are converted to deltas from their source asset rest pose.
 VRMA layers are retargeted first and then converted from the destination rest
 pose; hips translation remains model-root motion. Programmatic and procedural
