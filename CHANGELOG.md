@@ -1,3 +1,12 @@
+## 0.2.4
+
+- Cache immutable first-person mesh classification and decoded animation
+  accessors instead of rebuilding them during every runtime update.
+- Find animation keyframes with a binary search rather than a linear scan.
+- Reuse Flutter Scene node-transform conversions until the scene replaces the
+  backing matrix, removing recurring SpringBone allocation churn.
+- Skip unchanged rest-pose and model-root writes during runtime frames.
+
 ## 0.2.3
 
 - Preserve glTF and VRM material semantics in the Flutter Scene import path,
