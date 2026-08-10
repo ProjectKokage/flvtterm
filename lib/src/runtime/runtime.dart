@@ -46,10 +46,12 @@ final class VrmRuntime {
   final VrmBlinkController blink;
 
   VrmSceneBinding? _binding;
+  var _needsInitialPoseReset = true;
 
   /// Binds this runtime to a renderer scene.
   void bind(VrmSceneBinding binding) {
     _binding = _resolveSceneBinding(model, binding);
+    _needsInitialPoseReset = true;
     springBones.reset();
   }
 
@@ -88,7 +90,11 @@ final class VrmRuntime {
       rootBinding.modelRootMotionTransform = VrmMatrix4.identity();
     }
     for (final node in model.gltf.nodes) {
-      binding.nodeByGltfIndex(node.index).localTransform = node.restTransform;
+      final nodeBinding = binding.nodeByGltfIndex(node.index);
+      if (_needsInitialPoseReset ||
+          nodeBinding.localTransform != node.restTransform) {
+        nodeBinding.localTransform = node.restTransform;
+      }
       final meshIndex = node.mesh;
       if (meshIndex == null) continue;
       final mesh = model.gltf.meshes.elementAtOrNull(meshIndex);
@@ -108,6 +114,7 @@ final class VrmRuntime {
       }
     }
     _resetExpressionMaterials(binding);
+    _needsInitialPoseReset = false;
   }
 
   void _resetExpressionMaterials(VrmSceneBinding binding) {
@@ -143,10 +150,20 @@ List<int> _activeSceneRootNodeIndices(GltfAsset gltf) {
 /// Applies first-person mesh visibility policy to a scene binding.
 final class VrmFirstPersonController {
   /// Creates a first-person controller for [model].
-  VrmFirstPersonController(this.model);
+  VrmFirstPersonController(this.model)
+    : _conservativeTypesByNodeIndex = Map.unmodifiable({
+        for (final node in model.gltf.nodes)
+          if (node.mesh != null)
+            node.index: model.conservativeFirstPersonTypeForNode(node.index),
+      });
 
   /// Parsed model backing this controller.
   final VrmModel model;
+
+  // First-person auto classification depends only on immutable model data.
+  // Keep accessor traversal out of the per-frame visibility path.
+  final Map<int, VrmFirstPersonMeshAnnotationType>
+  _conservativeTypesByNodeIndex;
 
   /// Active visibility perspective.
   VrmFirstPersonView view = VrmFirstPersonView.thirdPerson;
@@ -163,7 +180,9 @@ final class VrmFirstPersonController {
 
   /// Returns whether the mesh node should be visible for the current [view].
   bool isVisible(int nodeIndex) {
-    final type = model.conservativeFirstPersonTypeForNode(nodeIndex);
+    final type =
+        _conservativeTypesByNodeIndex[nodeIndex] ??
+        model.conservativeFirstPersonTypeForNode(nodeIndex);
     return switch (type) {
       VrmFirstPersonMeshAnnotationType.thirdPersonOnly =>
         view == VrmFirstPersonView.thirdPerson,
@@ -192,7 +211,7 @@ final class VrmFirstPersonController {
         );
         continue;
       }
-      if (model.conservativeFirstPersonTypeForNode(node.index) ==
+      if (_conservativeTypesByNodeIndex[node.index] ==
           VrmFirstPersonMeshAnnotationType.auto) {
         warnings.add(
           VrmDiagnostic(

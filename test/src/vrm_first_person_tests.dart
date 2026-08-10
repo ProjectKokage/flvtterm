@@ -793,10 +793,30 @@ void vrmFirstPersonTests() {
     expect(binding.meshes[0]!.visible, isFalse);
     expect(binding.meshes[3]!.visible, isTrue);
 
+    for (var frame = 0; frame < 3; frame++) {
+      runtime.update(1 / 60);
+    }
+
+    expect(binding.meshes[0]!.visible, isFalse);
+    expect(binding.meshes[3]!.visible, isTrue);
+
     runtime.firstPerson.useThirdPerson();
     runtime.update(0);
 
     expect(binding.meshes[0]!.visible, isTrue);
+    expect(binding.meshes[3]!.visible, isTrue);
+
+    for (var frame = 0; frame < 3; frame++) {
+      runtime.update(1 / 60);
+    }
+
+    expect(binding.meshes[0]!.visible, isTrue);
+    expect(binding.meshes[3]!.visible, isTrue);
+
+    runtime.firstPerson.useFirstPerson();
+    runtime.update(1 / 60);
+
+    expect(binding.meshes[0]!.visible, isFalse);
     expect(binding.meshes[3]!.visible, isTrue);
   });
 

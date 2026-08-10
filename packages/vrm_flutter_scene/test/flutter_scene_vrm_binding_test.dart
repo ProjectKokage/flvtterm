@@ -59,6 +59,8 @@ void main() {
 
     binding.nodeByGltfIndex(0).localTransform = transform;
     binding.modelRootMotionTransform = transform;
+    final appliedRootTransform = root.localTransform;
+    binding.modelRootMotionTransform = transform;
     binding
         .materialByGltfIndex(0)
         .setTextureTransform(scale: VrmVector2.one, offset: VrmVector2.zero);
@@ -66,6 +68,7 @@ void main() {
     expect(sceneNodes[0].localTransform.storage[12], 1);
     expect(sceneNodes[0].localTransform.storage[13], 2);
     expect(root.localTransform.storage[14], 3);
+    expect(identical(root.localTransform, appliedRootTransform), isTrue);
     for (var i = 0; i < sceneNodes.length; i++) {
       expect(binding.nodeByGltfIndex(i).debugName, 'node$i');
     }
@@ -73,6 +76,67 @@ void main() {
       binding.capabilityWarnings.map((d) => d.code),
       contains('flutterScene.unsupportedTextureTransform'),
     );
+  });
+
+  test('reuses local transforms until Flutter Scene replaces its matrix', () {
+    final model = VrmModel.parseGlb(_minimalVrmGlb());
+    final root = scene.Node(name: 'importRoot');
+    final sceneNodes = [
+      for (var i = 0; i < _nodeChildren.length; i++) scene.Node(name: 'node$i'),
+    ];
+    for (var i = 0; i < _nodeChildren.length; i++) {
+      for (final child in _nodeChildren[i]) {
+        sceneNodes[i].add(sceneNodes[child]);
+      }
+    }
+    root.add(sceneNodes[0]);
+    final binding = FlutterSceneVrmBinding.fromRootNode(root, model: model);
+    final nodeBinding = binding.nodeByGltfIndex(0);
+
+    final initial = nodeBinding.localTransform;
+    expect(identical(nodeBinding.localTransform, initial), isTrue);
+
+    sceneNodes[0].localTransform = vm.Matrix4.translationValues(4, 5, 6);
+    final externallyReplaced = nodeBinding.localTransform;
+    expect(externallyReplaced.storage[12], 4);
+    expect(externallyReplaced.storage[13], 5);
+    expect(externallyReplaced.storage[14], 6);
+    expect(identical(externallyReplaced, initial), isFalse);
+    expect(identical(nodeBinding.localTransform, externallyReplaced), isTrue);
+
+    sceneNodes[0].localTransform.setTranslationRaw(10, 11, 12);
+    sceneNodes[0].markTransformDirty();
+    final externallyMutated = nodeBinding.localTransform;
+    expect(externallyMutated.storage[12], 10);
+    expect(externallyMutated.storage[13], 11);
+    expect(externallyMutated.storage[14], 12);
+    expect(identical(externallyMutated, externallyReplaced), isFalse);
+    expect(identical(nodeBinding.localTransform, externallyMutated), isTrue);
+
+    final assigned = VrmMatrix4([
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      7,
+      8,
+      9,
+      1,
+    ]);
+    nodeBinding.localTransform = assigned;
+
+    expect(identical(nodeBinding.localTransform, assigned), isTrue);
+    expect(sceneNodes[0].localTransform.storage[12], 7);
+    expect(sceneNodes[0].localTransform.storage[13], 8);
+    expect(sceneNodes[0].localTransform.storage[14], 9);
   });
 
   test('accepts explicit Flutter Scene node index paths', () {

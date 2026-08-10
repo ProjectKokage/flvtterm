@@ -54,6 +54,42 @@ void runtimeTests() {
     expect(binding.materialLookups, materialLookups);
   });
 
+  test('runtime resets only nodes written by the preceding frame', () {
+    final model = VrmModel.parseGlb(_glb(_minimalVrmJson()));
+    final binding = _CountingBinding();
+    final runtime = VrmRuntime(model)..bind(binding);
+
+    runtime.update(0);
+    expect(binding.nodeWrites, greaterThan(0));
+
+    binding.nodeWrites = 0;
+    runtime.update(0);
+    expect(binding.nodeWrites, 0);
+
+    runtime.motion.play(
+      VrmProgrammaticPose(
+        nodePoses: {
+          2: GltfNodePose(translation: const [0.0, 1.0, 0.0]),
+        },
+      ),
+    );
+    runtime.update(0);
+    expect(binding.nodeWrites, 1);
+
+    binding.nodeWrites = 0;
+    runtime.update(0);
+    expect(binding.nodeWrites, 2);
+
+    runtime.motion.stop();
+    binding.nodeWrites = 0;
+    runtime.update(0);
+    expect(binding.nodeWrites, 1);
+
+    binding.nodeWrites = 0;
+    runtime.update(0);
+    expect(binding.nodeWrites, 0);
+  });
+
   test('runtime unbind detaches scene binding', () {
     final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
     final binding = _FakeBinding();
@@ -264,6 +300,52 @@ final class _ThrowingBinding implements VrmSceneBinding {
 
   @override
   VrmNodeBinding nodeByGltfIndex(int nodeIndex) => _ThrowingNode();
+}
+
+final class _CountingBinding implements VrmSceneBinding {
+  late final List<_CountingNode> nodes;
+  var nodeWrites = 0;
+
+  _CountingBinding() {
+    nodes = List.generate(15, (_) => _CountingNode(this));
+  }
+
+  @override
+  void beginFrame() {}
+
+  @override
+  void commitFrame() {}
+
+  @override
+  VrmMaterialBinding materialByGltfIndex(int materialIndex) => _FakeMaterial();
+
+  @override
+  VrmMeshBinding? meshByNodeIndex(int nodeIndex) => null;
+
+  @override
+  VrmNodeBinding nodeByGltfIndex(int nodeIndex) => nodes[nodeIndex];
+}
+
+final class _CountingNode implements VrmNodeBinding {
+  _CountingNode(this.owner);
+
+  final _CountingBinding owner;
+  VrmMatrix4 _localTransform = VrmMatrix4.identity();
+
+  @override
+  String? get debugName => null;
+
+  @override
+  VrmMatrix4 get localTransform => _localTransform;
+
+  @override
+  set localTransform(VrmMatrix4 value) {
+    owner.nodeWrites++;
+    _localTransform = value;
+  }
+
+  @override
+  VrmMatrix4 get worldTransform => _localTransform;
 }
 
 final class _ThrowingNode implements VrmNodeBinding {

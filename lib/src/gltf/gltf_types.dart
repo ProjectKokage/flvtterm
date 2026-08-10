@@ -137,6 +137,11 @@ final class GltfAsset {
   /// glTF animations, preserving indices.
   final List<GltfAnimation> animations;
 
+  // Animation accessors are immutable after parsing. Evaluators memoize their
+  // bounded decoded values here so separate runtime layers over the same asset
+  // do not decode the same buffer data again.
+  final Map<(int, bool, bool), List<double>?> _animationAccessorCache = {};
+
   /// Parses a GLB or JSON glTF 2.0 asset.
   static GltfAsset parse({
     required Uint8List bytes,

@@ -311,14 +311,14 @@ final class GltfAnimationEvaluator {
     int valueDimension,
     double timeSeconds,
   ) {
+    if (!timeSeconds.isFinite) return null;
     if (sampler.input == null || sampler.output == null) return null;
     if (!_animationSamplerAccessorsAreRunnable(sampler, targetPath)) {
       return null;
     }
     final times = _readSamplerTimes(sampler);
-    final output = _readAccessorNumbers(gltf, sampler.output!);
+    final output = _readAnimationAccessorNumbers(sampler.output!);
     if (times == null || output == null) return null;
-    if (output.any((value) => !value.isFinite)) return null;
     final interpolation = sampler.interpolation;
     if (interpolation != 'LINEAR' &&
         interpolation != 'STEP' &&
@@ -350,22 +350,27 @@ final class GltfAnimationEvaluator {
         targetPath,
       );
     }
-    for (var i = 1; i < times.length - 1; i++) {
-      if (time == times[i]) {
+    var lower = 0;
+    var upper = times.length - 1;
+    while (lower <= upper) {
+      final middle = lower + ((upper - lower) >> 1);
+      final middleTime = times[middle];
+      if (time == middleTime) {
         return _animationSamplerValue(
           output,
-          i,
+          middle,
           valueDimension,
           interpolation,
           targetPath,
         );
       }
+      if (time < middleTime) {
+        upper = middle - 1;
+      } else {
+        lower = middle + 1;
+      }
     }
-
-    var key = 0;
-    while (key + 1 < times.length && times[key + 1] < time) {
-      key++;
-    }
+    final key = upper;
     final startTime = times[key];
     final endTime = times[key + 1];
     final localT = (time - startTime) / (endTime - startTime);
@@ -449,6 +454,27 @@ final class GltfAnimationEvaluator {
   }
 
   List<double>? _readAccessorScalars(int accessorIndex) {
-    return _readAccessorNumbers(gltf, accessorIndex, requireFloat: true);
+    return _readAnimationAccessorNumbers(accessorIndex, requireFloat: true);
+  }
+
+  List<double>? _readAnimationAccessorNumbers(
+    int accessorIndex, {
+    bool requireFloat = false,
+    bool applyNormalization = true,
+  }) {
+    final key = (accessorIndex, requireFloat, applyNormalization);
+    final cache = gltf._animationAccessorCache;
+    if (cache.containsKey(key)) return cache[key];
+    final values = _readAccessorNumbers(
+      gltf,
+      accessorIndex,
+      requireFloat: requireFloat,
+      applyNormalization: applyNormalization,
+    );
+    final immutable = values == null || values.any((value) => !value.isFinite)
+        ? null
+        : List<double>.unmodifiable(values);
+    cache[key] = immutable;
+    return immutable;
   }
 }

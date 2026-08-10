@@ -253,6 +253,7 @@ final class FlutterSceneVrmBinding
 
   @override
   set modelRootMotionTransform(VrmMatrix4 value) {
+    if (value == _modelRootMotionTransform) return;
     _modelRootMotionTransform = value;
     _applyRootTransform();
   }
@@ -508,17 +509,42 @@ List<GltfMeshPrimitive> _materialAlignedGltfPrimitives(
 }
 
 final class _FlutterSceneNodeBinding implements VrmNodeBinding {
-  _FlutterSceneNodeBinding(this._node, this._coreFromSceneTransform);
+  _FlutterSceneNodeBinding(scene.Node node, this._coreFromSceneTransform)
+    : _node = node,
+      _lastSceneLocalTransform = node.localTransform,
+      _lastCoreLocalTransform = _fromSceneMatrix(node.localTransform);
 
   final scene.Node _node;
   final vm.Matrix4 _coreFromSceneTransform;
+  vm.Matrix4 _lastSceneLocalTransform;
+  VrmMatrix4 _lastCoreLocalTransform;
 
   @override
-  VrmMatrix4 get localTransform => _fromSceneMatrix(_node.localTransform);
+  VrmMatrix4 get localTransform {
+    final sceneLocalTransform = _node.localTransform;
+    if (!_sceneTransformMatchesCache(sceneLocalTransform)) {
+      _lastSceneLocalTransform = sceneLocalTransform;
+      _lastCoreLocalTransform = _fromSceneMatrix(sceneLocalTransform);
+    }
+    return _lastCoreLocalTransform;
+  }
+
+  bool _sceneTransformMatchesCache(vm.Matrix4 sceneLocalTransform) {
+    if (!identical(sceneLocalTransform, _lastSceneLocalTransform)) return false;
+    final sceneValues = sceneLocalTransform.storage;
+    final coreValues = _lastCoreLocalTransform.storage;
+    for (var index = 0; index < 16; index += 1) {
+      if (sceneValues[index] != coreValues[index]) return false;
+    }
+    return true;
+  }
 
   @override
   set localTransform(VrmMatrix4 value) {
-    _node.localTransform = _toSceneMatrix(value);
+    final sceneLocalTransform = _toSceneMatrix(value);
+    _node.localTransform = sceneLocalTransform;
+    _lastSceneLocalTransform = sceneLocalTransform;
+    _lastCoreLocalTransform = value;
   }
 
   @override
