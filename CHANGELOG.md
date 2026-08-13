@@ -1,3 +1,10 @@
+## 0.2.5
+
+- Promote the well-known VRM 0.x custom expression name "Surprised"
+  (case-insensitive, `presetName: unknown`) to the `surprised` preset during
+  legacy normalization, with a `vrm0.wellKnownCustomExpressionPromoted`
+  diagnostic. Presets declared through `presetName` keep precedence.
+
 ## 0.2.4
 
 - Cache immutable first-person mesh classification and decoded animation

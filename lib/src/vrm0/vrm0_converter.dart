@@ -486,7 +486,12 @@ VrmExpressions _normalizeVrm0Expressions(
       continue;
     }
 
-    final expressionName = normalizedPreset?.specName ?? customName!;
+    final aliasPreset =
+        normalizedPreset == null && group.presetName?.toLowerCase() == 'unknown'
+        ? _vrm0WellKnownCustomPreset(customName!)
+        : null;
+    final expressionName =
+        normalizedPreset?.specName ?? aliasPreset?.specName ?? customName!;
     final morphTargetBinds = <VrmMorphTargetBind>[];
     for (var bindIndex = 0; bindIndex < group.binds.length; bindIndex++) {
       final binds = _normalizeVrm0MorphTargetBinds(
@@ -558,6 +563,25 @@ VrmExpressions _normalizeVrm0Expressions(
         );
         continue;
       }
+      if (aliasPreset != null) {
+        if (preset.containsKey(aliasPreset)) {
+          sink.warning(
+            'vrm0.duplicatePresetExpression',
+            'Legacy preset ${aliasPreset.specName} is declared more than once; the first declaration was retained.',
+            jsonPath:
+                '\$.extensions.VRM.blendShapeMaster.blendShapeGroups[$sourceGroupIndex].name',
+          );
+        } else {
+          preset[aliasPreset] = expression;
+          sink.warning(
+            'vrm0.wellKnownCustomExpressionPromoted',
+            'Legacy custom expression "$customName" was promoted to the ${aliasPreset.specName} preset, which VRM 0.x cannot declare.',
+            jsonPath:
+                '\$.extensions.VRM.blendShapeMaster.blendShapeGroups[$sourceGroupIndex].name',
+          );
+        }
+        continue;
+      }
       final duplicateKey = custom.keys.where(
         (key) => key.toUpperCase() == customName!.toUpperCase(),
       );
@@ -579,6 +603,20 @@ VrmExpressions _normalizeVrm0Expressions(
     custom: custom,
     raw: legacy.blendShapeMaster?.raw ?? const {},
   );
+}
+
+/// Closed allow-list of well-known custom clip names promoted to a VRM 1.0
+/// preset that VRM 0.x cannot declare through `presetName`.
+///
+/// VRoid Studio exports its Surprised clip as `presetName: unknown` with the
+/// display name "Surprised" because the legacy spec predates the preset.
+/// Only names in this exact table are promoted; declared presets always win
+/// through the collision check above.
+VrmExpressionPreset? _vrm0WellKnownCustomPreset(String name) {
+  return switch (name.toLowerCase()) {
+    'surprised' => VrmExpressionPreset.surprised,
+    _ => null,
+  };
 }
 
 VrmExpressionPreset? _vrm0ExpressionPreset(String? value) {

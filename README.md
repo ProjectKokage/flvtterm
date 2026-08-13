@@ -73,6 +73,12 @@ The compatibility behavior follows the official
 [VRM 0.0 specification](https://github.com/vrm-c/vrm-specification/tree/master/specification/0.0)
 and [0.x to 1.0 compatibility notes](https://vrm.dev/en/univrm1/migrate_vrm0/feature/).
 
+VRM 0.x cannot declare a `surprised` preset name, so common exporters ship the
+clip as a `presetName: unknown` group named "Surprised". The converter
+promotes exactly that well-known custom name (case-insensitive) to the
+`surprised` preset with a `vrm0.wellKnownCustomExpressionPromoted` warning;
+a preset declared through `presetName` always wins over the custom clip.
+
 Use `VrmModel.parseGlb(bytes)` when validation errors should throw.
 
 For JSON glTF or VRMA files that reference external buffers or images, keep

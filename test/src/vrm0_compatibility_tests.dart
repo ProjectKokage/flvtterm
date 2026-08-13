@@ -527,6 +527,157 @@ void vrm0CompatibilityTests() {
       },
     );
 
+    test('promotes the well-known Surprised custom clip to the preset', () {
+      final json = _minimalVrm0Json(
+        nodeMesh: const {6: 0},
+        meshes: [
+          {
+            'primitives': [
+              {
+                'attributes': <String, Object?>{},
+                'targets': [<String, Object?>{}, <String, Object?>{}],
+              },
+            ],
+          },
+        ],
+        blendShapeMaster: {
+          'blendShapeGroups': [
+            {
+              'name': 'sUrPrIsEd',
+              'presetName': 'unknown',
+              'binds': [
+                {'mesh': 0, 'index': 0, 'weight': 100.0},
+              ],
+            },
+            {
+              'name': 'Wink',
+              'presetName': 'unknown',
+              'binds': [
+                {'mesh': 0, 'index': 1, 'weight': 100.0},
+              ],
+            },
+          ],
+        },
+      );
+
+      final result = VrmModel.tryParseGlb(_glb(json));
+      final expressions = result.asset!.vrm.expressions;
+
+      final surprised = expressions.preset[VrmExpressionPreset.surprised]!;
+      expect(surprised.name, 'surprised');
+      expect(surprised.morphTargetBinds.single.index, 0);
+      expect(expressions.custom, isNot(contains('sUrPrIsEd')));
+      expect(expressions.custom, contains('Wink'));
+      expect(
+        result.validation.warnings.map((diagnostic) => diagnostic.code),
+        contains('vrm0.wellKnownCustomExpressionPromoted'),
+      );
+    });
+
+    test('keeps a declared surprised preset over the custom clip', () {
+      final json = _minimalVrm0Json(
+        nodeMesh: const {6: 0},
+        meshes: [
+          {
+            'primitives': [
+              {
+                'attributes': <String, Object?>{},
+                'targets': [<String, Object?>{}, <String, Object?>{}],
+              },
+            ],
+          },
+        ],
+        blendShapeMaster: {
+          'blendShapeGroups': [
+            {
+              'name': 'Surprised',
+              'presetName': 'unknown',
+              'binds': [
+                {'mesh': 0, 'index': 1, 'weight': 100.0},
+              ],
+            },
+            {
+              'name': 'declared',
+              'presetName': 'surprised',
+              'binds': [
+                {'mesh': 0, 'index': 0, 'weight': 100.0},
+              ],
+            },
+          ],
+        },
+      );
+
+      final result = VrmModel.tryParseGlb(_glb(json));
+      final expressions = result.asset!.vrm.expressions;
+
+      expect(
+        expressions
+            .preset[VrmExpressionPreset.surprised]!
+            .morphTargetBinds
+            .single
+            .index,
+        0,
+      );
+      expect(expressions.custom, isNot(contains('Surprised')));
+      expect(
+        result.validation.warnings.map((diagnostic) => diagnostic.code),
+        contains('vrm0.customExpressionPresetCollision'),
+      );
+    });
+
+    test('does not promote Surprised without the unknown preset marker', () {
+      final json = _minimalVrm0Json(
+        nodeMesh: const {6: 0},
+        meshes: [
+          {
+            'primitives': [
+              {
+                'attributes': <String, Object?>{},
+                'targets': [<String, Object?>{}, <String, Object?>{}],
+              },
+            ],
+          },
+        ],
+        blendShapeMaster: {
+          'blendShapeGroups': [
+            {
+              'name': 'Surprised',
+              'binds': [
+                {'mesh': 0, 'index': 0, 'weight': 100.0},
+              ],
+            },
+            {
+              'name': 'SURPRISED',
+              'presetName': 'unsupported',
+              'binds': [
+                {'mesh': 0, 'index': 1, 'weight': 100.0},
+              ],
+            },
+          ],
+        },
+      );
+
+      final result = VrmModel.tryParseGlb(
+        _glb(json),
+        validation: VrmValidationMode.permissive,
+      );
+      final expressions = result.asset!.vrm.expressions;
+
+      expect(
+        expressions.preset,
+        isNot(contains(VrmExpressionPreset.surprised)),
+      );
+      expect(expressions.custom, contains('Surprised'));
+      expect(
+        result.validation.diagnostics.map((diagnostic) => diagnostic.code),
+        contains('vrm0.invalidEnumValue'),
+      );
+      expect(
+        result.validation.diagnostics.map((diagnostic) => diagnostic.code),
+        isNot(contains('vrm0.wellKnownCustomExpressionPromoted')),
+      );
+    });
+
     test('reports invalid legacy expression and spring references', () {
       final json = _minimalVrm0Json(
         nodeMesh: const {6: 0},
