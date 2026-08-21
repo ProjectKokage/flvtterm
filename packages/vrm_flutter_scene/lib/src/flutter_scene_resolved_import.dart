@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter_scene/scene.dart' as scene;
 import 'package:flvtterm/flvtterm.dart';
 
@@ -78,7 +79,7 @@ final class FlutterSceneResolvedImport {
         );
       }
       final existing = resources[uri];
-      if (existing != null && !_sameBytes(existing, data)) {
+      if (existing != null && !listEquals(existing, data)) {
         throw StateError(
           'glTF URI $uri resolved to conflicting byte payloads.',
         );
@@ -116,12 +117,4 @@ String _uniqueBufferUri(Set<String> reserved) {
     if (!reserved.contains(candidate)) return candidate;
     suffix++;
   }
-}
-
-bool _sameBytes(Uint8List left, Uint8List right) {
-  if (left.length != right.length) return false;
-  for (var index = 0; index < left.length; index++) {
-    if (left[index] != right[index]) return false;
-  }
-  return true;
 }

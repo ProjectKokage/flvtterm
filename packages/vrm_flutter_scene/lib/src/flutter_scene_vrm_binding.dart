@@ -3,6 +3,7 @@ import 'package:flvtterm/flvtterm.dart';
 import 'package:vector_math/vector_math.dart' as vm;
 
 import 'flutter_scene_material_corrections.dart';
+import 'flutter_scene_gltf_mapping.dart';
 import 'flutter_scene_morph_target_primitive.dart';
 import 'morph_target_blender.dart';
 
@@ -237,7 +238,7 @@ final class FlutterSceneVrmBinding
 
   @override
   VrmMatrix4 get modelWorldTransform {
-    for (final rootIndex in _defaultSceneRootNodeIndices(model)) {
+    for (final rootIndex in defaultGltfSceneRoots(model.gltf)) {
       final binding = _nodeBindings[rootIndex];
       if (binding == null) continue;
       final inverseLocal = vm.Matrix4.tryInvert(
@@ -364,101 +365,11 @@ Map<int, scene.Node> _fallbackNodesByGltfIndex(
   VrmModel model,
   FlutterSceneVrmBindingOptions options,
 ) {
-  final mapped = <int, scene.Node>{};
-  if (model.gltf.nodes.isEmpty) return mapped;
-
-  final descendants = <scene.Node>[];
-  for (final child in root.children) {
-    _collectDepthFirst(child, descendants);
-  }
-  final sceneRoots = _defaultSceneRootNodeIndices(model);
-  final reachableNodeCount = _reachableNodeCount(model, sceneRoots);
-  final includeRoot =
-      options.includeRootAsGltfNode ?? descendants.length < reachableNodeCount;
-  final visited = <int>{};
-  if (includeRoot || sceneRoots.isEmpty) {
-    _mapNodeHierarchy(
-      gltfNodeIndex: 0,
-      sceneNode: root,
-      model: model,
-      output: mapped,
-      visited: visited,
-    );
-    return mapped;
-  }
-
-  final rootCount = sceneRoots.length < root.children.length
-      ? sceneRoots.length
-      : root.children.length;
-  for (var i = 0; i < rootCount; i++) {
-    _mapNodeHierarchy(
-      gltfNodeIndex: sceneRoots[i],
-      sceneNode: root.children[i],
-      model: model,
-      output: mapped,
-      visited: visited,
-    );
-  }
-  return mapped;
-}
-
-void _collectDepthFirst(scene.Node node, List<scene.Node> output) {
-  output.add(node);
-  for (final child in node.children) {
-    _collectDepthFirst(child, output);
-  }
-}
-
-List<int> _defaultSceneRootNodeIndices(VrmModel model) {
-  if (model.gltf.scenes.isEmpty) return const [];
-  final sceneIndex = model.gltf.scene ?? 0;
-  if (sceneIndex < 0 || sceneIndex >= model.gltf.scenes.length) {
-    return const [];
-  }
-  return model.gltf.scenes[sceneIndex].nodes;
-}
-
-int _reachableNodeCount(VrmModel model, List<int> roots) {
-  final visited = <int>{};
-
-  void visit(int nodeIndex) {
-    if (nodeIndex < 0 || nodeIndex >= model.gltf.nodes.length) return;
-    if (!visited.add(nodeIndex)) return;
-    for (final childIndex in model.gltf.nodes[nodeIndex].children) {
-      visit(childIndex);
-    }
-  }
-
-  for (final rootIndex in roots) {
-    visit(rootIndex);
-  }
-  return visited.length;
-}
-
-void _mapNodeHierarchy({
-  required int gltfNodeIndex,
-  required scene.Node sceneNode,
-  required VrmModel model,
-  required Map<int, scene.Node> output,
-  required Set<int> visited,
-}) {
-  if (gltfNodeIndex < 0 || gltfNodeIndex >= model.gltf.nodes.length) return;
-  if (!visited.add(gltfNodeIndex)) return;
-  output[gltfNodeIndex] = sceneNode;
-
-  final gltfChildren = model.gltf.nodes[gltfNodeIndex].children;
-  final childCount = gltfChildren.length < sceneNode.children.length
-      ? gltfChildren.length
-      : sceneNode.children.length;
-  for (var i = 0; i < childCount; i++) {
-    _mapNodeHierarchy(
-      gltfNodeIndex: gltfChildren[i],
-      sceneNode: sceneNode.children[i],
-      model: model,
-      output: output,
-      visited: visited,
-    );
-  }
+  return mapFlutterSceneNodesByGltfHierarchy(
+    root,
+    model.gltf,
+    includeRoot: options.includeRootAsGltfNode,
+  );
 }
 
 Map<int, List<scene.Material>> _sceneMaterials(
@@ -474,7 +385,7 @@ Map<int, List<scene.Material>> _sceneMaterials(
     if (meshIndex == null || meshIndex >= model.gltf.meshes.length) continue;
     final scenePrimitives = entry.value.mesh?.primitives;
     if (scenePrimitives == null) continue;
-    final gltfPrimitives = _materialAlignedGltfPrimitives(
+    final gltfPrimitives = materialAlignedFlutterScenePrimitives(
       model.gltf.meshes[meshIndex].primitives,
       scenePrimitives.length,
     );
@@ -493,19 +404,6 @@ Map<int, List<scene.Material>> _sceneMaterials(
     }
   }
   return materials;
-}
-
-List<GltfMeshPrimitive> _materialAlignedGltfPrimitives(
-  List<GltfMeshPrimitive> primitives,
-  int scenePrimitiveCount,
-) {
-  if (primitives.length == scenePrimitiveCount) return primitives;
-  // Flutter Scene 0.16 omits non-TRIANGLES primitives during GLB import.
-  final triangles = [
-    for (final primitive in primitives)
-      if (primitive.mode == 4) primitive,
-  ];
-  return triangles.length == scenePrimitiveCount ? triangles : primitives;
 }
 
 final class _FlutterSceneNodeBinding implements VrmNodeBinding {

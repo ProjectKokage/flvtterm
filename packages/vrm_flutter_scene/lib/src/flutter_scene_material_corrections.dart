@@ -12,6 +12,8 @@ import 'package:flutter_scene/src/gpu/gpu.dart' as gpu;
 import 'package:flvtterm/flvtterm.dart';
 import 'package:vector_math/vector_math.dart' as vm;
 
+import 'flutter_scene_gltf_mapping.dart';
+
 const _shaderBundleAsset =
     'packages/flvtterm_flutter_scene/build/shaderbundles/vrm_materials.shaderbundle';
 
@@ -583,14 +585,14 @@ gpu.SamplerAddressMode _addressMode(int? value) => switch (value) {
 
 Iterable<({GltfMaterial material, scene.MeshPrimitive primitive})>
 _importedMaterialSlots(scene.Node root, VrmModel model) sync* {
-  final nodes = _sceneNodesByGltfIndex(root, model.gltf);
+  final nodes = mapFlutterSceneNodesByGltfHierarchy(root, model.gltf);
   for (final entry in nodes.entries) {
     final gltfNode = model.gltf.nodes[entry.key];
     final meshIndex = gltfNode.mesh;
     if (meshIndex == null || meshIndex >= model.gltf.meshes.length) continue;
     final scenePrimitives = entry.value.mesh?.primitives;
     if (scenePrimitives == null) continue;
-    final gltfPrimitives = _materialAlignedPrimitives(
+    final gltfPrimitives = materialAlignedFlutterScenePrimitives(
       model.gltf.meshes[meshIndex].primitives,
       scenePrimitives.length,
     );
@@ -608,100 +610,4 @@ _importedMaterialSlots(scene.Node root, VrmModel model) sync* {
       );
     }
   }
-}
-
-Map<int, scene.Node> _sceneNodesByGltfIndex(scene.Node root, GltfAsset gltf) {
-  final mapped = <int, scene.Node>{};
-  if (gltf.nodes.isEmpty) return mapped;
-  final roots = _defaultSceneRoots(gltf);
-  final includeRoot = _descendantCount(root) < _reachableNodeCount(gltf, roots);
-  final visited = <int>{};
-  if (includeRoot || roots.isEmpty) {
-    _mapNodeHierarchy(0, root, gltf, mapped, visited);
-    return mapped;
-  }
-  final count = math.min(roots.length, root.children.length);
-  for (var index = 0; index < count; index++) {
-    _mapNodeHierarchy(
-      roots[index],
-      root.children[index],
-      gltf,
-      mapped,
-      visited,
-    );
-  }
-  return mapped;
-}
-
-int _descendantCount(scene.Node root) {
-  var count = 0;
-  void visit(scene.Node node) {
-    count++;
-    for (final child in node.children) {
-      visit(child);
-    }
-  }
-
-  for (final child in root.children) {
-    visit(child);
-  }
-  return count;
-}
-
-List<int> _defaultSceneRoots(GltfAsset gltf) {
-  if (gltf.scenes.isEmpty) return const [];
-  final sceneIndex = gltf.scene ?? 0;
-  if (sceneIndex < 0 || sceneIndex >= gltf.scenes.length) return const [];
-  return gltf.scenes[sceneIndex].nodes;
-}
-
-int _reachableNodeCount(GltfAsset gltf, List<int> roots) {
-  final visited = <int>{};
-  void visit(int nodeIndex) {
-    if (nodeIndex < 0 || nodeIndex >= gltf.nodes.length) return;
-    if (!visited.add(nodeIndex)) return;
-    for (final childIndex in gltf.nodes[nodeIndex].children) {
-      visit(childIndex);
-    }
-  }
-
-  for (final root in roots) {
-    visit(root);
-  }
-  return visited.length;
-}
-
-void _mapNodeHierarchy(
-  int gltfNodeIndex,
-  scene.Node sceneNode,
-  GltfAsset gltf,
-  Map<int, scene.Node> output,
-  Set<int> visited,
-) {
-  if (gltfNodeIndex < 0 || gltfNodeIndex >= gltf.nodes.length) return;
-  if (!visited.add(gltfNodeIndex)) return;
-  output[gltfNodeIndex] = sceneNode;
-  final gltfChildren = gltf.nodes[gltfNodeIndex].children;
-  final count = math.min(gltfChildren.length, sceneNode.children.length);
-  for (var index = 0; index < count; index++) {
-    _mapNodeHierarchy(
-      gltfChildren[index],
-      sceneNode.children[index],
-      gltf,
-      output,
-      visited,
-    );
-  }
-}
-
-List<GltfMeshPrimitive> _materialAlignedPrimitives(
-  List<GltfMeshPrimitive> primitives,
-  int scenePrimitiveCount,
-) {
-  if (primitives.length == scenePrimitiveCount) return primitives;
-  final triangles = [
-    for (final primitive in primitives)
-      if (primitive.mode == 4) primitive,
-  ];
-  return triangles.length == scenePrimitiveCount ? triangles : primitives;
 }
