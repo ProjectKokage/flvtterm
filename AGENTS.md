@@ -30,7 +30,6 @@ Recommended package layout:
 ```text
 packages/
   vrm/                         # pure Dart core: GLB/glTF parsing, VRM/VRMA schemas, runtime controllers
-  vrm_flutter/                 # Flutter conveniences: asset loading, widgets/controllers that do not require a renderer
   vrm_flutter_scene/           # optional adapter; this is the only package allowed to depend on flutter_scene
 example/
   flutter_scene_viewer/        # integration demo using vrm_flutter_scene
@@ -402,15 +401,6 @@ final class FlutterSceneVrmBinding implements VrmSceneBinding {
 }
 ```
 
-## Flutter package behavior
-
-`vrm_flutter` should provide Flutter conveniences that are renderer-neutral:
-
-- `VrmAssetLoader` for `AssetBundle` bytes.
-- `VrmRuntimeController` that can be owned by a widget but does not render by itself.
-- `ChangeNotifier` or `ValueListenable` surfaces for UI controls if useful.
-- No direct dependency on Flutter Scene.
-
 The example app may demonstrate:
 
 - Loading a `.vrm` asset with Flutter Scene.
@@ -548,7 +538,8 @@ Do not add dependencies casually. Before adding a package, check:
 - Its license is compatible.
 - It does not discard glTF extensions or reorder glTF indices in a way that breaks VRM binding.
 
-Never add `flutter_scene` to the core `vrm` or renderer-neutral `vrm_flutter` package.
+Only `vrm_flutter_scene` may depend on `flutter_scene`; keep it out of the core
+package.
 
 ## Implementation milestones
 

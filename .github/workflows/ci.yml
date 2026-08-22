@@ -28,7 +28,6 @@ jobs:
     strategy:
       matrix:
         package:
-          - packages/vrm_flutter
           - packages/vrm_flutter_scene
           - example/flutter_scene_viewer
     steps:

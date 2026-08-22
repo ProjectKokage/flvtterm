@@ -266,19 +266,8 @@ model-orientation transform.
 
 ## Flutter
 
-The optional `packages/vrm_flutter` package provides renderer-neutral Flutter
-helpers. It depends on Flutter, but the core package does not.
-
-```dart
-final loader = VrmAssetLoader(DefaultAssetBundle.of(context));
-final model = await loader.loadModel('assets/avatar.vrm');
-final motion = await loader.loadGltf('assets/wave.gltf');
-final controller = VrmRuntimeController(model)..bind(sceneBinding);
-```
-
 Flutter Scene integration lives in the optional `packages/vrm_flutter_scene`
-package. Flutter Scene types stay out of the core package and the
-renderer-neutral Flutter helper package.
+package. Flutter Scene types stay out of the core package.
 
 The intended adapter flow is:
 

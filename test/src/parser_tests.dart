@@ -26,33 +26,6 @@ void parserTests() {
     expect(offenders, isEmpty);
   });
 
-  test('Flutter helper package stays renderer-neutral', () {
-    const bannedImports = [
-      'dart:ui',
-      'package:flutter_scene/',
-      'package:flutter_gpu/',
-    ];
-    final offenders = [
-      for (final file in Directory(
-        'packages/vrm_flutter/lib',
-      ).listSync(recursive: true))
-        if (file is File &&
-            file.path.endsWith('.dart') &&
-            file
-                .readAsLinesSync()
-                .where((line) => line.trimLeft().startsWith('import '))
-                .any((line) => bannedImports.any(line.contains)))
-          file.path,
-    ];
-    final pubspec = File(
-      'packages/vrm_flutter/pubspec.yaml',
-    ).readAsStringSync();
-
-    expect(offenders, isEmpty);
-    expect(pubspec, isNot(contains('flutter_scene:')));
-    expect(pubspec, isNot(contains('flutter_gpu:')));
-  });
-
   test('Flutter Scene dependency stays isolated to adapter and examples', () {
     final offenders = <String>[];
     final roots = [
