@@ -225,6 +225,32 @@ final class _DecodedImage {
   final ByteData rgba;
 }
 
+/// Packs the adapter's unlit MaterialInfo block using its std140 layout.
+ByteData packFlutterSceneUnlitMaterialInfo({
+  required vm.Vector4 baseColorFactor,
+  required double vertexColorWeight,
+  required GltfAlphaMode alphaMode,
+  required double alphaCutoff,
+  required double lodFade,
+  required int textureCoord,
+}) => ByteData.sublistView(
+  Float32List.fromList([
+    baseColorFactor.r,
+    baseColorFactor.g,
+    baseColorFactor.b,
+    baseColorFactor.a,
+    vertexColorWeight,
+    alphaMode.index.toDouble(),
+    alphaCutoff,
+    lodFade,
+    textureCoord.toDouble(),
+    // std140 rounds this vec4-aligned block's final scalar up to 48 bytes.
+    0,
+    0,
+    0,
+  ]),
+);
+
 final class _CorrectedUnlitMaterial extends scene.ShaderMaterial
     implements FlutterScenePerTextureMaterial {
   _CorrectedUnlitMaterial({
@@ -296,18 +322,13 @@ final class _CorrectedUnlitMaterial extends scene.ShaderMaterial
     cullingMode = doubleSided ? gpu.CullMode.none : gpu.CullMode.backFace;
     setUniformBlock(
       'MaterialInfo',
-      ByteData.sublistView(
-        Float32List.fromList([
-          baseColorFactor.r,
-          baseColorFactor.g,
-          baseColorFactor.b,
-          baseColorFactor.a,
-          vertexColorWeight,
-          _alphaMode.index.toDouble(),
-          _alphaCutoff,
-          lodFade,
-          _baseColorTexCoord.toDouble(),
-        ]),
+      packFlutterSceneUnlitMaterialInfo(
+        baseColorFactor: baseColorFactor,
+        vertexColorWeight: vertexColorWeight,
+        alphaMode: _alphaMode,
+        alphaCutoff: _alphaCutoff,
+        lodFade: lodFade,
+        textureCoord: _baseColorTexCoord,
       ),
     );
     setUniformBlock('TextureInfo', _textureTransform.uniformBytes);
