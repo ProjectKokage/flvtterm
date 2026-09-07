@@ -2,8 +2,10 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_scene/scene.dart' as scene;
+import 'package:flutter_scene/src/importer/gltf.dart' as importer;
 import 'package:flvtterm/flvtterm.dart';
-import 'package:flvtterm_flutter_scene/src/flutter_scene_resolved_import.dart';
+import 'package:flvtterm_flutter_scene/vrm_flutter_scene.dart';
 
 void main() {
   test('keeps self-contained GLBs on the direct renderer path', () {
@@ -73,6 +75,150 @@ void main() {
     },
   );
 
+  test(
+    'optional compression uses the exact validated ordinary geometry',
+    () async {
+      final original = _compressedFallback();
+      final gltf = GltfAsset.parse(bytes: _glb(original, binary: _positions));
+      final resolved = FlutterSceneResolvedImport.fromGltf(gltf)!;
+      final rendererJson =
+          jsonDecode(utf8.decode(resolved.gltfJson)) as Map<String, Object?>;
+      final buffers = rendererJson['buffers'] as List;
+      final bytes = await resolved.resolveUri(
+        (buffers.single as Map)['uri'] as String,
+      );
+      expect(bytes, _positions);
+      expect(rendererJson['accessors'], original['accessors']);
+      expect(rendererJson['extensionsUsed'], ['EXAMPLE_metadata']);
+      expect((buffers.single as Map)['extensions'], {
+        'EXAMPLE_metadata': {'kept': true},
+      });
+      expect(
+        ((rendererJson['bufferViews'] as List).single as Map)['extensions'],
+        isEmpty,
+      );
+      expect(
+        (((rendererJson['meshes'] as List).single as Map)['primitives'] as List)
+            .single,
+        {
+          'attributes': {'POSITION': 0},
+          'extensions': {
+            'EXAMPLE_metadata': {'kept': true},
+          },
+        },
+      );
+      expect(gltf.json, original, reason: 'The core model remains immutable.');
+
+      final document = importer.parseGltfJson(rendererJson);
+      final decoded = importer.decodeMeshoptBufferViews(document, bytes);
+      final packed = importer.packGltfPrimitive(
+        primitive: decoded.doc.meshes.single.primitives.single,
+        accessors: decoded.doc.accessors,
+        bufferViews: decoded.doc.bufferViews,
+        bufferData: decoded.bufferData,
+        coordinatePolicy: importer.GltfCoordinatePolicy.runtimeBoundary,
+      );
+      expect(packed.vertexCount, 3);
+      final vertices = ByteData.sublistView(packed.vertexBytes);
+      for (var vertex = 0; vertex < 3; vertex++) {
+        for (var axis = 0; axis < 3; axis++) {
+          expect(
+            vertices.getFloat32(vertex * 72 + axis * 4, Endian.little),
+            ByteData.sublistView(
+              _positions,
+            ).getFloat32((vertex * 3 + axis) * 4, Endian.little),
+          );
+        }
+      }
+    },
+  );
+
+  for (final extension in [
+    'KHR_draco_mesh_compression',
+    'EXT_meshopt_compression',
+  ]) {
+    test('required $extension retains the existing core rejection', () {
+      final json = _compressedFallback()..['extensionsRequired'] = [extension];
+      final bytes = _glb(json, binary: _positions);
+      final strict = GltfAsset.tryParse(bytes: bytes);
+      expect(strict.asset, isNull);
+      expect(
+        strict.validation.errors.map((d) => d.code),
+        contains('gltf.unsupportedRequiredExtension'),
+      );
+      final permissive = GltfAsset.parse(
+        bytes: bytes,
+        validation: VrmValidationMode.permissive,
+      );
+      expect(
+        () => FlutterSceneResolvedImport.fromGltf(permissive),
+        throwsA(
+          isA<VrmInvalidAssetException>().having(
+            (e) => e.validation.errors.map((d) => d.code),
+            'diagnostics',
+            contains('gltf.unsupportedRequiredExtension'),
+          ),
+        ),
+      );
+      expect(permissive.extensionsRequired, [extension]);
+    });
+  }
+
+  test('required compression without ordinary buffer bytes stays rejected', () {
+    final json = _compressedFallback()
+      ..['extensionsRequired'] = ['EXT_meshopt_compression'];
+    final bytes = _glb(json);
+    final strict = GltfAsset.tryParse(bytes: bytes);
+    expect(strict.asset, isNull);
+    expect(
+      strict.validation.errors.map((d) => d.code),
+      contains('gltf.unsupportedRequiredExtension'),
+    );
+    final permissive = GltfAsset.parse(
+      bytes: bytes,
+      validation: VrmValidationMode.permissive,
+    );
+    expect(
+      () => FlutterSceneResolvedImport.fromGltf(permissive),
+      throwsStateError,
+    );
+    expect(permissive.extensionsRequired, ['EXT_meshopt_compression']);
+  });
+
+  test('optional compression cannot normalize malformed fallback data', () {
+    final json = _compressedFallback();
+    ((json['bufferViews'] as List).single as Map)['byteLength'] =
+        _positions.length + 4;
+    final gltf = GltfAsset.parse(
+      bytes: _glb(json, binary: _positions),
+      validation: VrmValidationMode.permissive,
+    );
+    expect(
+      () => FlutterSceneResolvedImport.fromGltf(gltf),
+      throwsA(isA<VrmInvalidAssetException>()),
+    );
+  });
+
+  test(
+    'normalization leaves unknown required extensions for renderer rejection',
+    () async {
+      final json = _compressedFallback()
+        ..['extensionsRequired'] = ['EXAMPLE_metadata'];
+      final gltf = GltfAsset.parse(
+        bytes: _glb(json, binary: _positions),
+        validation: VrmValidationMode.permissive,
+      );
+      final resolved = FlutterSceneResolvedImport.fromGltf(gltf)!;
+      await expectLater(
+        scene.Node.fromGltfBytes(
+          resolved.gltfJson,
+          resolveUri: resolved.resolveUri,
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    },
+  );
+
   test('replays core-resolved external buffers and images', () async {
     final bufferBytes = Uint8List.fromList([1, 2, 3, 4]);
     final imageBytes = Uint8List.fromList([5, 6, 7]);
@@ -132,6 +278,81 @@ void main() {
     expect(await resolved.resolveUri('external.png'), imageBytes);
   });
 }
+
+final _positions = Float32List.fromList([
+  -1,
+  0,
+  0,
+  1,
+  0,
+  0,
+  0,
+  1,
+  0,
+]).buffer.asUint8List();
+
+Map<String, Object?> _compressedFallback() => {
+  'asset': {'version': '2.0'},
+  'extensionsUsed': [
+    'KHR_draco_mesh_compression',
+    'EXT_meshopt_compression',
+    'EXAMPLE_metadata',
+  ],
+  'buffers': [
+    {
+      'byteLength': _positions.length,
+      'extensions': {
+        'EXT_meshopt_compression': {'fallback': true},
+        'EXAMPLE_metadata': {'kept': true},
+      },
+    },
+  ],
+  'bufferViews': [
+    {
+      'buffer': 0,
+      'byteLength': _positions.length,
+      'extensions': {
+        'EXT_meshopt_compression': {
+          'buffer': 0,
+          'byteOffset': 0,
+          'byteLength': 1,
+          'count': 0x7fffffff,
+          'byteStride': 12,
+          'mode': 'ATTRIBUTES',
+        },
+      },
+    },
+  ],
+  'accessors': [
+    {
+      'bufferView': 0,
+      'componentType': 5126,
+      'count': 3,
+      'type': 'VEC3',
+      'min': [-1, 0, 0],
+      'max': [1, 1, 0],
+    },
+    // Legitimate zero-initialized accessors remain zero-initialized.
+    {'componentType': 5126, 'count': 1, 'type': 'SCALAR'},
+  ],
+  'meshes': [
+    {
+      'primitives': [
+        {
+          'attributes': {'POSITION': 0},
+          'extensions': {
+            // Deliberately invalid compressed bytes; the accepted fallback wins.
+            'KHR_draco_mesh_compression': {
+              'bufferView': 0,
+              'attributes': {'POSITION': 0},
+            },
+            'EXAMPLE_metadata': {'kept': true},
+          },
+        },
+      ],
+    },
+  ],
+};
 
 Uint8List _glb(Map<String, Object?> json, {Uint8List? binary}) {
   final jsonBytes = Uint8List.fromList(utf8.encode(jsonEncode(json)));
