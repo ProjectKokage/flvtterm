@@ -1,6 +1,6 @@
-// Flutter Scene 0.19.0 deliberately keeps reusable GPU buffer types internal.
+// Flutter Scene 0.23.0 deliberately keeps reusable GPU buffer types internal.
 // This package is exact-version pinned while this compatibility seam exists.
-// ignore_for_file: implementation_imports, public_member_api_docs
+// ignore_for_file: implementation_imports, invalid_use_of_internal_member, public_member_api_docs
 
 import 'dart:typed_data';
 
@@ -13,8 +13,10 @@ final class FlutterSceneMorphTargetPrimitive {
   FlutterSceneMorphTargetPrimitive._({
     required this.blender,
     required scene.Geometry geometry,
+    required scene.MeshPrimitive primitive,
     required gpu.DeviceBuffer vertexBuffer,
   }) : _geometry = geometry,
+       _primitive = primitive,
        _vertexBuffer = vertexBuffer;
 
   /// Allocates and fills the reusable buffer without mutating [geometry].
@@ -22,9 +24,10 @@ final class FlutterSceneMorphTargetPrimitive {
   /// Call [activate] only after every primitive in the mesh has prepared
   /// successfully so an allocation failure cannot leave a partial binding.
   factory FlutterSceneMorphTargetPrimitive.prepare(
-    scene.Geometry geometry,
+    scene.MeshPrimitive primitive,
     MorphTargetPrimitiveData data,
   ) {
+    final geometry = primitive.geometry;
     final geometryMatches = data.isSkinned
         ? geometry is scene.SkinnedGeometry
         : geometry is scene.UnskinnedGeometry &&
@@ -46,15 +49,31 @@ final class FlutterSceneMorphTargetPrimitive {
       throw StateError('Flutter Scene rejected the initial morph vertex data.');
     }
     buffer.flush(offsetInBytes: 0, lengthInBytes: bytes.lengthInBytes);
+    // Own a plain geometry: the importer now creates native morph geometry,
+    // whose per-node blend would otherwise overwrite our per-primitive result.
+    final target = data.isSkinned
+        ? scene.SkinnedGeometry()
+        : scene.UnskinnedGeometry();
+    final source = geometry.cpuMeshData;
+    target
+      ..sourceWindingFlipped = geometry.sourceWindingFlipped
+      ..uploadVertexData(
+        bytes,
+        data.vertexCount,
+        source.indices,
+        indexType: source.indexType,
+      );
     return FlutterSceneMorphTargetPrimitive._(
       blender: blender,
-      geometry: geometry,
+      geometry: target,
+      primitive: primitive,
       vertexBuffer: buffer,
     );
   }
 
   final MorphTargetBlender blender;
   final scene.Geometry _geometry;
+  final scene.MeshPrimitive _primitive;
   final gpu.DeviceBuffer _vertexBuffer;
   bool _active = false;
   int uploadCount = 0;
@@ -76,6 +95,7 @@ final class FlutterSceneMorphTargetPrimitive {
       // that conservative behavior to every morph primitive prevents stale
       // neutral bounds from culling an active target.
       ..setLocalBounds(null, null);
+    _primitive.geometry = _geometry;
     _active = true;
   }
 

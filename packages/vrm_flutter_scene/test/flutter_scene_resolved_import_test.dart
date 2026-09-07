@@ -22,6 +22,57 @@ void main() {
     expect(FlutterSceneResolvedImport.fromGltf(gltf), isNull);
   });
 
+  test(
+    'passes VRM-owned required extensions to core and preserves unknown ones',
+    () {
+      final gltf = GltfAsset.parse(
+        bytes: _glb({
+          'asset': {'version': '2.0'},
+          'extensionsUsed': ['VRMC_vrm', 'EXAMPLE_unknown'],
+          'extensionsRequired': ['VRMC_vrm', 'EXAMPLE_unknown'],
+          'extensions': {
+            'VRMC_vrm': {'specVersion': '1.0'},
+          },
+        }),
+        validation: VrmValidationMode.permissive,
+      );
+      final resolved = FlutterSceneResolvedImport.fromGltf(gltf)!;
+      final rendererJson = jsonDecode(utf8.decode(resolved.gltfJson)) as Map;
+      expect(rendererJson['extensionsRequired'], ['EXAMPLE_unknown']);
+      expect((rendererJson['extensions'] as Map)['VRMC_vrm'], {
+        'specVersion': '1.0',
+      });
+      expect(gltf.extensionsRequired, ['VRMC_vrm', 'EXAMPLE_unknown']);
+    },
+  );
+
+  test(
+    'replays each resolved buffer without aliasing its synthetic URI',
+    () async {
+      final payloads = {
+        'first.bin': Uint8List.fromList([1, 2, 3, 4]),
+        'second.bin': Uint8List.fromList([5, 6, 7, 8]),
+      };
+      final gltf = GltfAsset.parse(
+        bytes: _glb({
+          'asset': {'version': '2.0'},
+          'buffers': [
+            for (final uri in payloads.keys) {'uri': uri, 'byteLength': 4},
+          ],
+        }),
+        uriResolver: (uri) => payloads[uri],
+      );
+      final resolved = FlutterSceneResolvedImport.fromGltf(gltf)!;
+      final rendererJson = jsonDecode(utf8.decode(resolved.gltfJson)) as Map;
+      final uris = (rendererJson['buffers'] as List)
+          .map((buffer) => (buffer as Map)['uri'] as String)
+          .toList();
+      expect(uris.toSet(), hasLength(2));
+      expect(await resolved.resolveUri(uris[0]), payloads['first.bin']);
+      expect(await resolved.resolveUri(uris[1]), payloads['second.bin']);
+    },
+  );
+
   test('replays core-resolved external buffers and images', () async {
     final bufferBytes = Uint8List.fromList([1, 2, 3, 4]);
     final imageBytes = Uint8List.fromList([5, 6, 7]);

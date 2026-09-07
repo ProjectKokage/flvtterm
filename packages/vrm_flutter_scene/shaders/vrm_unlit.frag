@@ -4,6 +4,7 @@ uniform MaterialInfo {
   float alpha_mode;
   float alpha_cutoff;
   float fade;
+  float texture_coord;
 }
 material_info;
 
@@ -17,13 +18,7 @@ texture_info;
 
 uniform sampler2D base_color_texture;
 
-in vec3 v_position;
-in vec3 v_normal;
-in vec3 v_viewvector;
-in vec2 v_texture_coords;
-in vec4 v_color;
-
-out vec4 frag_color;
+#include <material_varyings.glsl>
 
 const float kGamma = 2.2;
 vec3 SRGBToLinear(vec3 color) { return pow(color, vec3(kGamma)); }
@@ -39,7 +34,7 @@ void main() {
   ApplyLodFade(material_info.fade);
   vec4 vertex_color =
       mix(vec4(1), v_color, material_info.vertex_color_weight);
-  vec2 uv = TransformUv(v_texture_coords,
+  vec2 uv = TransformUv(GetUV(int(material_info.texture_coord)),
                         texture_info.base_color_scale_offset,
                         texture_info.base_color_rotation);
   vec4 base = texture(base_color_texture, uv);

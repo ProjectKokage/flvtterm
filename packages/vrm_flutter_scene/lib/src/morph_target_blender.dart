@@ -122,6 +122,20 @@ final class MorphTargetDataFactory {
       );
     }
 
+    final texCoords1 = switch (primitive.attributes['TEXCOORD_1']) {
+      final index? => _readExact(index, vertexCount * 2),
+      null => Float32List(vertexCount * 2),
+    };
+    final tangents = switch (primitive.attributes['TANGENT']) {
+      final index? => _readExact(index, vertexCount * 4),
+      null => Float32List(vertexCount * 4),
+    };
+    if (texCoords1 == null || tangents == null) {
+      return MorphTargetPrimitiveBuildResult.unsupported(
+        'TEXCOORD_1 and TANGENT must be finite accessors matching POSITION.',
+      );
+    }
+
     final colors = _readColors(primitive.attributes['COLOR_0'], vertexCount);
     if (colors == null) {
       return MorphTargetPrimitiveBuildResult.unsupported(
@@ -160,7 +174,7 @@ final class MorphTargetDataFactory {
       normalDeltas.add(normalDelta);
     }
 
-    final strideFloats = isSkinned ? 20 : 12;
+    final strideFloats = isSkinned ? 26 : 18;
     final base = Float32List(vertexCount * strideFloats);
     for (var vertex = 0; vertex < vertexCount; vertex++) {
       final output = vertex * strideFloats;
@@ -175,19 +189,13 @@ final class MorphTargetDataFactory {
       base[output + 5] = normals[vec3 + 2];
       base[output + 6] = texCoords[vec2];
       base[output + 7] = texCoords[vec2 + 1];
-      base[output + 8] = colors[vec4];
-      base[output + 9] = colors[vec4 + 1];
-      base[output + 10] = colors[vec4 + 2];
-      base[output + 11] = colors[vec4 + 3];
+      base[output + 8] = texCoords1[vec2];
+      base[output + 9] = texCoords1[vec2 + 1];
+      base.setRange(output + 10, output + 14, colors, vec4);
+      base.setRange(output + 14, output + 18, tangents, vec4);
       if (isSkinned) {
-        base[output + 12] = joints![vec4];
-        base[output + 13] = joints[vec4 + 1];
-        base[output + 14] = joints[vec4 + 2];
-        base[output + 15] = joints[vec4 + 3];
-        base[output + 16] = skinWeights![vec4];
-        base[output + 17] = skinWeights[vec4 + 1];
-        base[output + 18] = skinWeights[vec4 + 2];
-        base[output + 19] = skinWeights[vec4 + 3];
+        base.setRange(output + 18, output + 22, joints!, vec4);
+        base.setRange(output + 22, output + 26, skinWeights!, vec4);
       }
     }
     return MorphTargetPrimitiveBuildResult.success(

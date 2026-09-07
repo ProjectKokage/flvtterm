@@ -5,18 +5,18 @@ publish_to: none
 
 environment:
   sdk: ^3.11.5
-  flutter: ">=3.47.0-0.1.pre"
+  flutter: ">=3.47.0"
 
 dependencies:
   flutter:
     sdk: flutter
-  flutter_gpu_shaders: 0.5.1
+  flutter_gpu_shaders: 0.5.2
   # The adapter uses Flutter Scene internals for reusable morph buffers and
   # corrected VRM material bindings. Keep this exact.
-  flutter_scene: 0.19.0
+  flutter_scene: 0.23.0
   flvtterm:
     path: ../..
-  hooks: 2.0.2
+  hooks: 2.2.0
   vector_math: ^2.4.0
 
 dev_dependencies:

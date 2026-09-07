@@ -100,6 +100,29 @@ void main() {
     expect(blender.workingVertices, orderedEquals(base));
   });
 
+  test(
+    'packs both UV sets and tangents before skin fields in the current layout',
+    () {
+      for (final skinned in [false, true]) {
+        final gltf = _gltfWithAllVertexFields(skinned: skinned);
+        final result = MorphTargetDataFactory(
+          gltf,
+        ).build(gltf.meshes.single.primitives.single);
+        expect(result.failure, isNull);
+        expect(result.data!.strideFloats, skinned ? 26 : 18);
+        expect(result.data!.baseVertices, [
+          1, 2, 3, // position
+          0, 0, 1, // normal
+          0.25, 0.5, // UV0
+          0.75, 1, // UV1
+          1, 0.5, 0.25, 1, // color
+          1, 0, 0, -1, // tangent + handedness
+          if (skinned) ...[0, 1, 2, 3, 1, 0, 0, 0],
+        ]);
+      }
+    },
+  );
+
   test('rejects tangent morphs that Flutter Scene cannot represent', () {
     final gltf = _gltfWithTangentMorph();
     final result = MorphTargetDataFactory(
@@ -157,6 +180,71 @@ GltfAsset _gltfWithTangentMorph() {
   };
   return GltfAsset.parse(
     bytes: Uint8List.fromList(utf8.encode(jsonEncode(json))),
+    validation: VrmValidationMode.permissive,
+  );
+}
+
+GltfAsset _gltfWithAllVertexFields({required bool skinned}) {
+  final attributes = {
+    'POSITION': [1.0, 2.0, 3.0],
+    'NORMAL': [0.0, 0.0, 1.0],
+    'TEXCOORD_0': [0.25, 0.5],
+    'TEXCOORD_1': [0.75, 1.0],
+    'COLOR_0': [1.0, 0.5, 0.25, 1.0],
+    'TANGENT': [1.0, 0.0, 0.0, -1.0],
+    if (skinned) 'JOINTS_0': [0.0, 1.0, 2.0, 3.0],
+    if (skinned) 'WEIGHTS_0': [1.0, 0.0, 0.0, 0.0],
+  };
+  final data = ByteData(attributes.values.expand((value) => value).length * 4);
+  final views = <Map<String, Object?>>[];
+  final accessors = <Map<String, Object?>>[];
+  var offset = 0;
+  for (final value in attributes.values) {
+    views.add({
+      'buffer': 0,
+      'byteOffset': offset,
+      'byteLength': value.length * 4,
+    });
+    accessors.add({
+      'bufferView': accessors.length,
+      'componentType': 5126,
+      'count': 1,
+      'type': 'VEC${value.length}',
+    });
+    for (final number in value) {
+      data.setFloat32(offset, number, Endian.little);
+      offset += 4;
+    }
+  }
+  return GltfAsset.parse(
+    bytes: Uint8List.fromList(
+      utf8.encode(
+        jsonEncode({
+          'asset': {'version': '2.0'},
+          'buffers': [
+            {
+              'byteLength': data.lengthInBytes,
+              'uri':
+                  'data:application/octet-stream;base64,${base64Encode(data.buffer.asUint8List())}',
+            },
+          ],
+          'bufferViews': views,
+          'accessors': accessors,
+          'meshes': [
+            {
+              'primitives': [
+                {
+                  'attributes': {
+                    for (final (index, name) in attributes.keys.indexed)
+                      name: index,
+                  },
+                },
+              ],
+            },
+          ],
+        }),
+      ),
+    ),
     validation: VrmValidationMode.permissive,
   );
 }

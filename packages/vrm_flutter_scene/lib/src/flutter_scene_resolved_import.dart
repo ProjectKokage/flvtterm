@@ -29,30 +29,34 @@ final class FlutterSceneResolvedImport {
   FlutterSceneResolvedImport._(this.gltfJson, Map<String, Uint8List> resources)
     : _resources = Map.unmodifiable(resources);
 
-  /// Returns `null` when the original GLB is fully self-contained.
+  /// Returns `null` when the GLB needs no resource or VRM extension adaptation.
   static FlutterSceneResolvedImport? fromGltf(GltfAsset gltf) {
     final hasExternalResource =
         gltf.buffers.any((buffer) => _isExternalUri(buffer.uri)) ||
         gltf.images.any((image) => _isExternalUri(image.uri));
-    if (!hasExternalResource) return null;
-
-    if (gltf.buffers.length > 1) {
-      throw UnsupportedError(
-        'The pinned Flutter Scene runtime importer accepts at most one glTF '
-        'buffer; the parsed asset contains ${gltf.buffers.length}.',
-      );
-    }
+    final hasVrmExtension = gltf.extensionsRequired.any(
+      _flvttermOwnedExtensions.contains,
+    );
+    if (!hasExternalResource && !hasVrmExtension) return null;
 
     final decoded = jsonDecode(jsonEncode(gltf.json));
     if (decoded is! Map<String, Object?>) {
       throw StateError('Parsed glTF JSON root is not an object.');
     }
 
+    // Core and this adapter consume these VRM extensions. Keep their data in
+    // the model, but do not ask the glTF-only renderer to implement them too.
+    // Unknown required extensions remain required and fail renderer validation.
+    if (hasVrmExtension) {
+      decoded['extensionsRequired'] = gltf.extensionsRequired
+          .where((name) => !_flvttermOwnedExtensions.contains(name))
+          .toList();
+    }
+
     final resources = <String, Uint8List>{};
     final reservedUris = {for (final image in gltf.images) ?image.uri};
 
-    if (gltf.buffers.isNotEmpty) {
-      final buffer = gltf.buffers.single;
+    for (final buffer in gltf.buffers) {
       final data = buffer.data;
       if (data == null) {
         throw StateError(
@@ -60,11 +64,14 @@ final class FlutterSceneResolvedImport {
         );
       }
       final buffers = decoded['buffers'];
-      if (buffers is! List || buffers.isEmpty || buffers.first is! Map) {
+      if (buffers is! List ||
+          buffer.index >= buffers.length ||
+          buffers[buffer.index] is! Map) {
         throw StateError('Parsed glTF buffer metadata is unavailable.');
       }
       final syntheticUri = _uniqueBufferUri(reservedUris);
-      (buffers.first as Map)['uri'] = syntheticUri;
+      (buffers[buffer.index] as Map)['uri'] = syntheticUri;
+      reservedUris.add(syntheticUri);
       resources[syntheticUri] = data;
     }
 
@@ -107,6 +114,14 @@ final class FlutterSceneResolvedImport {
     return bytes;
   }
 }
+
+const _flvttermOwnedExtensions = {
+  'VRM',
+  'VRMC_vrm',
+  'VRMC_springBone',
+  'VRMC_node_constraint',
+  'VRMC_materials_mtoon',
+};
 
 bool _isExternalUri(String? uri) => uri != null && !uri.startsWith('data:');
 
