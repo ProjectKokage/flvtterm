@@ -275,6 +275,7 @@ Provide a `VrmMotionController` that can play all supported animation sources th
 - Generic glTF animation clips embedded in a model.
 - External generic glTF/GLB animation clips.
 - VRMA clips.
+- Caller-sampled humanoid poses with an immutable source rest skeleton.
 - Programmatic poses.
 - Procedural idle motions.
 
@@ -289,6 +290,18 @@ Required features:
 - Priority handling between procedural controllers and animation clips.
 
 The default controller should make VRMA work for common avatars without custom setup.
+
+Sampled humanoid sources share VRMA's semantic binding and FK retargeting,
+including omitted optional ancestors, legacy model orientation and separate
+model-root motion. Samples contain finite unit body rotations and optional
+absolute source hips translation; they cannot own eye bones, expressions,
+gaze, scales or arbitrary destination nodes. The reference asset contributes
+only rest metadata. Interpolation and sample availability belong to the caller.
+An externally clocked stream uses speed zero and seeks only within available
+coverage; the runtime does not extrapolate or retain a streaming queue. Source
+replacement and stop use the same priority, fade and callback lifetime rules
+as other motion sources. Additive sampled layers expose their own weighted
+root translation independently of other layers.
 
 ## Performance rules
 

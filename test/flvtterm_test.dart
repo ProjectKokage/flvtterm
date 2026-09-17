@@ -21,6 +21,7 @@ part 'src/gltf_animation_tests.dart';
 part 'src/runtime_tests.dart';
 part 'src/motion_controller_tests.dart';
 part 'src/vrma_motion_tests.dart';
+part 'src/sampled_motion_tests.dart';
 part 'src/cli_tests.dart';
 part 'src/vrm0_compatibility_tests.dart';
 part 'src/test_fixtures.dart';
@@ -40,6 +41,7 @@ void main() {
   gltfAnimationTests();
   motionControllerTests();
   vrmaMotionTests();
+  sampledMotionTests();
   runtimeTests();
   cliTests();
   vrm0CompatibilityTests();

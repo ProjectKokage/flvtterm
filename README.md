@@ -259,6 +259,27 @@ runtime.motion.play(
 
 Omit `animationIndex` to play the first glTF animation in the VRMA asset.
 
+For a live or externally sampled body pose, use `VrmSampledHumanoidMotion`:
+
+```dart
+final motion = VrmSampledHumanoidMotion(
+  restPose: sourceRestPose,
+  duration: cueDuration,
+  sample: sampleAvailablePose,
+);
+runtime.motion.play(motion, speed: 0);
+runtime.motion.seek(playbackPosition);
+```
+
+`sourceRestPose` is a `VrmAnimationAsset` supplying source nodes and humanoid
+assignments; it can contain only rest metadata. `sampleAvailablePose` returns
+`VrmHumanoidSample` with source-local unit XYZW rotations and optional absolute
+hips translation. The source uses the same FK retargeter, masks, fades and
+additive layers as VRMA. It never evaluates expression, gaze or animation
+tracks from the reference asset. The caller owns sample interpolation, bounded
+buffers and underrun handling, and must seek only over available poses. No
+network connection or packet buffer is retained by the core runtime.
+
 Current VRMA retargeting uses `VrmFkHumanoidRetargeter` by default and can be replaced through `runtime.motion.vrmaRetargeter`. Source animation node indices are mapped to source humanoid bones, normalized through the source and destination world rest rotations, then applied to destination humanoid bones; source node indices are never written directly to destination glTF node indices. Rest-frame calculation includes non-humanoid intermediary nodes. When the source has an optional humanoid bone that the destination omits, its normalized rotation is composed into the nearest descendants shared by both humanoids. Hips translation uses the source rest-pose delta, multiplies that delta by `hipsTranslationScale`, rotates it through the source hips parent's rest-world frame, and applies it as model root motion through `VrmModelRootBinding` when available. Bindings without `VrmModelRootBinding` fall back to composing that root motion onto the glTF scene root nodes. Non-hips humanoid translation and humanoid scale animation are validation errors.
 For VRM 0.x destinations, semantic VRMA bone rotations are converted through
 the legacy source basis and hips root motion composes with the persistent

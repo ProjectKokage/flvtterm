@@ -19,6 +19,8 @@ extension _VrmMotionSnapshot on VrmMotionController {
   }
 
   _MotionSnapshot? _captureRawSnapshot() {
+    final sampled = _sampledHumanoid;
+    if (sampled != null) return _sampledSnapshot(sampled);
     final programmaticPose = _programmaticPose;
     if (programmaticPose != null) {
       return _maskedSnapshot(_snapshotProgrammaticPose(programmaticPose));
