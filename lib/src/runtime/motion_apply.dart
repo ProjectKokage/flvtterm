@@ -64,7 +64,7 @@ extension _VrmMotionApply on VrmMotionController {
     _applyAdditiveNodePoses(binding);
     _applyModelRootPose(
       binding,
-      null,
+      _programmaticRootPose(pose),
       fade,
       from: _crossFadeFrom?.modelRootPose,
     );

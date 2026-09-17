@@ -215,6 +215,18 @@ Crossfades blend VRMA model-root motion as well as node, expression, morph, and
 LookAt output, including transitions from VRMA back to non-root-motion sources.
 Starting another motion during a crossfade captures the currently blended
 output, so the replacement fade begins without a pose jump.
+To transition from a composed pose (including standing or additive layers),
+use `runtime.captureHumanoidPose(bones)`, remove the captured contributions,
+play the captured `VrmProgrammaticPose`, then play the next source with
+`fadeIn`. Capture copies only selected mapped nodes and runtime root
+translation; expressions and gaze keep their own owners. It returns null for
+an unbound runtime or an invalid selected transform.
+Programmatic poses can also specify `modelRootTranslation`; this explicit
+model-space displacement is independent of node masks and application placement.
+`sampleModelRootTranslation()` samples the override's current blended root
+without additive layers. Pass `blended: false` to validate the target before
+rendering. Sampling never advances time, and a release uses its frozen snapshot
+without calling the retired source again.
 Use `setAdditiveProgrammaticPose` and `addAdditiveProgrammaticPose` for simple procedural additive layers over the active source.
 Use `playProceduralMotion((time) => pose)` for simple idle or app-owned procedural motion.
 

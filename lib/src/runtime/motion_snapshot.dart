@@ -70,6 +70,7 @@ extension _VrmMotionSnapshot on VrmMotionController {
     final pitch = pose.lookAtPitchDegrees;
     return _MotionSnapshot(
       nodePoses: pose.nodePoses,
+      modelRootPose: _programmaticRootPose(pose),
       morphWeights: pose.morphWeights,
       expressionWeights: {
         for (final entry in pose.expressionWeights.entries)
@@ -222,6 +223,13 @@ extension _VrmMotionSnapshot on VrmMotionController {
 
   _YawPitch? _blendLookAt(_YawPitch? target, double fade) =>
       _lerpSnapshotLookAt(_crossFadeFrom?.lookAt, target, fade);
+}
+
+GltfNodePose? _programmaticRootPose(VrmProgrammaticPose pose) {
+  final root = pose.modelRootTranslation;
+  return root == null
+      ? null
+      : GltfNodePose(translation: [root.x, root.y, root.z]);
 }
 
 _YawPitch? _lerpSnapshotLookAt(

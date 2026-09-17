@@ -2,6 +2,159 @@ part of '../flvtterm_test.dart';
 
 void sampledMotionTests() {
   group('sampled humanoid motion', () {
+    test(
+      'captures the current body for an uninterrupted sampled transition',
+      () {
+        final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
+        final binding = _FakeBinding();
+        runtime.bind(binding);
+        final layer = runtime.motion.addAdditiveLayer(
+          VrmProgrammaticPose(
+            nodePoses: {
+              2: GltfNodePose(rotation: [0, 0, .6, .8]),
+            },
+            modelRootTranslation: const VrmVector3(2, 0, 0),
+          ),
+        );
+        runtime.update(0);
+        final before = binding.nodes[2]!.localTransform;
+        final captured = runtime.captureHumanoidPose({
+          VrmHumanoidBone.head,
+          VrmHumanoidBone.upperChest, // Not mapped by this avatar.
+        })!;
+        expect(captured.nodePoses.keys, [2]);
+        expect(captured.morphWeights, isEmpty);
+        expect(captured.expressionWeights, isEmpty);
+        expect(captured.lookAtYawDegrees, isNull);
+        expect(captured.modelRootTranslation!.x, 2);
+        runtime.motion.removeAdditiveLayer(layer);
+        runtime.motion.play(captured);
+        runtime.motion.play(
+          _sampledHips(6),
+          fadeIn: const Duration(seconds: 1),
+        );
+        runtime.update(0);
+        _expectSampledMatrix(binding.nodes[2]!.localTransform, before);
+        expect(binding.modelRootMotionTransform.storage[12], 2);
+        runtime.update(.5);
+        expect(binding.modelRootMotionTransform.storage[12], 4);
+        // The source head rotates through half of its original Z angle.
+        expect(binding.nodes[2]!.localTransform.storage[0], closeTo(.8, 1e-9));
+        expect(binding.nodes[2]!.localTransform.storage[1], closeTo(.6, 1e-9));
+        runtime.update(.5);
+        expect(binding.modelRootMotionTransform.storage[12], 6);
+        _expectSampledMatrix(
+          binding.nodes[2]!.localTransform,
+          VrmMatrix4.identity(),
+        );
+        // Capture data must not track subsequent runtime mutations.
+        expect(captured.nodePoses[2]!.rotation, orderedEquals([0, 0, .6, .8]));
+      },
+    );
+
+    test('captures mirrored nonuniform TRS and rejects invalid transforms', () {
+      final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
+      const bones = {VrmHumanoidBone.head};
+      expect(runtime.captureHumanoidPose(bones), isNull);
+      final binding = _FakeBinding();
+      runtime.bind(binding);
+      runtime.update(0);
+      // Z rotation +90 degrees, scale (-2, 3, 4), translation (5, 6, 7).
+      final transform = VrmMatrix4([
+        0,
+        -2,
+        0,
+        0,
+        -3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        4,
+        0,
+        5,
+        6,
+        7,
+        1,
+      ]);
+      binding.nodes[2]!.localTransform = transform;
+      final captured = runtime.captureHumanoidPose(bones)!;
+      expect(captured.nodePoses[2]!.scale, [-2, 3, 4]);
+      runtime.motion.play(captured);
+      runtime.update(0);
+      _expectSampledMatrix(binding.nodes[2]!.localTransform, transform);
+      for (final (index, value) in [
+        (0, double.nan),
+        (12, double.infinity),
+        (0, 0.0), // Singular.
+        (4, .25), // Shear.
+        (3, .25), // Not affine.
+      ]) {
+        final values = List<double>.of(VrmMatrix4.identity().storage);
+        values[index] = value;
+        binding.nodes[2]!.localTransform = VrmMatrix4(values);
+        expect(runtime.captureHumanoidPose(bones), isNull);
+      }
+      binding.nodes[2]!.localTransform = VrmMatrix4.identity();
+      binding.modelRootMotionTransform = VrmMatrix4([
+        ...VrmMatrix4.identity().storage.take(12),
+        double.nan,
+        0,
+        0,
+        1,
+      ]);
+      expect(runtime.captureHumanoidPose(bones), isNull);
+      runtime.bind(_FakeBinding());
+      runtime.update(0);
+      expect(runtime.captureHumanoidPose(bones), isNotNull);
+      runtime.unbind();
+      expect(runtime.captureHumanoidPose(bones), isNull);
+    });
+
+    test('isolates target and blended roots and never resamples a release', () {
+      final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
+      final binding = _FakeBinding();
+      runtime.bind(binding);
+      runtime.motion.play(
+        VrmProgrammaticPose(modelRootTranslation: const VrmVector3(2, 0, 0)),
+      );
+      var calls = 0;
+      runtime.motion.play(
+        _sampledHips(6, sampleTime: (_) => calls++),
+        fadeIn: const Duration(seconds: 1),
+      );
+      runtime.motion.addAdditiveLayer(
+        VrmProgrammaticPose(modelRootTranslation: const VrmVector3(20, 0, 0)),
+        weight: .5,
+      );
+      expect(runtime.motion.sampleModelRootTranslation()!.x, 2);
+      expect(runtime.motion.sampleModelRootTranslation(blended: false)!.x, 6);
+      expect(runtime.motion.position, Duration.zero);
+      runtime.update(.5);
+      expect(runtime.motion.sampleModelRootTranslation()!.x, 4);
+      expect(binding.modelRootMotionTransform.storage[12], 14);
+      runtime.motion.stop(fadeOut: const Duration(seconds: 1));
+      final atStop = calls;
+      runtime.update(.5);
+      expect(runtime.motion.sampleModelRootTranslation()!.x, 2);
+      expect(runtime.motion.sampleModelRootTranslation(blended: false), isNull);
+      expect(binding.modelRootMotionTransform.storage[12], 12);
+      expect(calls, atStop);
+      runtime.update(.5);
+      expect(runtime.motion.sampleModelRootTranslation(), isNull);
+      expect(binding.modelRootMotionTransform.storage[12], 10);
+      expect(calls, atStop);
+      for (final value in [double.nan, double.infinity, -double.infinity]) {
+        expect(
+          () => VrmProgrammaticPose(
+            modelRootTranslation: VrmVector3(0, value, 0),
+          ),
+          throwsArgumentError,
+        );
+      }
+    });
+
     for (final legacy in [false, true]) {
       for (final rootBinding in [false, true]) {
         test('matches VRMA with legacy=$legacy rootBinding=$rootBinding', () {

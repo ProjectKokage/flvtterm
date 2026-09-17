@@ -77,6 +77,21 @@ final class VrmMotionController {
     return duration <= 0 ? 0 : _clamp01(_timeSeconds / duration);
   }
 
+  /// Samples only the override source's model-root translation at its current
+  /// position. Additive layers and application placement are excluded.
+  ///
+  /// [blended] includes an in-progress crossfade or release. Set it to false
+  /// to inspect the unblended target before rendering, for example for stage
+  /// bounds. This evaluates the source callback without advancing its clock;
+  /// callers must keep procedural/sampled callbacks deterministic and available.
+  VrmVector3? sampleModelRootTranslation({bool blended = true}) {
+    if (!blended && _stopping) return null;
+    final snapshot = blended ? _captureSnapshot() : _captureRawSnapshot();
+    final value = snapshot?.modelRootPose?.translation;
+    if (!_hasFiniteLength(value, 3)) return null;
+    return VrmVector3(value![0], value[1], value[2]);
+  }
+
   /// Plays any supported motion source through one entry point.
   ///
   /// Pass an [int] for an embedded glTF animation index, a [GltfAsset] for an

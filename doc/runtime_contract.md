@@ -303,6 +303,18 @@ replacement and stop use the same priority, fade and callback lifetime rules
 as other motion sources. Additive sampled layers expose their own weighted
 root translation independently of other layers.
 
+Transition capture copies the current bound local TRS for explicitly selected
+mapped humanoid bones and, when supported, the runtime-owned root translation.
+It excludes application placement, unselected nodes, morphs and expression
+inputs. Nonfinite, singular or sheared selected transforms fail capture rather
+than being approximated. The caller removes contributions already captured
+before replaying the snapshot, to avoid applying them twice. A programmatic
+root translation is an explicit model-space displacement independent of node
+masks; it shares the existing crossfade, release and additive root composition.
+Override root inspection excludes additive roots and does not advance time.
+Unblended inspection returns no target while releasing; blended inspection
+uses the captured release snapshot without re-entering its source callback.
+
 ## Performance rules
 
 Parsing may allocate; per-frame runtime must be allocation-conscious.
