@@ -337,6 +337,13 @@ transform binds through renderer-neutral bindings. Use
 MToon fallback diagnostics are available through
 `VrmModel.vrm0MtoonFallbackWarning(...)`.
 
+## Development
+
+The [runtime contract](doc/runtime_contract.md) records parsing, validation,
+controller, retargeting and performance requirements. Read the sections for the
+boundary being changed; this README records current support and limitations.
+See [AGENTS.md](AGENTS.md) for package-specific checks and contribution rules.
+
 ## Limitations and Planned Work
 
 - First-person `auto` can classify head-influenced primitives, but runtime geometry splitting is left to renderer adapters.
