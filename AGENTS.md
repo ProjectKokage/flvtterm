@@ -65,6 +65,10 @@ missing evidence. For prose-only changes, check links, paths/commands and
 
 ## Delivery
 
+Branch names must not begin with `codex` (case-insensitive), including
+`codex/` and `codex-`. Rename tool-generated defaults before committing or
+pushing; use a descriptive name such as `docs-agent-guides`.
+
 Use a task branch, review the diff, and commit only task files. Push or publish
 only when requested; merge only with owner approval. Preserve existing features
 and compatibility unless the user authorizes a change. Update Dartdoc and
