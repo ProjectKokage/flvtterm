@@ -37,7 +37,9 @@ jobs:
           channel: stable
       - run: flutter pub get
         working-directory: ${{ matrix.package }}
-      - run: flutter analyze
-        working-directory: ${{ matrix.package }}
+      # Testing runs the build hooks first, which write the declared
+      # build/shaderbundles asset that analysis checks for.
       - run: flutter test
+        working-directory: ${{ matrix.package }}
+      - run: flutter analyze
         working-directory: ${{ matrix.package }}
