@@ -13,7 +13,7 @@ final class VrmMotionController {
   /// Parsed model backing this controller.
   final VrmModel model;
 
-  /// Retargeter used for VRMA humanoid motion.
+  /// Retargeter used for VRMA and sampled humanoid motion.
   VrmHumanoidRetargeter vrmaRetargeter = const VrmFkHumanoidRetargeter();
 
   final GltfAnimationEvaluator _evaluator;
@@ -21,6 +21,7 @@ final class VrmMotionController {
 
   int? _animationIndex;
   VrmAnimationAsset? _vrma;
+  VrmSampledHumanoidMotion? _sampledHumanoid;
   VrmProgrammaticPose? _programmaticPose;
   VrmProceduralMotion? _proceduralMotion;
   final _additiveLayers = <_AdditiveMotionLayer>[];
@@ -76,10 +77,26 @@ final class VrmMotionController {
     return duration <= 0 ? 0 : _clamp01(_timeSeconds / duration);
   }
 
+  /// Samples only the override source's model-root translation at its current
+  /// position. Additive layers and application placement are excluded.
+  ///
+  /// [blended] includes an in-progress crossfade or release. Set it to false
+  /// to inspect the unblended target before rendering, for example for stage
+  /// bounds. This evaluates the source callback without advancing its clock;
+  /// callers must keep procedural/sampled callbacks deterministic and available.
+  VrmVector3? sampleModelRootTranslation({bool blended = true}) {
+    if (!blended && _stopping) return null;
+    final snapshot = blended ? _captureSnapshot() : _captureRawSnapshot();
+    final value = snapshot?.modelRootPose?.translation;
+    if (!_hasFiniteLength(value, 3)) return null;
+    return VrmVector3(value![0], value[1], value[2]);
+  }
+
   /// Plays any supported motion source through one entry point.
   ///
   /// Pass an [int] for an embedded glTF animation index, a [GltfAsset] for an
-  /// external generic glTF animation, a [VrmAnimationAsset] for VRMA, or a
+  /// external generic glTF animation, a [VrmAnimationAsset] for VRMA,
+  /// a [VrmSampledHumanoidMotion] for sampled semantic motion, or a
   /// [VrmProgrammaticPose] for a static pose. A [VrmProceduralMotion] callback
   /// can drive procedural idle or app-owned motion.
   /// [nodeMask] limits transform and morph output to glTF node indices.
@@ -100,6 +117,21 @@ final class VrmMotionController {
     Duration fadeIn = Duration.zero,
   }) {
     if (_shouldIgnorePlay(priority)) return;
+    if (source is VrmSampledHumanoidMotion) {
+      playSampledHumanoidMotion(
+        source,
+        loop: loop,
+        speed: speed,
+        startTimeSeconds: startTimeSeconds,
+        startTime: startTime,
+        priority: priority,
+        hipsTranslationScale: hipsTranslationScale,
+        nodeMask: nodeMask,
+        humanoidMask: humanoidMask,
+        fadeIn: fadeIn,
+      );
+      return;
+    }
     if (source is VrmAnimationAsset) {
       playVrmAnimation(
         source,
@@ -175,7 +207,7 @@ final class VrmMotionController {
     throw ArgumentError.value(
       source,
       'source',
-      'Expected int, GltfAsset, VrmAnimationAsset, VrmProgrammaticPose, or VrmProceduralMotion.',
+      'Expected int, GltfAsset, VrmAnimationAsset, VrmSampledHumanoidMotion, VrmProgrammaticPose, or VrmProceduralMotion.',
     );
   }
 
@@ -435,6 +467,7 @@ final class VrmMotionController {
   void _clearActiveSource() {
     _animationIndex = null;
     _vrma = null;
+    _sampledHumanoid = null;
     _programmaticPose = null;
     _proceduralMotion = null;
     _vrmaEvaluator = null;
@@ -465,7 +498,7 @@ final class VrmMotionController {
     _startFade(fadeIn);
     _paused = false;
     _playing = true;
-    if (_animationIndex != null) _clampOrWrapTime();
+    if (_animationIndex != null || _sampledHumanoid != null) _clampOrWrapTime();
   }
 
   /// Pauses playback.
@@ -497,7 +530,11 @@ final class VrmMotionController {
       return;
     }
     _fadeElapsedSeconds += dt;
-    if (_animationIndex == null && _proceduralMotion == null) return;
+    if (_animationIndex == null &&
+        _proceduralMotion == null &&
+        _sampledHumanoid == null) {
+      return;
+    }
     _timeSeconds += dt * _finiteOrZero(speed);
     if (_proceduralMotion != null) return;
     _clampOrWrapTime(stopAtEnds: true, emitLoopEvent: true);
@@ -512,6 +549,17 @@ final class VrmMotionController {
     _evaluateAdditiveLayers();
     if (_stopping && _fadeOutFrom != null) {
       _applyFadeOutSnapshot(binding, expressions, lookAt);
+      return;
+    }
+    final sampled = _sampledHumanoid;
+    if (sampled != null) {
+      _applyHumanoidMotionSnapshot(
+        this,
+        binding,
+        expressions,
+        lookAt,
+        _sampledSnapshot(sampled),
+      );
       return;
     }
     final animationIndex = _animationIndex;
@@ -585,6 +633,8 @@ final class VrmMotionController {
   }
 
   double get _activeDurationSeconds {
+    final sampled = _sampledHumanoid;
+    if (sampled != null) return sampled._durationSeconds;
     final animationIndex = _animationIndex;
     if (animationIndex == null) return 0;
     final evaluator = _vrmaEvaluator ?? _externalGltfEvaluator ?? _evaluator;
@@ -658,6 +708,7 @@ final class VrmMotionController {
   }
 
   bool get _hasActiveSource =>
+      _sampledHumanoid != null ||
       _animationIndex != null ||
       _programmaticPose != null ||
       _proceduralMotion != null;

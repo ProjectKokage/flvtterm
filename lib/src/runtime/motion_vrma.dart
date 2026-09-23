@@ -11,8 +11,24 @@ void _applyVrmaMotion(
   final evaluator = controller._vrmaEvaluator;
   if (evaluator == null) return;
   final frame = evaluator.evaluate(animationIndex, controller._timeSeconds);
-  final fade = controller._fadeWeight;
   final snapshot = _snapshotVrmaFrame(controller, vrma, frame);
+  _applyHumanoidMotionSnapshot(
+    controller,
+    binding,
+    expressions,
+    lookAt,
+    snapshot,
+  );
+}
+
+void _applyHumanoidMotionSnapshot(
+  VrmMotionController controller,
+  VrmSceneBinding binding,
+  VrmExpressionController expressions,
+  VrmLookAtController lookAt,
+  _MotionSnapshot snapshot,
+) {
+  final fade = controller._fadeWeight;
   controller._applyNodePoses(
     binding,
     snapshot.nodePoses,

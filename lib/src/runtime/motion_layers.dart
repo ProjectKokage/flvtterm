@@ -9,7 +9,7 @@ extension VrmAdditiveMotionLayers on VrmMotionController {
   ///
   /// The value is isolated from every other base or additive layer and uses
   /// the latest frame evaluated by [VrmRuntime.update]. A layer without a
-  /// finite VRMA hips-translation contribution, or an unknown [layerId],
+  /// finite humanoid hips-translation contribution, or an unknown [layerId],
   /// returns null.
   VrmVector3? additiveLayerModelRootTranslation(int layerId) {
     for (final layer in _additiveLayers) {
@@ -29,7 +29,8 @@ extension VrmAdditiveMotionLayers on VrmMotionController {
   /// Adds any supported motion [source] as an additive layer.
   ///
   /// An [int] selects an embedded glTF animation. [GltfAsset],
-  /// [VrmAnimationAsset], [VrmProgrammaticPose], and [VrmProceduralMotion] use
+  /// [VrmAnimationAsset], [VrmSampledHumanoidMotion], [VrmProgrammaticPose],
+  /// and [VrmProceduralMotion] use
   /// the same source forms accepted by [play]. Animated node and morph values
   /// are converted to deltas from the source rest pose before application.
   /// Returns an ID for updating, seeking, or removing the layer.
@@ -79,16 +80,20 @@ extension VrmAdditiveMotionLayers on VrmMotionController {
         source.gltf.animations,
         'VRMA asset does not contain glTF animations.',
       );
+    } else if (source is VrmSampledHumanoidMotion) {
+      referenceGltf = source.restPose.gltf;
     } else if (source is! VrmProgrammaticPose &&
         source is! VrmProceduralMotion) {
       throw ArgumentError.value(
         source,
         'source',
-        'Expected int, GltfAsset, VrmAnimationAsset, VrmProgrammaticPose, or VrmProceduralMotion.',
+        'Expected int, GltfAsset, VrmAnimationAsset, VrmSampledHumanoidMotion, VrmProgrammaticPose, or VrmProceduralMotion.',
       );
     }
 
-    final duration = selectedAnimation == null
+    final duration = source is VrmSampledHumanoidMotion
+        ? source._durationSeconds
+        : selectedAnimation == null
         ? 0.0
         : evaluator!.duration(selectedAnimation);
     final layer = _AdditiveMotionLayer(
@@ -100,6 +105,12 @@ extension VrmAdditiveMotionLayers on VrmMotionController {
           ? _VrmaRetargetPlan(
               model,
               source,
+              destinationRestWorldRotations: _modelRestWorldRotations,
+            )
+          : source is VrmSampledHumanoidMotion
+          ? _VrmaRetargetPlan.humanoidOnly(
+              model,
+              source.restPose,
               destinationRestWorldRotations: _modelRestWorldRotations,
             )
           : null,
@@ -171,13 +182,16 @@ extension VrmAdditiveMotionLayers on VrmMotionController {
         layer.frame = _snapshotProgrammaticPose(source(layer.timeSeconds));
         continue;
       }
-      final evaluator = layer.evaluator!;
-      final animationIndex = layer.animationIndex!;
-      final evaluated = evaluator.evaluate(animationIndex, layer.timeSeconds);
-      if (source is VrmAnimationAsset) {
+      final sampled = source is VrmSampledHumanoidMotion ? source : null;
+      final evaluated = sampled != null
+          ? sampled._evaluate(layer.timeSeconds)
+          : layer.evaluator!.evaluate(layer.animationIndex!, layer.timeSeconds);
+      final humanoidSource =
+          sampled?.restPose ?? (source is VrmAnimationAsset ? source : null);
+      if (humanoidSource != null) {
         final retargeted = _snapshotVrmaFrame(
           this,
-          source,
+          humanoidSource,
           evaluated,
           isNodeAllowed: layer.allowsNode,
           hipsTranslationScale: layer.hipsTranslationScale,

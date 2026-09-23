@@ -20,6 +20,10 @@ analyzer:
     - windows/**
     - macos/**
     - linux/**
+    # Flutter packages with their own pubspec and CI job; the Dart-only root
+    # analysis cannot resolve the Flutter SDK for them.
+    - example/flutter_scene_viewer/**
+    - packages/**
 include: package:lints/recommended.yaml
 
 linter:

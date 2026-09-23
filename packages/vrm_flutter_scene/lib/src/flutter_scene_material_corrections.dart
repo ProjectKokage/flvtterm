@@ -1,4 +1,4 @@
-// Flutter Scene 0.19.0 keeps the render-pass and texture-allocation types used
+// Flutter Scene 0.23.0 keeps the render-pass and texture-allocation types used
 // by imported materials internal. This adapter is exact-version pinned while
 // that compatibility seam exists.
 // ignore_for_file: implementation_imports, invalid_use_of_internal_member, public_member_api_docs
@@ -58,8 +58,7 @@ Future<FlutterSceneMaterialCorrectionResult> correctFlutterSceneMaterials(
 
   final shaderLibrary = await gpu.loadShaderLibraryAsync(_shaderBundleAsset);
   final unlitShader = shaderLibrary?['VrmUnlitFragment'];
-  final pbrShader = shaderLibrary?['VrmPbrFragment'];
-  if (unlitShader == null || pbrShader == null) {
+  if (unlitShader == null) {
     throw StateError(
       'Could not load the flvtterm Flutter Scene material shader bundle.',
     );
@@ -140,27 +139,6 @@ Future<FlutterSceneMaterialCorrectionResult> correctFlutterSceneMaterials(
       slot.primitive.material = _CorrectedPbrMaterial(
         source: imported,
         material: gltfMaterial,
-        fragmentShader: pbrShader,
-        baseColorSampler: _samplerForTexture(
-          model.gltf,
-          gltfMaterial.baseColorTexture?.index,
-        ),
-        metallicRoughnessSampler: _samplerForTexture(
-          model.gltf,
-          gltfMaterial.metallicRoughnessTexture?.index,
-        ),
-        normalSampler: _samplerForTexture(
-          model.gltf,
-          gltfMaterial.normalTexture?.index,
-        ),
-        occlusionSampler: _samplerForTexture(
-          model.gltf,
-          gltfMaterial.occlusionTexture?.index,
-        ),
-        emissiveSampler: _samplerForTexture(
-          model.gltf,
-          gltfMaterial.emissiveTexture?.index,
-        ),
       );
       correctedMaterials.add(gltfMaterial.index);
     }
@@ -206,9 +184,13 @@ final class _StraightTextureCache {
       decoded.width,
       decoded.height,
     );
-    _textures[textureIndex] = texture;
+    final sampled = scene.GpuTextureSource(
+      texture.sampledTexture!,
+      sampler: _samplerForTexture(gltf, textureIndex),
+    );
+    _textures[textureIndex] = sampled;
     correctedTextureIndices.add(textureIndex);
-    return texture;
+    return sampled;
   }
 }
 
@@ -243,6 +225,32 @@ final class _DecodedImage {
   final ByteData rgba;
 }
 
+/// Packs the adapter's unlit MaterialInfo block using its std140 layout.
+ByteData packFlutterSceneUnlitMaterialInfo({
+  required vm.Vector4 baseColorFactor,
+  required double vertexColorWeight,
+  required GltfAlphaMode alphaMode,
+  required double alphaCutoff,
+  required double lodFade,
+  required int textureCoord,
+}) => ByteData.sublistView(
+  Float32List.fromList([
+    baseColorFactor.r,
+    baseColorFactor.g,
+    baseColorFactor.b,
+    baseColorFactor.a,
+    vertexColorWeight,
+    alphaMode.index.toDouble(),
+    alphaCutoff,
+    lodFade,
+    textureCoord.toDouble(),
+    // std140 rounds this vec4-aligned block's final scalar up to 48 bytes.
+    0,
+    0,
+    0,
+  ]),
+);
+
 final class _CorrectedUnlitMaterial extends scene.ShaderMaterial
     implements FlutterScenePerTextureMaterial {
   _CorrectedUnlitMaterial({
@@ -268,8 +276,13 @@ final class _CorrectedUnlitMaterial extends scene.ShaderMaterial
              : gpu.CullMode.backFace,
        ) {
     doubleSided = material.doubleSided;
+    _baseColorTexCoord =
+        material.baseColorTexture?.textureTransform?.texCoord ??
+        material.baseColorTexture?.texCoord ??
+        0;
   }
 
+  late final int _baseColorTexCoord;
   final GltfAlphaMode _alphaMode;
   final double _alphaCutoff;
   final scene.TextureSource _baseColorTexture;
@@ -309,17 +322,13 @@ final class _CorrectedUnlitMaterial extends scene.ShaderMaterial
     cullingMode = doubleSided ? gpu.CullMode.none : gpu.CullMode.backFace;
     setUniformBlock(
       'MaterialInfo',
-      ByteData.sublistView(
-        Float32List.fromList([
-          baseColorFactor.r,
-          baseColorFactor.g,
-          baseColorFactor.b,
-          baseColorFactor.a,
-          vertexColorWeight,
-          _alphaMode.index.toDouble(),
-          _alphaCutoff,
-          lodFade,
-        ]),
+      packFlutterSceneUnlitMaterialInfo(
+        baseColorFactor: baseColorFactor,
+        vertexColorWeight: vertexColorWeight,
+        alphaMode: _alphaMode,
+        alphaCutoff: _alphaCutoff,
+        lodFade: lodFade,
+        textureCoord: _baseColorTexCoord,
       ),
     );
     setUniformBlock('TextureInfo', _textureTransform.uniformBytes);
@@ -337,12 +346,6 @@ final class _CorrectedPbrMaterial extends scene.PhysicallyBasedMaterial
   _CorrectedPbrMaterial({
     required scene.PhysicallyBasedMaterial source,
     required GltfMaterial material,
-    required gpu.Shader fragmentShader,
-    required this.baseColorSampler,
-    required this.metallicRoughnessSampler,
-    required this.normalSampler,
-    required this.occlusionSampler,
-    required this.emissiveSampler,
   }) : _gltfAlphaMode = material.alphaMode,
        _textureTransforms = _pbrTextureTransforms(material),
        super(
@@ -353,7 +356,6 @@ final class _CorrectedPbrMaterial extends scene.PhysicallyBasedMaterial
          occlusionTexture: source.occlusionTexture,
          environment: source.environment,
        ) {
-    setFragmentShader(fragmentShader);
     baseColorFactor = source.baseColorFactor.clone();
     vertexColorWeight = source.vertexColorWeight;
     metallicFactor = source.metallicFactor;
@@ -361,17 +363,18 @@ final class _CorrectedPbrMaterial extends scene.PhysicallyBasedMaterial
     normalScale = source.normalScale;
     emissiveFactor = source.emissiveFactor.clone();
     occlusionStrength = source.occlusionStrength;
+    baseColorTextureTexCoord = source.baseColorTextureTexCoord;
+    metallicRoughnessTextureTexCoord = source.metallicRoughnessTextureTexCoord;
+    normalTextureTexCoord = source.normalTextureTexCoord;
+    occlusionTextureTexCoord = source.occlusionTextureTexCoord;
+    emissiveTextureTexCoord = source.emissiveTextureTexCoord;
     alphaMode = _sceneAlphaMode(material.alphaMode);
     alphaCutoff = material.alphaCutoff;
     doubleSided = material.doubleSided;
+    _applyTextureTransforms();
   }
 
   final GltfAlphaMode _gltfAlphaMode;
-  final gpu.SamplerOptions baseColorSampler;
-  final gpu.SamplerOptions metallicRoughnessSampler;
-  final gpu.SamplerOptions normalSampler;
-  final gpu.SamplerOptions occlusionSampler;
-  final gpu.SamplerOptions emissiveSampler;
   final Map<VrmMaterialTextureSlot, _TextureTransform> _textureTransforms;
 
   @override
@@ -396,6 +399,26 @@ final class _CorrectedPbrMaterial extends scene.PhysicallyBasedMaterial
       offsetY: offset.y,
       rotation: current.rotation,
     );
+    _applyTextureTransforms();
+  }
+
+  void _applyTextureTransforms() {
+    scene.TextureTransform transform(VrmMaterialTextureSlot slot) {
+      final value = _textureTransforms[slot]!;
+      return scene.TextureTransform(
+        scale: vm.Vector2(value.scaleX, value.scaleY),
+        offset: vm.Vector2(value.offsetX, value.offsetY),
+        rotation: value.rotation,
+      );
+    }
+
+    baseColorTextureTransform = transform(VrmMaterialTextureSlot.baseColor);
+    metallicRoughnessTextureTransform = transform(
+      VrmMaterialTextureSlot.metallicRoughness,
+    );
+    normalTextureTransform = transform(VrmMaterialTextureSlot.normal);
+    occlusionTextureTransform = transform(VrmMaterialTextureSlot.occlusion);
+    emissiveTextureTransform = transform(VrmMaterialTextureSlot.emissive);
   }
 
   @override
@@ -408,9 +431,8 @@ final class _CorrectedPbrMaterial extends scene.PhysicallyBasedMaterial
     final originalMode = alphaMode;
     final originalCutoff = alphaCutoff;
     if (_gltfAlphaMode == GltfAlphaMode.opaque) {
-      // The pinned standard shader's MASK path is the only path that forces
-      // surviving output alpha to one. A zero cutoff makes every legal glTF
-      // alpha value survive, exactly implementing OPAQUE's ignored alpha.
+      // Keep glTF OPAQUE independent from source alpha. The upstream MASK
+      // path forces surviving fragments opaque; zero accepts every fragment.
       baseColorFactor.a = 1;
       alphaMode = scene.AlphaMode.mask;
       alphaCutoff = 0;
@@ -422,36 +444,6 @@ final class _CorrectedPbrMaterial extends scene.PhysicallyBasedMaterial
       alphaMode = originalMode;
       alphaCutoff = originalCutoff;
     }
-    pass.setCullMode(doubleSided ? gpu.CullMode.none : gpu.CullMode.backFace);
-    pass.bindUniform(
-      fragmentShader.getUniformSlot('TextureInfo'),
-      transientsBuffer.emplace(_pbrTextureUniformBytes(_textureTransforms)),
-    );
-    pass.bindTexture(
-      fragmentShader.getUniformSlot('base_color_texture'),
-      scene.Material.whitePlaceholder(baseColorTexture?.sampledTexture),
-      sampler: baseColorSampler,
-    );
-    pass.bindTexture(
-      fragmentShader.getUniformSlot('metallic_roughness_texture'),
-      scene.Material.whitePlaceholder(metallicRoughnessTexture?.sampledTexture),
-      sampler: metallicRoughnessSampler,
-    );
-    pass.bindTexture(
-      fragmentShader.getUniformSlot('normal_texture'),
-      scene.Material.normalPlaceholder(normalTexture?.sampledTexture),
-      sampler: normalSampler,
-    );
-    pass.bindTexture(
-      fragmentShader.getUniformSlot('occlusion_texture'),
-      scene.Material.whitePlaceholder(occlusionTexture?.sampledTexture),
-      sampler: occlusionSampler,
-    );
-    pass.bindTexture(
-      fragmentShader.getUniformSlot('emissive_texture'),
-      scene.Material.whitePlaceholder(emissiveTexture?.sampledTexture),
-      sampler: emissiveSampler,
-    );
   }
 }
 
@@ -518,32 +510,6 @@ Map<VrmMaterialTextureSlot, _TextureTransform> _pbrTextureTransforms(
     material.emissiveTexture?.textureTransform,
   ),
 };
-
-ByteData _pbrTextureUniformBytes(
-  Map<VrmMaterialTextureSlot, _TextureTransform> transforms,
-) {
-  final values = <double>[];
-  for (final slot in const [
-    VrmMaterialTextureSlot.baseColor,
-    VrmMaterialTextureSlot.metallicRoughness,
-    VrmMaterialTextureSlot.normal,
-    VrmMaterialTextureSlot.occlusion,
-    VrmMaterialTextureSlot.emissive,
-  ]) {
-    final transform = transforms[slot]!;
-    values.addAll([
-      transform.scaleX,
-      transform.scaleY,
-      transform.offsetX,
-      transform.offsetY,
-      math.cos(transform.rotation),
-      math.sin(transform.rotation),
-      0,
-      0,
-    ]);
-  }
-  return ByteData.sublistView(Float32List.fromList(values));
-}
 
 gpu.SamplerOptions _samplerForTexture(GltfAsset gltf, int? textureIndex) {
   GltfSampler? sampler;

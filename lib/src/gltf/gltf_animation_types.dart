@@ -152,6 +152,7 @@ final class VrmProgrammaticPose {
     Map<String, double> expressionWeights = const {},
     this.lookAtYawDegrees,
     this.lookAtPitchDegrees,
+    this.modelRootTranslation,
   }) : nodePoses = Map.unmodifiable({
          for (final entry in nodePoses.entries)
            entry.key: _copyNodePose(entry.value),
@@ -160,7 +161,19 @@ final class VrmProgrammaticPose {
          for (final entry in morphWeights.entries)
            entry.key: List<double>.unmodifiable(entry.value),
        }),
-       expressionWeights = Map.unmodifiable(expressionWeights);
+       expressionWeights = Map.unmodifiable(expressionWeights) {
+    final root = modelRootTranslation;
+    if (root != null &&
+        (!root.x.isFinite || !root.y.isFinite || !root.z.isFinite)) {
+      throw ArgumentError('Model-root translation must be finite.');
+    }
+  }
+
+  /// Optional model-space root displacement, below application placement.
+  /// This is independent of node translations and participates in crossfades
+  /// and additive weighting through the same root path as humanoid motion.
+  /// Node and humanoid masks do not filter this explicit root displacement.
+  final VrmVector3? modelRootTranslation;
 
   /// Node poses by destination glTF node index.
   final Map<int, GltfNodePose> nodePoses;

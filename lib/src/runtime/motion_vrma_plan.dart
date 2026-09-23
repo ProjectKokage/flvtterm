@@ -13,6 +13,18 @@ final class _VrmaRetargetPlan {
        expressionTargets = _buildVrmaExpressionTargets(animation),
        lookAtNode = animation.animation.lookAt;
 
+  _VrmaRetargetPlan.humanoidOnly(
+    VrmModel model,
+    VrmAnimationAsset animation, {
+    required Map<int, List<double>> destinationRestWorldRotations,
+  }) : targets = _buildVrmaRetargetTargets(
+         model,
+         animation,
+         destinationRestWorldRotations,
+       ),
+       expressionTargets = const [],
+       lookAtNode = null;
+
   final List<_VrmaRetargetTarget> targets;
   final List<_VrmaExpressionTarget> expressionTargets;
   final int? lookAtNode;

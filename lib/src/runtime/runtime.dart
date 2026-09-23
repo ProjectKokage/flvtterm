@@ -60,6 +60,36 @@ final class VrmRuntime {
     _binding = null;
   }
 
+  /// Copies selected humanoid nodes from the current bound pose, including
+  /// standing/additive/controller contributions, for a transition snapshot.
+  /// Unmapped optional bones are omitted; unselected nodes, morphs and
+  /// expressions are excluded.
+  ///
+  /// A root binding also contributes its runtime-owned translation, excluding
+  /// application placement. The returned value owns its data. An unbound or
+  /// nonfinite, singular or sheared selected transform returns null rather
+  /// than silently producing a different pose.
+  VrmProgrammaticPose? captureHumanoidPose(Set<VrmHumanoidBone> bones) {
+    final binding = _binding;
+    if (binding == null) return null;
+    final nodes = <int, GltfNodePose>{};
+    for (final bone in bones) {
+      final index = model.vrm.humanoid.nodeFor(bone);
+      if (index == null) continue;
+      final transform = binding.nodeByGltfIndex(index).localTransform;
+      final pose = _capturedNodePose(transform);
+      if (pose == null) return null;
+      nodes[index] = pose;
+    }
+    VrmVector3? root;
+    if (binding is VrmModelRootBinding) {
+      final values = binding.modelRootMotionTransform.storage;
+      if (values.any((value) => !value.isFinite)) return null;
+      root = VrmVector3(values[12], values[13], values[14]);
+    }
+    return VrmProgrammaticPose(nodePoses: nodes, modelRootTranslation: root);
+  }
+
   /// Resets SpringBone simulation state, for example after teleporting.
   void resetSpringBones() {
     springBones.reset();

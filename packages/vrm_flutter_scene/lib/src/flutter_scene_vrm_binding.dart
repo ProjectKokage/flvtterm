@@ -73,11 +73,11 @@ final class FlutterSceneVrmBinding
       }
       for (final texture in _uvAccessedMaterialTextures(material)) {
         final texCoord = texture.textureTransform?.texCoord ?? texture.texCoord;
-        if (texCoord != 0) {
+        if (texCoord != 0 && texCoord != 1) {
           _warnOnce(
             code: 'flutterScene.unsupportedTextureCoordinateSet',
             message:
-                'Flutter Scene imports only TEXCOORD_0; material ${material.index} requests TEXCOORD_$texCoord.',
+                'Flutter Scene imports TEXCOORD_0 and TEXCOORD_1; material ${material.index} requests TEXCOORD_$texCoord.',
             gltfMaterialIndex: material.index,
           );
         }
@@ -581,7 +581,7 @@ final class _FlutterSceneMeshBinding implements VrmMeshBinding {
         <
           ({
             int primitiveIndex,
-            scene.Geometry geometry,
+            scene.MeshPrimitive primitive,
             MorphTargetPrimitiveData data,
           })
         >[];
@@ -623,7 +623,7 @@ final class _FlutterSceneMeshBinding implements VrmMeshBinding {
           } else {
             pending.add((
               primitiveIndex: primitiveIndex,
-              geometry: geometry,
+              primitive: scenePrimitives[scenePrimitiveIndex],
               data: data,
             ));
           }
@@ -650,7 +650,7 @@ final class _FlutterSceneMeshBinding implements VrmMeshBinding {
         prepared.add((
           primitiveIndex: entry.primitiveIndex,
           primitive: FlutterSceneMorphTargetPrimitive.prepare(
-            entry.geometry,
+            entry.primitive,
             entry.data,
           ),
         ));

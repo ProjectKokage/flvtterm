@@ -45,6 +45,7 @@ part 'src/runtime/motion_apply.dart';
 part 'src/runtime/motion_controller.dart';
 part 'src/runtime/motion_layers.dart';
 part 'src/runtime/motion_retargeter.dart';
+part 'src/runtime/motion_sampled.dart';
 part 'src/runtime/motion_snapshot.dart';
 part 'src/runtime/motion_vrma.dart';
 part 'src/runtime/motion_vrma_plan.dart';

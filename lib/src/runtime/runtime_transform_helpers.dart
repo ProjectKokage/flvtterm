@@ -1,5 +1,40 @@
 part of '../../flvtterm.dart';
 
+GltfNodePose? _capturedNodePose(VrmMatrix4 matrix) {
+  final values = matrix.storage;
+  if (values.any((value) => !value.isFinite)) return null;
+  final scale = _matrixScale(matrix);
+  if (scale.any((value) => value < 1e-12 || !value.isFinite)) return null;
+  final determinant =
+      values[0] * (values[5] * values[10] - values[9] * values[6]) -
+      values[4] * (values[1] * values[10] - values[9] * values[2]) +
+      values[8] * (values[1] * values[6] - values[5] * values[2]);
+  if (!determinant.isFinite || determinant.abs() < 1e-12) return null;
+  if (determinant < 0) scale[0] = -scale[0];
+  final normalized = VrmMatrix4([
+    for (var column = 0; column < 4; column++)
+      for (var row = 0; row < 4; row++)
+        column < 3 && row < 3
+            ? values[column * 4 + row] / scale[column]
+            : (column == row ? 1.0 : 0.0),
+  ]);
+  final rotation = _matrixRotation(normalized, fallback: const [0, 0, 0, 1]);
+  final translation = _matrixTranslation(matrix);
+  final reconstructed = _trsMatrix(translation, rotation, scale).storage;
+  for (var i = 0; i < 16; i++) {
+    if (!reconstructed[i].isFinite ||
+        (reconstructed[i] - values[i]).abs() >
+            1e-8 * math.max(1, values[i].abs())) {
+      return null;
+    }
+  }
+  return GltfNodePose(
+    translation: translation,
+    rotation: rotation,
+    scale: scale,
+  );
+}
+
 VrmVector3 _worldTargetToModel(
   VrmVector3 target,
   VrmMatrix4? modelWorldTransform,

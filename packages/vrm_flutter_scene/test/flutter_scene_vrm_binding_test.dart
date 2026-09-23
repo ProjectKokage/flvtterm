@@ -452,9 +452,9 @@ void main() {
     expect(warning.gltfMaterialIndex, 0);
   });
 
-  test('warns for nonzero effective texture coordinate sets', () {
+  test('supports UV0 and UV1 and warns for higher texture coordinate sets', () {
     const cases = [
-      (texCoord: 1, transformTexCoord: null, expected: 1),
+      (texCoord: 1, transformTexCoord: null, expected: null),
       (texCoord: 1, transformTexCoord: 0, expected: null),
       (texCoord: 0, transformTexCoord: 2, expected: 2),
     ];
@@ -968,6 +968,7 @@ final class _StubGeometry extends scene.Geometry {
     vm.Matrix4 cameraTransform,
     vm.Vector3 cameraPosition, {
     gpu.Shader? shaderOverride,
+    double depthBias = 0.0,
   }) {
     throw UnsupportedError('Stub geometry is not renderable');
   }

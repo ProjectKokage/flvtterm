@@ -19,28 +19,41 @@ Future<scene.Node> importResolvedFlutterSceneGlb(
   );
 }
 
-/// Multi-file renderer input reconstructed from a parsed GLB.
+/// Renderer input reconstructed from a parsed GLB, preserving core geometry.
 ///
 /// Flutter Scene's GLB entry point cannot accept a URI resolver. When a GLB
 /// references an external buffer or image, this value rewrites the parsed JSON
 /// to use Flutter Scene's resolver-aware glTF entry point and serves the exact
-/// bytes that flvtterm core already resolved.
+/// bytes that flvtterm core already resolved. Optional Draco and meshopt hints
+/// use core-validated ordinary geometry; required compression remains unsupported.
+/// VRM-owned required names are normalized for the glTF-only renderer while
+/// unrelated required extensions remain subject to its validation.
 final class FlutterSceneResolvedImport {
   FlutterSceneResolvedImport._(this.gltfJson, Map<String, Uint8List> resources)
     : _resources = Map.unmodifiable(resources);
 
-  /// Returns `null` when the original GLB is fully self-contained.
+  /// Returns `null` when the GLB needs no resource or extension adaptation.
   static FlutterSceneResolvedImport? fromGltf(GltfAsset gltf) {
     final hasExternalResource =
         gltf.buffers.any((buffer) => _isExternalUri(buffer.uri)) ||
         gltf.images.any((image) => _isExternalUri(image.uri));
-    if (!hasExternalResource) return null;
-
-    if (gltf.buffers.length > 1) {
-      throw UnsupportedError(
-        'The pinned Flutter Scene runtime importer accepts at most one glTF '
-        'buffer; the parsed asset contains ${gltf.buffers.length}.',
-      );
+    final hasVrmExtension = gltf.extensionsRequired.any(
+      _flvttermOwnedExtensions.contains,
+    );
+    final hasCompression =
+        gltf.extensionsUsed.any(_compressionExtensions.contains) ||
+        gltf.extensionsRequired.any(_compressionExtensions.contains) ||
+        gltf.buffers.any((b) => b.extensions.containsKey(_meshoptExtension)) ||
+        gltf.bufferViews.any(
+          (b) => b.extensions.containsKey(_meshoptExtension),
+        ) ||
+        gltf.meshes.any(
+          (mesh) => mesh.primitives.any(
+            (primitive) => primitive.extensions.containsKey(_dracoExtension),
+          ),
+        );
+    if (!hasExternalResource && !hasVrmExtension && !hasCompression) {
+      return null;
     }
 
     final decoded = jsonDecode(jsonEncode(gltf.json));
@@ -48,11 +61,19 @@ final class FlutterSceneResolvedImport {
       throw StateError('Parsed glTF JSON root is not an object.');
     }
 
+    // Core and this adapter consume these VRM extensions. Keep their data in
+    // the model, but do not ask the glTF-only renderer to implement them too.
+    // Unknown required extensions remain required and fail renderer validation.
+    if (hasVrmExtension) {
+      decoded['extensionsRequired'] = gltf.extensionsRequired
+          .where((name) => !_flvttermOwnedExtensions.contains(name))
+          .toList();
+    }
+
     final resources = <String, Uint8List>{};
     final reservedUris = {for (final image in gltf.images) ?image.uri};
 
-    if (gltf.buffers.isNotEmpty) {
-      final buffer = gltf.buffers.single;
+    for (final buffer in gltf.buffers) {
       final data = buffer.data;
       if (data == null) {
         throw StateError(
@@ -60,11 +81,14 @@ final class FlutterSceneResolvedImport {
         );
       }
       final buffers = decoded['buffers'];
-      if (buffers is! List || buffers.isEmpty || buffers.first is! Map) {
+      if (buffers is! List ||
+          buffer.index >= buffers.length ||
+          buffers[buffer.index] is! Map) {
         throw StateError('Parsed glTF buffer metadata is unavailable.');
       }
       final syntheticUri = _uniqueBufferUri(reservedUris);
-      (buffers.first as Map)['uri'] = syntheticUri;
+      (buffers[buffer.index] as Map)['uri'] = syntheticUri;
+      reservedUris.add(syntheticUri);
       resources[syntheticUri] = data;
     }
 
@@ -87,6 +111,43 @@ final class FlutterSceneResolvedImport {
       resources[uri!] = data;
     }
 
+    if (hasCompression) {
+      // Core supports ordinary fallback geometry, not compressed streams. Check
+      // that fallback before removing optional decoder hints. Required codecs
+      // retain core's unsupported-extension diagnostic even in permissive mode.
+      final validation = GltfAsset.tryParse(
+        bytes: Uint8List.fromList(utf8.encode(jsonEncode(decoded))),
+        validation: VrmValidationMode.permissive,
+        uriResolver: (uri) => resources[uri],
+      ).validation;
+      final requiredCompression = gltf.extensionsRequired.any(
+        _compressionExtensions.contains,
+      );
+      if (requiredCompression ||
+          validation.errors.any(
+            (diagnostic) =>
+                diagnostic.code != 'gltf.unsupportedRequiredExtension',
+          )) {
+        throw VrmInvalidAssetException(
+          'Flutter Scene requires core-validated uncompressed fallback geometry.',
+          validation,
+        );
+      }
+      for (final key in ['buffers', 'bufferViews']) {
+        for (final item in (decoded[key] as List? ?? const [])) {
+          (item['extensions'] as Map?)?.remove(_meshoptExtension);
+        }
+      }
+      for (final mesh in (decoded['meshes'] as List? ?? const [])) {
+        for (final primitive in (mesh['primitives'] as List? ?? const [])) {
+          (primitive['extensions'] as Map?)?.remove(_dracoExtension);
+        }
+      }
+      decoded['extensionsUsed'] = gltf.extensionsUsed
+          .where((name) => !_compressionExtensions.contains(name))
+          .toList();
+    }
+
     return FlutterSceneResolvedImport._(
       Uint8List.fromList(utf8.encode(jsonEncode(decoded))),
       resources,
@@ -107,6 +168,18 @@ final class FlutterSceneResolvedImport {
     return bytes;
   }
 }
+
+const _dracoExtension = 'KHR_draco_mesh_compression';
+const _meshoptExtension = 'EXT_meshopt_compression';
+const _compressionExtensions = {_dracoExtension, _meshoptExtension};
+
+const _flvttermOwnedExtensions = {
+  'VRM',
+  'VRMC_vrm',
+  'VRMC_springBone',
+  'VRMC_node_constraint',
+  'VRMC_materials_mtoon',
+};
 
 bool _isExternalUri(String? uri) => uri != null && !uri.startsWith('data:');
 
