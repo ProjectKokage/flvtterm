@@ -435,7 +435,7 @@ void main() {
     expect(warning.gltfMaterialIndex, 0);
   });
 
-  test('reports corrected MASK auxiliary-pass fallback warnings', () {
+  test('reports missing MASK auxiliary-pass support', () {
     final model = VrmModel.tryParseGlb(
       _minimalVrmGlb(materialAlphaMode: 'MASK'),
       validation: VrmValidationMode.permissive,
@@ -450,6 +450,53 @@ void main() {
           diagnostic.code == 'flutterScene.maskAuxiliaryPassFallback',
     );
     expect(warning.gltfMaterialIndex, 0);
+  });
+
+  test('MASK warning reflects every imported material occurrence', () {
+    final model = VrmModel.tryParseGlb(
+      _minimalVrmGlb(
+        firstPersonSplit: true,
+        meshMaterial: true,
+        sharedMaterialPrimitives: true,
+        materialAlphaMode: 'MASK',
+      ),
+      validation: VrmValidationMode.permissive,
+    ).asset!;
+    for (final allMasked in [false, true]) {
+      final root = scene.Node(name: 'root')
+        ..add(
+          scene.Node(
+            name: 'node0',
+            mesh: scene.Mesh.primitives(
+              primitives: [
+                scene.MeshPrimitive(
+                  _StubGeometry(),
+                  scene.PhysicallyBasedMaterial()
+                    ..alphaMode = scene.AlphaMode.mask,
+                ),
+                scene.MeshPrimitive(
+                  _StubGeometry(),
+                  scene.PhysicallyBasedMaterial()
+                    ..alphaMode = allMasked
+                        ? scene.AlphaMode.mask
+                        : scene.AlphaMode.opaque,
+                ),
+              ],
+            ),
+          ),
+        );
+      final binding = FlutterSceneVrmBinding.fromRootNode(
+        root,
+        model: model,
+        options: FlutterSceneVrmBindingOptions(includeRootAsGltfNode: false),
+      );
+      expect(
+        binding.capabilityWarnings.any(
+          (warning) => warning.code == 'flutterScene.maskAuxiliaryPassFallback',
+        ),
+        !allMasked,
+      );
+    }
   });
 
   test('supports UV0 and UV1 and warns for higher texture coordinate sets', () {
