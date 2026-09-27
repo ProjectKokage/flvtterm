@@ -346,9 +346,10 @@ materials report unlit/PBR fallback diagnostics through
 `binding.capabilityWarnings`, as do first-person `auto` meshes that would need
 geometry splitting. Unsupported morph layouts fail conservatively with a
 capability diagnostic and retain their imported neutral geometry. The adapter
-also reports explicit capability diagnostics for nonzero texture-coordinate
-sets, legacy transparent depth-write, and `MASK` depth/shadow auxiliary
-passes. Flutter Scene 0.19 builds texture mip chains, so authored mipmapped
+also reports explicit capability diagnostics for unsupported texture-coordinate
+sets and legacy transparent depth-write. Corrected unlit and PBR `MASK`
+materials apply the same alpha coverage in color, depth and shadow passes;
+custom imports without depth-mask support retain a capability warning. Flutter Scene 0.19 builds texture mip chains, so authored mipmapped
 minification filters no longer produce an unsupported-sampler warning.
 
 Pure Dart smoke example: run `dart run bin/runtime_console.dart [avatar.vrm]`

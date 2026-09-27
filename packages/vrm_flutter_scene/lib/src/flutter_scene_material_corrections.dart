@@ -9,6 +9,8 @@ import 'dart:ui' as ui;
 
 import 'package:flutter_scene/scene.dart' as scene;
 import 'package:flutter_scene/src/gpu/gpu.dart' as gpu;
+import 'package:flutter_scene/src/material/material.dart'
+    show resolveTextureSource;
 import 'package:flvtterm/flvtterm.dart';
 import 'package:vector_math/vector_math.dart' as vm;
 
@@ -309,6 +311,38 @@ final class _CorrectedUnlitMaterial extends scene.ShaderMaterial
       offsetX: offset.x,
       offsetY: offset.y,
       rotation: _textureTransform.rotation,
+    );
+  }
+
+  @override
+  bool get depthAlphaMasked => _alphaMode == GltfAlphaMode.mask;
+
+  @override
+  void bindDepthAlphaMask(
+    gpu.RenderPass pass,
+    gpu.Shader shader,
+    scene.TransientWriter transientsBuffer,
+  ) {
+    final params = Float32List(12)
+      ..[0] = _alphaCutoff
+      ..[1] = baseColorFactor.a
+      ..[2] = vertexColorWeight
+      // MaskInfo uses offset/scale; the color shader uses scale/offset.
+      ..[4] = _textureTransform.offsetX
+      ..[5] = _textureTransform.offsetY
+      ..[6] = _textureTransform.scaleX
+      ..[7] = _textureTransform.scaleY
+      ..[8] = math.cos(_textureTransform.rotation)
+      ..[9] = math.sin(_textureTransform.rotation)
+      ..[10] = _baseColorTexCoord.toDouble();
+    pass.bindUniform(
+      shader.getUniformSlot('MaskInfo'),
+      transientsBuffer.emplace(ByteData.sublistView(params)),
+    );
+    pass.bindTexture(
+      shader.getUniformSlot('mask_texture'),
+      scene.Material.whitePlaceholder(resolveTextureSource(_baseColorTexture)),
+      sampler: _baseColorSampler,
     );
   }
 

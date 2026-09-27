@@ -63,14 +63,6 @@ final class FlutterSceneVrmBinding
       if (transparentZWriteWarning != null) {
         _capabilityWarnings.add(transparentZWriteWarning);
       }
-      if (material.alphaMode == GltfAlphaMode.mask) {
-        _warnOnce(
-          code: 'flutterScene.maskAuxiliaryPassFallback',
-          message:
-              'The adapter applies MASK alpha cutoff in its corrected color material, but auxiliary depth and shadow passes may render the full primitive silhouette.',
-          gltfMaterialIndex: material.index,
-        );
-      }
       for (final texture in _uvAccessedMaterialTextures(material)) {
         final texCoord = texture.textureTransform?.texCoord ?? texture.texCoord;
         if (texCoord != 0 && texCoord != 1) {
@@ -181,6 +173,22 @@ final class FlutterSceneVrmBinding
       for (final entry in _sceneMaterials(sceneNodes, model).entries)
         entry.key: _FlutterSceneMaterialBinding(this, entry.key, entry.value),
     };
+    for (final material in model.gltf.materials) {
+      final occurrences = _materialBindings[material.index]?._materials;
+      if (material.alphaMode == GltfAlphaMode.mask &&
+          (occurrences == null ||
+              occurrences.isEmpty ||
+              // This adapter is pinned to the renderer's material seam.
+              // ignore: invalid_use_of_internal_member
+              occurrences.any((value) => !value.depthAlphaMasked))) {
+        _warnOnce(
+          code: 'flutterScene.maskAuxiliaryPassFallback',
+          message:
+              'The imported MASK material does not support alpha cutoff in auxiliary depth and shadow passes.',
+          gltfMaterialIndex: material.index,
+        );
+      }
+    }
     for (final entry in _materialBindings.entries) {
       if (entry.key < 0 || entry.key >= model.gltf.materials.length) continue;
       final material = model.gltf.materials[entry.key];
