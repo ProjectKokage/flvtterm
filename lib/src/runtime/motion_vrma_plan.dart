@@ -12,8 +12,7 @@ final class _VrmaRetargetPlan {
        ),
        expressionTargets = _buildVrmaExpressionTargets(animation),
        lookAtNode = animation.animation.lookAt,
-       armSpacing = _ArmSpacing.build(model, animation),
-       armSources = _armSpacingSources(animation);
+       armSpacing = _ArmSpacing.of(model);
 
   _VrmaRetargetPlan.humanoidOnly(
     VrmModel model,
@@ -26,50 +25,14 @@ final class _VrmaRetargetPlan {
        ),
        expressionTargets = const [],
        lookAtNode = null,
-       armSpacing = _ArmSpacing.build(model, animation),
-       armSources = _armSpacingSources(animation);
+       armSpacing = _ArmSpacing.of(model);
 
   final List<_VrmaRetargetTarget> targets;
   final List<_VrmaExpressionTarget> expressionTargets;
   final int? lookAtNode;
 
-  /// Null when either skeleton lacks the bones arm spacing measures.
+  /// Null when the avatar lacks the bones or body skin arm spacing measures.
   final _ArmSpacing? armSpacing;
-
-  /// Source bones whose rotations place the source hands.
-  final List<_VrmaArmSource> armSources;
-}
-
-final class _VrmaArmSource {
-  const _VrmaArmSource(this.bone, this.node, this.restWorldRotation);
-
-  final VrmHumanoidBone bone;
-  final GltfNode node;
-  final List<double> restWorldRotation;
-}
-
-List<_VrmaArmSource> _armSpacingSources(VrmAnimationAsset animation) {
-  final restWorld = _restWorldRotations(animation.gltf);
-  final bones = {
-    ..._armSpacingRoots,
-    for (final side in _armSpacingSides) ...[
-      side.shoulder,
-      side.upperArm,
-      side.lowerArm,
-      side.hand,
-    ],
-  };
-  return List.unmodifiable([
-    for (final entry in animation.animation.humanoid.humanBones.entries)
-      if (bones.contains(entry.key))
-        if (animation.gltf.nodes.elementAtOrNull(entry.value.node)
-            case final node?)
-          _VrmaArmSource(
-            entry.key,
-            node,
-            restWorld[node.index] ?? node.restRotation,
-          ),
-  ]);
 }
 
 List<_VrmaRetargetTarget> _buildVrmaRetargetTargets(

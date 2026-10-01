@@ -1,18 +1,16 @@
 part of '../flvtterm_test.dart';
 
 void armSpacingTests() {
-  group('proportional arm spacing', () {
-    // A motion made on broad shoulders (0.19 m from the centre over hips
-    // 0.095 m) replayed on narrow ones (0.08 m over 0.07 m).
+  group('hands kept clear of the body', () {
+    // The motion's skeleton: its proportions no longer matter.
     final source = VrmAnimationAsset.parse(
-      bytes: _glb(_armSkeletonJson(shoulder: .19, hip: .095, animation: true)),
+      bytes: _glb(_armSkeletonJson(shoulder: .19, hip: .095)),
       validation: VrmValidationMode.permissive,
     );
-    final model = VrmModel.parseGlb(
-      _glb(_armSkeletonJson(shoulder: .08, hip: .07, animation: false)),
-    );
-    const upperArm = .25;
-    const forearm = .22;
+    const shoulder = .08;
+    const arm = .25 + .22;
+    // Head 1.6 m, feet at 0.15 m: the clearance scales to 1.45 m.
+    const clearance = .03 * 1.45 / 1.6;
 
     // Rest arms point sideways; a turn of -(90 - out) degrees about +Z hangs
     // the left arm [out] degrees from vertical, the right one mirrored.
@@ -41,75 +39,81 @@ void armSpacingTests() {
           },
         );
 
-    // The hanging angle from vertical of the arm whose local rotation about Z
-    // the binding holds.
-    double hangingDegrees(_FakeBinding binding, VrmHumanoidBone bone) {
-      final node = model.vrm.humanoid.nodeFor(bone)!;
-      final storage = binding.nodes[node]!.localTransform.storage;
-      final angle = math.atan2(storage[1], storage[0]) * 180 / math.pi;
-      return bone == VrmHumanoidBone.leftUpperArm ? 90 + angle : 90 - angle;
+    // The hanging angle from vertical of each arm the binding holds.
+    (double, double) hangingDegrees(VrmModel model, _FakeBinding binding) {
+      double angle(VrmHumanoidBone bone) {
+        final node = model.vrm.humanoid.nodeFor(bone)!;
+        final storage = binding.nodes[node]!.localTransform.storage;
+        return math.atan2(storage[1], storage[0]) * 180 / math.pi;
+      }
+
+      return (
+        90 + angle(VrmHumanoidBone.leftUpperArm),
+        90 - angle(VrmHumanoidBone.rightUpperArm),
+      );
     }
 
-    double run(double outDegrees, {required bool spacing}) {
+    double run(double outDegrees, {double? thigh, bool clear = true}) {
+      final model = VrmModel.parseGlb(
+        _armSkeletonGlb(shoulder: shoulder, hip: .07, thigh: thigh),
+      );
       final runtime = VrmRuntime(model);
       final binding = _FakeBinding();
       runtime.bind(binding);
-      runtime.motion.proportionalArmSpacing = spacing;
+      runtime.motion.keepHandsClear = clear;
       runtime.motion.play(arms(outDegrees), speed: 0);
       runtime.update(0);
-      final left = hangingDegrees(binding, VrmHumanoidBone.leftUpperArm);
-      final right = hangingDegrees(binding, VrmHumanoidBone.rightUpperArm);
+      final (left, right) = hangingDegrees(model, binding);
       expect(right, closeTo(left, 1e-6));
       return left;
     }
 
+    double degreesToReach(double wrist) =>
+        math.asin((wrist - shoulder) / arm) * 180 / math.pi;
+
     test('is off by default and copies joint angles', () {
-      final runtime = VrmRuntime(model);
-      expect(runtime.motion.proportionalArmSpacing, isFalse);
-      expect(run(16, spacing: false), closeTo(16, 1e-6));
+      final runtime = VrmRuntime(
+        VrmModel.parseGlb(_armSkeletonGlb(shoulder: shoulder, hip: .07)),
+      );
+      expect(runtime.motion.keepHandsClear, isFalse);
+      expect(run(16, thigh: .22, clear: false), closeTo(16, 1e-6));
     });
 
-    test('keeps a hanging hand at the source hip-relative distance', () {
-      const out = 16.0;
-      final sourceWrist =
-          .19 + (upperArm + forearm) * math.sin(out * math.pi / 180);
-      final wanted = sourceWrist / .095 * .07;
-      final expected =
-          math.asin((wanted - .08) / (upperArm + forearm)) * 180 / math.pi;
-      // Narrow shoulders need the arm further out than the source's angle.
-      expect(expected, greaterThan(out + 3));
-      expect(run(out, spacing: true), closeTo(expected, 1e-6));
+    test('moves a hanging hand just clear of the thigh surface', () {
+      // At 16 degrees the wrist is 0.21 m out, inside a 0.22 m thigh.
+      expect(degreesToReach(.22 + clearance), greaterThan(16));
+      expect(
+        run(16, thigh: .22),
+        closeTo(degreesToReach(.22 + clearance), 1e-6),
+      );
+    });
+
+    test('leaves a hand that is already clear', () {
+      expect(run(16, thigh: .15), closeTo(16, 1e-6));
     });
 
     test('leaves a raised arm at its joint angles', () {
       // Horizontal arms are 90 degrees from hanging, past the 60-degree fade.
-      expect(run(90, spacing: true), closeTo(90, 1e-6));
+      expect(run(90, thigh: .4), closeTo(90, 1e-6));
     });
 
     test('limits the turn to 25 degrees', () {
-      final wide = VrmModel.parseGlb(
-        _glb(_armSkeletonJson(shoulder: .02, hip: .2, animation: false)),
-      );
-      final runtime = VrmRuntime(wide);
-      final binding = _FakeBinding();
-      runtime.bind(binding);
-      runtime.motion.proportionalArmSpacing = true;
-      runtime.motion.play(arms(0), speed: 0);
-      runtime.update(0);
-      final node = wide.vrm.humanoid.nodeFor(VrmHumanoidBone.leftUpperArm)!;
-      final storage = binding.nodes[node]!.localTransform.storage;
-      final angle = math.atan2(storage[1], storage[0]) * 180 / math.pi;
-      expect(90 + angle, closeTo(25, 1e-6));
+      expect(run(0, thigh: .4), closeTo(25, 1e-6));
+    });
+
+    test('leaves an avatar without body skin unchanged', () {
+      expect(run(16), closeTo(16, 1e-6));
     });
   });
 }
 
 /// A humanoid whose arms reach sideways from shoulders [shoulder] metres from
-/// the centre, with upper legs [hip] metres from it.
+/// the centre, with upper legs [hip] metres from it. Joints 0 to 14 follow
+/// `_boneNodes`; feet stand at 0.15 m and the head at 1.6 m.
 Map<String, Object?> _armSkeletonJson({
   required double shoulder,
   required double hip,
-  required bool animation,
+  bool vrm = false,
 }) {
   final nodes = <Map<String, Object?>>[
     {
@@ -172,7 +176,7 @@ Map<String, Object?> _armSkeletonJson({
       },
     ],
     'nodes': nodes,
-    if (animation) ...{
+    if (!vrm) ...{
       'extensionsUsed': ['VRMC_vrm_animation'],
       'extensions': {
         'VRMC_vrm_animation': {
@@ -196,4 +200,101 @@ Map<String, Object?> _armSkeletonJson({
       },
     },
   };
+}
+
+/// The avatar of [_armSkeletonJson], with, when [thigh] is given, a skinned
+/// point on each upper leg [thigh] metres from the centre at 0.95 m, where
+/// the hanging hands are.
+Uint8List _armSkeletonGlb({
+  required double shoulder,
+  required double hip,
+  double? thigh,
+}) {
+  final json = _armSkeletonJson(shoulder: shoulder, hip: hip, vrm: true);
+  if (thigh == null) return _glb(json);
+  final nodes = json['nodes']! as List<Map<String, Object?>>;
+  // Rest world positions of joints 0 to 14; every rest rotation is identity.
+  final world = <List<double>>[];
+  final parents = <int, int>{};
+  for (var i = 0; i < nodes.length; i++) {
+    for (final child in (nodes[i]['children'] as List<int>?) ?? const <int>[]) {
+      parents[child] = i;
+    }
+  }
+  for (var i = 0; i < nodes.length; i++) {
+    final t = nodes[i]['translation']! as List<double>;
+    final parent = parents[i];
+    world.add(
+      parent == null
+          ? t
+          : [
+              world[parent][0] + t[0],
+              world[parent][1] + t[1],
+              world[parent][2] + t[2],
+            ],
+    );
+  }
+  final points = [thigh, .95, 0.0, -thigh, .95, 0.0];
+  final joints = Uint8List(16);
+  ByteData.sublistView(joints)
+    ..setUint16(0, 3, Endian.little)
+    ..setUint16(8, 6, Endian.little);
+  final weights = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0];
+  final inverseBinds = [
+    for (final p in world) ...[
+      1.0, 0.0, 0.0, 0.0, //
+      0.0, 1.0, 0.0, 0.0,
+      0.0, 0.0, 1.0, 0.0,
+      -p[0], -p[1], -p[2], 1.0,
+    ],
+  ];
+  final binary = BytesBuilder()
+    ..add(_floats(points))
+    ..add(joints)
+    ..add(_floats(weights))
+    ..add(_floats(inverseBinds));
+  final bytes = binary.toBytes();
+  nodes.add({'mesh': 0, 'skin': 0});
+  (json['scenes']! as List<Map<String, Object?>>)[0]['nodes'] = [0, 15];
+  json.addAll({
+    'buffers': [
+      {'byteLength': bytes.length},
+    ],
+    'bufferViews': [
+      {'buffer': 0, 'byteOffset': 0, 'byteLength': 24},
+      {'buffer': 0, 'byteOffset': 24, 'byteLength': 16},
+      {'buffer': 0, 'byteOffset': 40, 'byteLength': 32},
+      {'buffer': 0, 'byteOffset': 72, 'byteLength': 960},
+    ],
+    'accessors': [
+      {
+        'bufferView': 0,
+        'componentType': 5126,
+        'count': 2,
+        'type': 'VEC3',
+        'min': [-thigh, .95, 0.0],
+        'max': [thigh, .95, 0.0],
+      },
+      {'bufferView': 1, 'componentType': 5123, 'count': 2, 'type': 'VEC4'},
+      {'bufferView': 2, 'componentType': 5126, 'count': 2, 'type': 'VEC4'},
+      {'bufferView': 3, 'componentType': 5126, 'count': 15, 'type': 'MAT4'},
+    ],
+    'meshes': [
+      {
+        'primitives': [
+          {
+            'attributes': {'POSITION': 0, 'JOINTS_0': 1, 'WEIGHTS_0': 2},
+            'mode': 0,
+          },
+        ],
+      },
+    ],
+    'skins': [
+      {
+        'joints': [for (var i = 0; i < 15; i++) i],
+        'inverseBindMatrices': 3,
+      },
+    ],
+  });
+  return _glb(json, binaryChunk: bytes);
 }
