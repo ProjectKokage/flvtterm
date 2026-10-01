@@ -91,8 +91,8 @@ _MotionSnapshot _snapshotVrmaFrame(
         target: ?target.sourcePose(frame),
   };
   final armSpacing = resolvedPlan.armSpacing;
-  if (spaceArms && controller.proportionalArmSpacing && armSpacing != null) {
-    _spaceArms(armSpacing, resolvedPlan.armSources, frame, sourcePoses);
+  if (spaceArms && controller.keepHandsClear && armSpacing != null) {
+    _spaceArms(armSpacing, sourcePoses);
   }
   for (final MapEntry(key: target, value: sourcePose) in sourcePoses.entries) {
     final retargeted = controller.vrmaRetargeter.retargetBone(
@@ -138,20 +138,9 @@ _MotionSnapshot _snapshotVrmaFrame(
 /// Replaces the upper-arm poses in [sourcePoses] by [armSpacing]'s.
 void _spaceArms(
   _ArmSpacing armSpacing,
-  List<_VrmaArmSource> armSources,
-  GltfAnimationFrame frame,
   Map<_VrmaRetargetTarget, GltfNodePose> sourcePoses,
 ) {
-  final source = <VrmHumanoidBone, List<double>>{
-    for (final arm in armSources)
-      if (frame.nodePoses[arm.node.index]?.rotation case final rotation?)
-        arm.bone: _normalizedHumanoidRotation(
-          localRest: arm.node.restRotation,
-          worldRest: arm.restWorldRotation,
-          current: rotation,
-        ),
-  };
-  final destination = <VrmHumanoidBone, List<double>>{
+  final normalized = <VrmHumanoidBone, List<double>>{
     for (final MapEntry(key: target, value: pose) in sourcePoses.entries)
       if (pose.rotation case final rotation?)
         target.bone: _normalizedHumanoidRotation(
@@ -160,12 +149,14 @@ void _spaceArms(
           current: rotation,
         ),
   };
-  final adjusted = armSpacing.adjust(source, destination);
+  final adjusted = armSpacing.adjust(normalized);
   for (final MapEntry(key: target, value: pose) in sourcePoses.entries) {
-    final side = _armSpacingSides.where((s) => s.upperArm == target.bone);
-    if (side.isEmpty || pose.rotation == null) continue;
+    if (!_armSpacingSides.any((side) => side.upperArm == target.bone) ||
+        pose.rotation == null) {
+      continue;
+    }
     final rotation = adjusted[target.bone];
-    if (rotation == null || identical(rotation, destination[target.bone])) {
+    if (rotation == null || identical(rotation, normalized[target.bone])) {
       continue;
     }
     sourcePoses[target] = GltfNodePose(

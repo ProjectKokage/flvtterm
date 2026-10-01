@@ -16,18 +16,19 @@ final class VrmMotionController {
   /// Retargeter used for VRMA and sampled humanoid motion.
   VrmHumanoidRetargeter vrmaRetargeter = const VrmFkHumanoidRetargeter();
 
-  /// Keeps hanging hands as far from the body, relative to its hip width, as
-  /// on the motion's own skeleton.
+  /// Keeps hanging hands clear of the avatar's hips and thighs.
   ///
-  /// Joint rotations alone place a narrow-shouldered avatar's hands on its
-  /// thighs when the motion was made on broader shoulders. When true, each
-  /// upper arm within 60 degrees of hanging down turns about the body's
+  /// Joint rotations alone can put a hanging hand inside the thigh of an
+  /// avatar whose proportions differ from the motion's. When true, each upper
+  /// arm within 60 degrees of hanging down turns outward about the body's
   /// forward axis through the shoulder, by at most 25 degrees, until the
-  /// wrist's sideways distance from the hips, divided by the hip half-width,
-  /// matches the source's; the turn fades in between 60 and 30 degrees.
-  /// Raised arms keep their joint angles. Applies to the played VRMA or
-  /// sampled humanoid motion, not to additive layers.
-  bool proportionalArmSpacing = false;
+  /// wrist is 3 cm (scaled by height from 1.6 m) beyond the widest skin bound
+  /// to the hips or upper legs at hand height, measured once per avatar at
+  /// rest. A hand already clear is left alone; the turn fades in between 60
+  /// and 30 degrees from hanging, so raised arms keep their joint angles.
+  /// Applies to the played VRMA or sampled humanoid motion, not to additive
+  /// layers.
+  bool keepHandsClear = false;
 
   final GltfAnimationEvaluator _evaluator;
   final Map<int, List<double>> _modelRestWorldRotations;
