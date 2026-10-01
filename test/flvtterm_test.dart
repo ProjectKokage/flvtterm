@@ -24,6 +24,7 @@ part 'src/vrma_motion_tests.dart';
 part 'src/sampled_motion_tests.dart';
 part 'src/cli_tests.dart';
 part 'src/vrm0_compatibility_tests.dart';
+part 'src/arm_spacing_tests.dart';
 part 'src/test_fixtures.dart';
 
 void main() {
@@ -42,6 +43,7 @@ void main() {
   motionControllerTests();
   vrmaMotionTests();
   sampledMotionTests();
+  armSpacingTests();
   runtimeTests();
   cliTests();
   vrm0CompatibilityTests();

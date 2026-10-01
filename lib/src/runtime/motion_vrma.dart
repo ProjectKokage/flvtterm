@@ -71,6 +71,7 @@ _MotionSnapshot _snapshotVrmaFrame(
   bool Function(int nodeIndex)? isNodeAllowed,
   double? hipsTranslationScale,
   _VrmaRetargetPlan? retargetPlan,
+  bool spaceArms = true,
 }) {
   final model = controller.model;
   final allowsNode = isNodeAllowed ?? controller._isNodeAllowed;
@@ -84,10 +85,16 @@ _MotionSnapshot _snapshotVrmaFrame(
         vrma,
         destinationRestWorldRotations: controller._modelRestWorldRotations,
       );
-  for (final target in resolvedPlan.targets) {
-    if (!allowsNode(target.destinationNode.index)) continue;
-    final sourcePose = target.sourcePose(frame);
-    if (sourcePose == null) continue;
+  final sourcePoses = <_VrmaRetargetTarget, GltfNodePose>{
+    for (final target in resolvedPlan.targets)
+      if (allowsNode(target.destinationNode.index))
+        target: ?target.sourcePose(frame),
+  };
+  final armSpacing = resolvedPlan.armSpacing;
+  if (spaceArms && controller.proportionalArmSpacing && armSpacing != null) {
+    _spaceArms(armSpacing, resolvedPlan.armSources, frame, sourcePoses);
+  }
+  for (final MapEntry(key: target, value: sourcePose) in sourcePoses.entries) {
     final retargeted = controller.vrmaRetargeter.retargetBone(
       bone: target.bone,
       sourcePose: sourcePose,
@@ -126,4 +133,49 @@ _MotionSnapshot _snapshotVrmaFrame(
         ? null
         : _yawPitchFromExtrinsicZxy(lookAtRotation),
   );
+}
+
+/// Replaces the upper-arm poses in [sourcePoses] by [armSpacing]'s.
+void _spaceArms(
+  _ArmSpacing armSpacing,
+  List<_VrmaArmSource> armSources,
+  GltfAnimationFrame frame,
+  Map<_VrmaRetargetTarget, GltfNodePose> sourcePoses,
+) {
+  final source = <VrmHumanoidBone, List<double>>{
+    for (final arm in armSources)
+      if (frame.nodePoses[arm.node.index]?.rotation case final rotation?)
+        arm.bone: _normalizedHumanoidRotation(
+          localRest: arm.node.restRotation,
+          worldRest: arm.restWorldRotation,
+          current: rotation,
+        ),
+  };
+  final destination = <VrmHumanoidBone, List<double>>{
+    for (final MapEntry(key: target, value: pose) in sourcePoses.entries)
+      if (pose.rotation case final rotation?)
+        target.bone: _normalizedHumanoidRotation(
+          localRest: target.sourceNode.restRotation,
+          worldRest: target.sourceRestWorldRotation,
+          current: rotation,
+        ),
+  };
+  final adjusted = armSpacing.adjust(source, destination);
+  for (final MapEntry(key: target, value: pose) in sourcePoses.entries) {
+    final side = _armSpacingSides.where((s) => s.upperArm == target.bone);
+    if (side.isEmpty || pose.rotation == null) continue;
+    final rotation = adjusted[target.bone];
+    if (rotation == null || identical(rotation, destination[target.bone])) {
+      continue;
+    }
+    sourcePoses[target] = GltfNodePose(
+      translation: pose.translation,
+      rotation: _humanoidLocalRotationFromNormalized(
+        localRest: target.sourceNode.restRotation,
+        worldRest: target.sourceRestWorldRotation,
+        normalized: rotation,
+      ),
+      scale: pose.scale,
+    );
+  }
 }

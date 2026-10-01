@@ -196,6 +196,9 @@ extension VrmAdditiveMotionLayers on VrmMotionController {
           isNodeAllowed: layer.allowsNode,
           hipsTranslationScale: layer.hipsTranslationScale,
           retargetPlan: layer.vrmaRetargetPlan,
+          // A layer adds its change from rest to the base pose, whose own
+          // arms are already spaced.
+          spaceArms: false,
         );
         layer.frame = _relativeAdditiveSnapshot(
           retargeted,
