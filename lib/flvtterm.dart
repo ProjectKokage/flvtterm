@@ -42,6 +42,7 @@ part 'src/runtime/expression_helpers.dart';
 part 'src/runtime/look_at_controller.dart';
 part 'src/runtime/look_at_math.dart';
 part 'src/runtime/motion_apply.dart';
+part 'src/runtime/motion_arm_spacing.dart';
 part 'src/runtime/motion_controller.dart';
 part 'src/runtime/motion_layers.dart';
 part 'src/runtime/motion_retargeter.dart';
