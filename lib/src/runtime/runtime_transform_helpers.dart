@@ -1,9 +1,20 @@
-part of '../../flvtterm.dart';
+import 'dart:math' as math;
 
-GltfNodePose? _capturedNodePose(VrmMatrix4 matrix) {
+import 'package:meta/meta.dart';
+
+import '../gltf/gltf_animation_types.dart';
+import '../gltf/gltf_scene_types.dart';
+import '../gltf/gltf_types.dart';
+import '../math_types.dart';
+import '../matrix_math.dart';
+import '../safe_list_index.dart';
+import '../vrm/vrm_humanoid_parser.dart';
+
+@internal
+GltfNodePose? capturedNodePose(VrmMatrix4 matrix) {
   final values = matrix.storage;
   if (values.any((value) => !value.isFinite)) return null;
-  final scale = _matrixScale(matrix);
+  final scale = matrixScale(matrix);
   if (scale.any((value) => value < 1e-12 || !value.isFinite)) return null;
   final determinant =
       values[0] * (values[5] * values[10] - values[9] * values[6]) -
@@ -18,9 +29,9 @@ GltfNodePose? _capturedNodePose(VrmMatrix4 matrix) {
             ? values[column * 4 + row] / scale[column]
             : (column == row ? 1.0 : 0.0),
   ]);
-  final rotation = _matrixRotation(normalized, fallback: const [0, 0, 0, 1]);
-  final translation = _matrixTranslation(matrix);
-  final reconstructed = _trsMatrix(translation, rotation, scale).storage;
+  final rotation = matrixRotation(normalized, fallback: const [0, 0, 0, 1]);
+  final translation = matrixTranslation(matrix);
+  final reconstructed = trsMatrix(translation, rotation, scale).storage;
   for (var i = 0; i < 16; i++) {
     if (!reconstructed[i].isFinite ||
         (reconstructed[i] - values[i]).abs() >
@@ -35,7 +46,8 @@ GltfNodePose? _capturedNodePose(VrmMatrix4 matrix) {
   );
 }
 
-VrmVector3 _worldTargetToModel(
+@internal
+VrmVector3 worldTargetToModel(
   VrmVector3 target,
   VrmMatrix4? modelWorldTransform,
 ) {
@@ -71,12 +83,13 @@ VrmVector3 _inverseTransformPoint(VrmMatrix4 matrix, VrmVector3 point) {
   );
 }
 
-VrmMatrix4? _modelTransformForNode(
+@internal
+VrmMatrix4? modelTransformForNode(
   GltfAsset gltf,
   int nodeIndex,
   VrmMatrix4 Function(GltfNode node) localTransform,
 ) {
-  final parents = _nodeParents(gltf);
+  final parents = nodeParents(gltf);
   var current = nodeIndex;
   final chain = <GltfNode>[];
   while (true) {
@@ -90,7 +103,7 @@ VrmMatrix4? _modelTransformForNode(
   if (chain.isEmpty) return null;
   var result = VrmMatrix4.identity();
   for (final node in chain.reversed) {
-    result = _multiplyMatrices(result, localTransform(node));
+    result = multiplyMatrices(result, localTransform(node));
   }
   return result;
 }

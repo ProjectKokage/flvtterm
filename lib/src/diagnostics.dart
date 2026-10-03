@@ -1,4 +1,4 @@
-part of '../flvtterm.dart';
+import 'package:meta/meta.dart';
 
 /// How strictly asset validation should affect parsing.
 enum VrmValidationMode {
@@ -141,7 +141,8 @@ final class VrmInvalidAssetException implements Exception {
   String toString() => '$message\n${validation.errors.join('\n')}';
 }
 
-final class _DiagnosticSink {
+@internal
+final class DiagnosticSink {
   final diagnostics = <VrmDiagnostic>[];
 
   void error(

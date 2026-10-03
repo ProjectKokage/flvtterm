@@ -1,6 +1,15 @@
-part of '../../flvtterm.dart';
+import 'package:meta/meta.dart';
 
-const _lipSyncPresetNames = {'aa', 'ih', 'ou', 'ee', 'oh'};
+import '../gltf/animation_math.dart';
+import '../math_types.dart';
+import '../safe_list_index.dart';
+import '../vrm/vrm_assets.dart';
+import '../vrm/vrm_enums.dart';
+import 'expression_helpers.dart';
+import 'scene_binding.dart';
+
+@internal
+const lipSyncPresetNames = {'aa', 'ih', 'ou', 'ee', 'oh'};
 
 typedef _MorphKey = ({int node, int primitive, int morph});
 
@@ -20,7 +29,7 @@ final class VrmExpressionController {
 
   /// Sets a preset expression input weight.
   void setPreset(VrmExpressionPreset preset, double weight) {
-    _inputs[preset.specName] = _clamp01(weight);
+    _inputs[preset.specName] = clamp01(weight);
   }
 
   /// Sets a lip-sync expression input weight.
@@ -31,7 +40,7 @@ final class VrmExpressionController {
 
   /// Sets a custom expression input weight.
   void setCustom(String name, double weight) {
-    _inputs[_runtimeExpressionName(name)] = _clamp01(weight);
+    _inputs[_runtimeExpressionName(name)] = clamp01(weight);
   }
 
   /// Clears application-set expression inputs.
@@ -39,17 +48,21 @@ final class VrmExpressionController {
     _inputs.clear();
   }
 
-  void _setLookAtInputs(Map<String, double> values) {
+  /// Replaces the expression weights that `VrmLookAtController` drives.
+  @internal
+  void setLookAtInputs(Map<String, double> values) {
     _lookAtInputs
       ..clear()
-      ..addAll(values.map((key, value) => MapEntry(key, _clamp01(value))));
+      ..addAll(values.map((key, value) => MapEntry(key, clamp01(value))));
   }
 
-  void _setMotionInputs(Map<String, double> values) {
+  /// Replaces the expression weights that `VrmMotionController` drives.
+  @internal
+  void setMotionInputs(Map<String, double> values) {
     _motionInputs.clear();
     for (final entry in values.entries) {
       final key = _runtimeExpressionName(entry.key);
-      _motionInputs[key] = _clamp01((_motionInputs[key] ?? 0) + entry.value);
+      _motionInputs[key] = clamp01((_motionInputs[key] ?? 0) + entry.value);
     }
   }
 
@@ -69,7 +82,7 @@ final class VrmExpressionController {
     final output = <String, double>{};
 
     for (final entry in definitions.entries) {
-      final input = _clamp01(
+      final input = clamp01(
         (_inputs[entry.key] ?? 0) +
             (_motionInputs[entry.key] ?? 0) +
             (_lookAtInputs[entry.key] ?? 0),
@@ -77,20 +90,20 @@ final class VrmExpressionController {
       output[entry.key] = entry.value.isBinary ? (input > 0.5 ? 1 : 0) : input;
     }
 
-    _applyOverrideGroup(
+    applyOverrideGroup(
       definitions,
       output,
       VrmExpressionPreset.values
-          .where((p) => _lipSyncPresetNames.contains(p.specName))
+          .where((p) => lipSyncPresetNames.contains(p.specName))
           .map((p) => p.specName),
       (expression) => expression.overrideMouth,
     );
-    _applyOverrideGroup(definitions, output, const [
+    applyOverrideGroup(definitions, output, const [
       'blink',
       'blinkLeft',
       'blinkRight',
     ], (expression) => expression.overrideBlink);
-    _applyOverrideGroup(definitions, output, const [
+    applyOverrideGroup(definitions, output, const [
       'lookUp',
       'lookDown',
       'lookLeft',
@@ -110,7 +123,7 @@ final class VrmExpressionController {
     final colorBases = <int, Map<String, VrmVector4>>{};
     final colors = <_MaterialColorKey, VrmVector4>{};
     final textureTransforms =
-        <int, Map<VrmMaterialTextureSlot, _TextureTransformAccum>>{};
+        <int, Map<VrmMaterialTextureSlot, TextureTransformAccum>>{};
 
     for (final expression in definitions.values) {
       for (final bind in expression.morphTargetBinds) {
@@ -136,7 +149,7 @@ final class VrmExpressionController {
         final bases = colorBases.putIfAbsent(bind.material, () => {});
         final base = bases.putIfAbsent(
           bind.type,
-          () => _baseMaterialColorForModel(model, bind.material, bind.type),
+          () => baseMaterialColorForModel(model, bind.material, bind.type),
         );
         colors.putIfAbsent((
           material: bind.material,
@@ -148,7 +161,7 @@ final class VrmExpressionController {
         if (material == null) continue;
         textureTransforms.putIfAbsent(
           bind.material,
-          () => _baseTextureTransformsForModel(model, bind.material),
+          () => baseTextureTransformsForModel(model, bind.material),
         );
       }
     }
@@ -184,10 +197,10 @@ final class VrmExpressionController {
         final bases = colorBases.putIfAbsent(bind.material, () => {});
         final base = bases.putIfAbsent(
           bind.type,
-          () => _baseMaterialColorForModel(model, bind.material, bind.type),
+          () => baseMaterialColorForModel(model, bind.material, bind.type),
         );
         final key = (material: bind.material, type: bind.type);
-        final target = _materialColorTarget(bind.type, base, bind.targetValue);
+        final target = materialColorTarget(bind.type, base, bind.targetValue);
         final current = colors[key] ?? base;
         colors[key] = current + (target - base) * weight;
       }
@@ -195,17 +208,16 @@ final class VrmExpressionController {
       for (final bind in expression.textureTransformBinds) {
         final material = model.gltf.materials.elementAtOrNull(bind.material);
         if (material == null) continue;
-        final bases = _baseTextureTransformsForModel(model, bind.material);
+        final bases = baseTextureTransformsForModel(model, bind.material);
         final accumulators = textureTransforms.putIfAbsent(
           bind.material,
-          () => _baseTextureTransformsForModel(model, bind.material),
+          () => baseTextureTransformsForModel(model, bind.material),
         );
         for (final entry in bases.entries) {
           final base = entry.value;
           final accum = accumulators.putIfAbsent(
             entry.key,
-            () =>
-                _TextureTransformAccum(scale: base.scale, offset: base.offset),
+            () => TextureTransformAccum(scale: base.scale, offset: base.offset),
           );
           accum.scale = accum.scale + (bind.scale - base.scale) * weight;
           accum.offset = accum.offset + (bind.offset - base.offset) * weight;
@@ -219,7 +231,7 @@ final class VrmExpressionController {
           ?.setMorphWeight(
             primitiveIndex: entry.key.primitive,
             morphIndex: entry.key.morph,
-            weight: _clamp01(entry.value),
+            weight: clamp01(entry.value),
           );
     }
     for (final entry in colors.entries) {
@@ -228,10 +240,7 @@ final class VrmExpressionController {
           .setColor(entry.key.type, entry.value);
     }
     for (final entry in textureTransforms.entries) {
-      _setTextureTransforms(
-        binding.materialByGltfIndex(entry.key),
-        entry.value,
-      );
+      setTextureTransforms(binding.materialByGltfIndex(entry.key), entry.value);
     }
   }
 }

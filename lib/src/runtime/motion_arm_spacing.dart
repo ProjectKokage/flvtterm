@@ -1,4 +1,17 @@
-part of '../../flvtterm.dart';
+import 'dart:math' as math;
+
+import 'package:meta/meta.dart';
+
+import '../gltf/accessor_reader.dart';
+import '../gltf/gltf_types.dart';
+import '../math_types.dart';
+import '../matrix_math.dart';
+import '../safe_list_index.dart';
+import '../vrm/vrm_assets.dart';
+import '../vrm/vrm_enums.dart';
+import '../vrm/vrm_humanoid_parser.dart';
+import 'constraint_math.dart';
+import 'motion_retargeter.dart';
 
 // Joint rotations alone keep a motion's arm angles, not where its hands are.
 // A motion made on one body, replayed on an avatar with narrower shoulders or
@@ -8,7 +21,8 @@ part of '../../flvtterm.dart';
 // surface, measured from its skinned mesh at rest. A hand the motion already
 // holds clear is left alone, and raised arms keep their joint angles.
 
-const _armSpacingSides = [
+@internal
+const armSpacingSides = [
   (
     shoulder: VrmHumanoidBone.leftShoulder,
     upperArm: VrmHumanoidBone.leftUpperArm,
@@ -55,13 +69,14 @@ final _armSpacingCache = Expando<_ArmSpacingEntry>('arm spacing');
 final class _ArmSpacingEntry {
   const _ArmSpacingEntry(this.value);
 
-  final _ArmSpacing? value;
+  final ArmSpacing? value;
 }
 
 /// One avatar's skeleton at rest and the body surface its hanging hands must
 /// clear, in the runtime frame: +Y up, +Z forward, the character's left +X.
-final class _ArmSpacing {
-  const _ArmSpacing(this.positions, this.clearOf);
+@internal
+final class ArmSpacing {
+  const ArmSpacing(this.positions, this.clearOf);
 
   /// Rest position of each mapped humanoid bone.
   final Map<VrmHumanoidBone, List<double>> positions;
@@ -72,10 +87,10 @@ final class _ArmSpacing {
 
   /// The avatar's arm spacing, measured once per model; null when the avatar
   /// lacks the bones or body skin it needs.
-  static _ArmSpacing? of(VrmModel model) =>
+  static ArmSpacing? of(VrmModel model) =>
       (_armSpacingCache[model] ??= _ArmSpacingEntry(_build(model))).value;
 
-  static _ArmSpacing? _build(VrmModel model) {
+  static ArmSpacing? _build(VrmModel model) {
     final mirror = model.sourceVersion == VrmSourceVersion.vrm0;
     List<double> runtime(List<double> p) => mirror ? [-p[0], p[1], -p[2]] : p;
     final nodePositions = _restWorldPositions(model.gltf);
@@ -90,7 +105,7 @@ final class _ArmSpacing {
     final lowest = positions.values.map((p) => p[1]).reduce(math.min);
     final clearance = _armSpacingClearance * (head[1] - lowest) / 1.6;
     final clearOf = <double, double>{};
-    for (final side in _armSpacingSides) {
+    for (final side in armSpacingSides) {
       final shoulder = positions[side.upperArm];
       final elbow = positions[side.lowerArm];
       final wrist = positions[side.hand];
@@ -112,7 +127,7 @@ final class _ArmSpacing {
       if (extent == null) return null;
       clearOf[side.outward] = extent - hips[0] * side.outward + clearance;
     }
-    return _ArmSpacing(Map.unmodifiable(positions), Map.unmodifiable(clearOf));
+    return ArmSpacing(Map.unmodifiable(positions), Map.unmodifiable(clearOf));
   }
 
   /// The bones from the hips to [side]'s hand that this avatar maps.
@@ -145,7 +160,7 @@ final class _ArmSpacing {
     Map<VrmHumanoidBone, List<double>> normalized,
   ) {
     final result = Map.of(normalized);
-    for (final side in _armSpacingSides) {
+    for (final side in armSpacingSides) {
       final chain = this.chain(side);
       final rotations = <VrmHumanoidBone, List<double>>{};
       final points = <VrmHumanoidBone, List<double>>{};
@@ -158,25 +173,25 @@ final class _ArmSpacing {
         } else {
           points[bone] = _vectorAdd(
             points[previous]!,
-            _rotateVectorPreservingLength(
+            rotateVectorPreservingLength(
               rotations[previous]!,
               _vectorSubtract(positions[bone]!, positions[previous]!),
             ),
           );
-          rotations[bone] = _quatMultiply(rotations[previous]!, own);
+          rotations[bone] = quatMultiply(rotations[previous]!, own);
         }
         previous = bone;
       }
       final hips = rotations[VrmHumanoidBone.hips]!;
-      List<double> inHips(List<double> point) => _rotateVectorPreservingLength(
-        _quatInverse(hips),
+      List<double> inHips(List<double> point) => rotateVectorPreservingLength(
+        quatInverse(hips),
         _vectorSubtract(point, points[VrmHumanoidBone.hips]!),
       );
       final shoulder = inHips(points[side.upperArm]!);
       final elbow = inHips(points[side.lowerArm]!);
       final wrist = inHips(points[side.hand]!);
 
-      final upper = _normalizeVector(_vectorSubtract(elbow, shoulder));
+      final upper = normalizeVector(_vectorSubtract(elbow, shoulder));
       final weight = _smoothStep(
         (-upper[1] - _armSpacingNoneCosine) /
             (_armSpacingFullCosine - _armSpacingNoneCosine),
@@ -200,16 +215,13 @@ final class _ArmSpacing {
       // Turn about the hips' forward axis, expressed in the world frame.
       final half = side.outward * turn / 2;
       final local = [0.0, 0.0, math.sin(half), math.cos(half)];
-      final world = _quatMultiply(
-        _quatMultiply(hips, local),
-        _quatInverse(hips),
-      );
+      final world = quatMultiply(quatMultiply(hips, local), quatInverse(hips));
       final index = chain.indexOf(side.upperArm);
       final parent = index > 0
           ? rotations[chain[index - 1]]!
           : const [0.0, 0.0, 0.0, 1.0];
-      result[side.upperArm] = _quatMultiply(
-        _quatMultiply(_quatMultiply(_quatInverse(parent), world), parent),
+      result[side.upperArm] = quatMultiply(
+        quatMultiply(quatMultiply(quatInverse(parent), world), parent),
         result[side.upperArm] ?? const [0.0, 0.0, 0.0, 1.0],
       );
     }
@@ -231,7 +243,7 @@ double? _bodyExtent(
     for (final entry in model.vrm.humanoid.humanBones.entries)
       entry.value.node: entry.key,
   };
-  final parents = _nodeParents(gltf);
+  final parents = nodeParents(gltf);
   bool isBody(int node) {
     int? cursor = node;
     final visited = <int>{};
@@ -255,11 +267,11 @@ double? _bodyExtent(
     if (mesh == null || skin == null) continue;
     final inverseBinds = skin.inverseBindMatrices == null
         ? null
-        : _readAccessorNumbers(gltf, skin.inverseBindMatrices!);
+        : readGltfAccessorNumbers(gltf, skin.inverseBindMatrices!);
     final body = [for (final joint in skin.joints) isBody(joint)];
     final skinMatrices = [
       for (var i = 0; i < skin.joints.length; i++)
-        _multiplyMatrices(
+        multiplyMatrices(
           worlds[skin.joints[i]] ?? VrmMatrix4.identity(),
           inverseBinds == null || inverseBinds.length < (i + 1) * 16
               ? VrmMatrix4.identity()
@@ -275,13 +287,13 @@ double? _bodyExtent(
           weightAccessor == null) {
         continue;
       }
-      final points = _readAccessorNumbers(gltf, positionAccessor);
-      final joints = _readAccessorNumbers(
+      final points = readGltfAccessorNumbers(gltf, positionAccessor);
+      final joints = readGltfAccessorNumbers(
         gltf,
         jointAccessor,
         applyNormalization: false,
       );
-      final weights = _readAccessorNumbers(gltf, weightAccessor);
+      final weights = readGltfAccessorNumbers(gltf, weightAccessor);
       if (points == null || joints == null || weights == null) continue;
       final count = math.min(
         points.length ~/ 3,
@@ -324,7 +336,7 @@ double? _bodyExtent(
 }
 
 Map<int, VrmMatrix4> _restWorldMatrices(GltfAsset gltf) {
-  final parents = _nodeParents(gltf);
+  final parents = nodeParents(gltf);
   final result = <int, VrmMatrix4>{};
   VrmMatrix4 world(int index, Set<int> visiting) {
     final cached = result[index];
@@ -334,7 +346,7 @@ Map<int, VrmMatrix4> _restWorldMatrices(GltfAsset gltf) {
     if (parent == null || !visiting.add(index)) {
       return result[index] = node.restTransform;
     }
-    return result[index] = _multiplyMatrices(
+    return result[index] = multiplyMatrices(
       world(parent, visiting),
       node.restTransform,
     );
@@ -348,7 +360,7 @@ Map<int, VrmMatrix4> _restWorldMatrices(GltfAsset gltf) {
 
 Map<int, List<double>> _restWorldPositions(GltfAsset gltf) => {
   for (final entry in _restWorldMatrices(gltf).entries)
-    entry.key: List.unmodifiable(_matrixTranslation(entry.value)),
+    entry.key: List.unmodifiable(matrixTranslation(entry.value)),
 };
 
 double _smoothStep(double value) {
@@ -356,7 +368,7 @@ double _smoothStep(double value) {
   return t * t * (3 - 2 * t);
 }
 
-double _vectorLength(List<double> value) => math.sqrt(_vectorDot(value, value));
+double _vectorLength(List<double> value) => math.sqrt(vectorDot(value, value));
 
 List<double> _vectorAdd(List<double> a, List<double> b) => [
   a[0] + b[0],

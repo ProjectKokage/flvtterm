@@ -1,9 +1,16 @@
-part of '../../flvtterm.dart';
+import 'dart:typed_data';
+
+import 'package:meta/meta.dart';
+
+import '../json_values.dart';
+import 'animation_math.dart';
+import 'gltf_types.dart';
 
 /// Parsed glTF buffer.
 final class GltfBuffer {
   /// [data] must be bytes the asset owns, as an unmodifiable view.
-  GltfBuffer._({
+  @internal
+  GltfBuffer.internal({
     required this.index,
     required this.name,
     required this.uri,
@@ -12,8 +19,8 @@ final class GltfBuffer {
     required Map<String, Object?> extensions,
     required Object? extras,
   }) : _data = data,
-       extensions = _immutableJsonValue(extensions) as Map<String, Object?>,
-       extras = _immutableJsonValue(extras);
+       extensions = immutableJsonValue(extensions) as Map<String, Object?>,
+       extras = immutableJsonValue(extras);
 
   /// glTF buffer index.
   final int index;
@@ -44,7 +51,9 @@ final class GltfBuffer {
 
 /// Parsed glTF bufferView.
 final class GltfBufferView {
-  GltfBufferView._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  GltfBufferView.internal({
     required this.index,
     required this.name,
     required this.buffer,
@@ -54,8 +63,8 @@ final class GltfBufferView {
     required this.target,
     required Map<String, Object?> extensions,
     required Object? extras,
-  }) : extensions = _immutableJsonValue(extensions) as Map<String, Object?>,
-       extras = _immutableJsonValue(extras);
+  }) : extensions = immutableJsonValue(extensions) as Map<String, Object?>,
+       extras = immutableJsonValue(extras);
 
   /// glTF bufferView index.
   final int index;
@@ -87,7 +96,9 @@ final class GltfBufferView {
 
 /// Parsed glTF skin.
 final class GltfSkin {
-  GltfSkin._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  GltfSkin.internal({
     required this.index,
     required this.name,
     required List<int> joints,
@@ -96,8 +107,8 @@ final class GltfSkin {
     required Map<String, Object?> extensions,
     required Object? extras,
   }) : joints = List.unmodifiable(joints),
-       extensions = _immutableJsonValue(extensions) as Map<String, Object?>,
-       extras = _immutableJsonValue(extras);
+       extensions = immutableJsonValue(extensions) as Map<String, Object?>,
+       extras = immutableJsonValue(extras);
 
   /// glTF skin index.
   final int index;
@@ -123,7 +134,9 @@ final class GltfSkin {
 
 /// Parsed glTF accessor.
 final class GltfAccessor {
-  GltfAccessor._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  GltfAccessor.internal({
     required this.index,
     required this.name,
     required this.bufferView,
@@ -139,8 +152,8 @@ final class GltfAccessor {
     required Object? extras,
   }) : minimum = minimum == null ? null : List.unmodifiable(minimum),
        maximum = maximum == null ? null : List.unmodifiable(maximum),
-       extensions = _immutableJsonValue(extensions) as Map<String, Object?>,
-       extras = _immutableJsonValue(extras);
+       extensions = immutableJsonValue(extensions) as Map<String, Object?>,
+       extras = immutableJsonValue(extras);
 
   /// glTF accessor index.
   final int index;
@@ -182,12 +195,14 @@ final class GltfAccessor {
   final Object? extras;
 
   /// Number of scalar components in one accessor element.
-  int? get componentCount => _accessorComponentCount(type);
+  int? get componentCount => accessorComponentCount(type);
 }
 
 /// Parsed glTF sparse accessor metadata.
 final class GltfAccessorSparse {
-  GltfAccessorSparse._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  GltfAccessorSparse.internal({
     required this.count,
     required this.indicesBufferView,
     required this.indicesByteOffset,
@@ -201,13 +216,13 @@ final class GltfAccessorSparse {
     required Map<String, Object?> extensions,
     required Object? extras,
   }) : indicesExtensions =
-           _immutableJsonValue(indicesExtensions) as Map<String, Object?>,
-       indicesExtras = _immutableJsonValue(indicesExtras),
+           immutableJsonValue(indicesExtensions) as Map<String, Object?>,
+       indicesExtras = immutableJsonValue(indicesExtras),
        valuesExtensions =
-           _immutableJsonValue(valuesExtensions) as Map<String, Object?>,
-       valuesExtras = _immutableJsonValue(valuesExtras),
-       extensions = _immutableJsonValue(extensions) as Map<String, Object?>,
-       extras = _immutableJsonValue(extras);
+           immutableJsonValue(valuesExtensions) as Map<String, Object?>,
+       valuesExtras = immutableJsonValue(valuesExtras),
+       extensions = immutableJsonValue(extensions) as Map<String, Object?>,
+       extras = immutableJsonValue(extras);
 
   /// Number of sparse elements.
   final int? count;
@@ -248,15 +263,17 @@ final class GltfAccessorSparse {
 
 /// Parsed glTF texture.
 final class GltfTexture {
-  GltfTexture._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  GltfTexture.internal({
     required this.index,
     required this.name,
     required this.source,
     required this.sampler,
     required Map<String, Object?> extensions,
     required Object? extras,
-  }) : extensions = _immutableJsonValue(extensions) as Map<String, Object?>,
-       extras = _immutableJsonValue(extras);
+  }) : extensions = immutableJsonValue(extensions) as Map<String, Object?>,
+       extras = immutableJsonValue(extras);
 
   /// glTF texture index.
   final int index;
@@ -280,7 +297,8 @@ final class GltfTexture {
 /// Parsed glTF image.
 final class GltfImage {
   /// [data] must be bytes the asset owns, as an unmodifiable view.
-  GltfImage._({
+  @internal
+  GltfImage.internal({
     required this.index,
     required this.name,
     required this.uri,
@@ -290,8 +308,8 @@ final class GltfImage {
     required Map<String, Object?> extensions,
     required Object? extras,
   }) : _data = data,
-       extensions = _immutableJsonValue(extensions) as Map<String, Object?>,
-       extras = _immutableJsonValue(extras);
+       extensions = immutableJsonValue(extensions) as Map<String, Object?>,
+       extras = immutableJsonValue(extras);
 
   /// glTF image index.
   final int index;
@@ -325,7 +343,9 @@ final class GltfImage {
 
 /// Parsed glTF texture sampler.
 final class GltfSampler {
-  GltfSampler._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  GltfSampler.internal({
     required this.index,
     required this.name,
     required this.magFilter,
@@ -334,8 +354,8 @@ final class GltfSampler {
     required this.wrapT,
     required Map<String, Object?> extensions,
     required Object? extras,
-  }) : extensions = _immutableJsonValue(extensions) as Map<String, Object?>,
-       extras = _immutableJsonValue(extras);
+  }) : extensions = immutableJsonValue(extensions) as Map<String, Object?>,
+       extras = immutableJsonValue(extras);
 
   /// glTF sampler index.
   final int index;

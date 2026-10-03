@@ -1,4 +1,6 @@
-part of '../../flvtterm.dart';
+import 'package:meta/meta.dart';
+
+import '../json_values.dart';
 
 /// glTF camera projection type.
 enum GltfCameraType {
@@ -24,7 +26,9 @@ enum GltfCameraType {
 
 /// Parsed glTF camera.
 final class GltfCamera {
-  GltfCamera._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  GltfCamera.internal({
     required this.index,
     required this.name,
     required this.type,
@@ -32,8 +36,8 @@ final class GltfCamera {
     required this.orthographic,
     required Map<String, Object?> extensions,
     required Object? extras,
-  }) : extensions = _immutableJsonValue(extensions) as Map<String, Object?>,
-       extras = _immutableJsonValue(extras);
+  }) : extensions = immutableJsonValue(extensions) as Map<String, Object?>,
+       extras = immutableJsonValue(extras);
 
   /// glTF camera index.
   final int index;
@@ -59,15 +63,17 @@ final class GltfCamera {
 
 /// Parsed glTF perspective camera parameters.
 final class GltfCameraPerspective {
-  GltfCameraPerspective._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  GltfCameraPerspective.internal({
     required this.aspectRatio,
     required this.yfov,
     required this.zfar,
     required this.znear,
     required Map<String, Object?> extensions,
     required Object? extras,
-  }) : extensions = _immutableJsonValue(extensions) as Map<String, Object?>,
-       extras = _immutableJsonValue(extras);
+  }) : extensions = immutableJsonValue(extensions) as Map<String, Object?>,
+       extras = immutableJsonValue(extras);
 
   /// Aspect ratio, if fixed by the asset.
   final double? aspectRatio;
@@ -90,15 +96,17 @@ final class GltfCameraPerspective {
 
 /// Parsed glTF orthographic camera parameters.
 final class GltfCameraOrthographic {
-  GltfCameraOrthographic._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  GltfCameraOrthographic.internal({
     required this.xmag,
     required this.ymag,
     required this.zfar,
     required this.znear,
     required Map<String, Object?> extensions,
     required Object? extras,
-  }) : extensions = _immutableJsonValue(extensions) as Map<String, Object?>,
-       extras = _immutableJsonValue(extras);
+  }) : extensions = immutableJsonValue(extensions) as Map<String, Object?>,
+       extras = immutableJsonValue(extras);
 
   /// Horizontal magnification.
   final double? xmag;

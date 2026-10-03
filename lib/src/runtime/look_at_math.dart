@@ -1,13 +1,19 @@
-part of '../../flvtterm.dart';
+import 'dart:math' as math;
 
-final class _YawPitch {
-  const _YawPitch(this.yawDegrees, this.pitchDegrees);
+import 'package:meta/meta.dart';
+
+import '../vrm/vrm_types.dart';
+
+@internal
+final class YawPitch {
+  const YawPitch(this.yawDegrees, this.pitchDegrees);
 
   final double yawDegrees;
   final double pitchDegrees;
 }
 
-double _rangeMap(double value, VrmLookAtRangeMap rangeMap) {
+@internal
+double rangeMap(double value, VrmLookAtRangeMap rangeMap) {
   if (rangeMap.inputMaxValue == 0) {
     return value == 0 ? 0 : rangeMap.outputScale;
   }

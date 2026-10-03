@@ -1,4 +1,14 @@
-part of '../../flvtterm.dart';
+import '../gltf/animation_math.dart';
+import '../gltf/gltf_node_constraint_types.dart';
+import '../gltf/gltf_node_constraint_validation.dart';
+import '../gltf/gltf_scene_types.dart';
+import '../gltf/gltf_types.dart';
+import '../matrix_math.dart';
+import '../safe_list_index.dart';
+import '../vrm/vrm_assets.dart';
+import '../vrm/vrm_humanoid_parser.dart';
+import 'constraint_math.dart';
+import 'scene_binding.dart';
 
 /// Evaluates `VRMC_node_constraint` runtime rotations.
 final class VrmNodeConstraintController {
@@ -18,23 +28,23 @@ final class VrmNodeConstraintController {
       final destinationNode = entry.destination;
       final sourceBinding = binding.nodeByGltfIndex(sourceNode.index);
       final destinationBinding = binding.nodeByGltfIndex(destinationNode.index);
-      final sourceCurrent = _matrixRotation(
+      final sourceCurrent = matrixRotation(
         sourceBinding.localTransform,
         fallback: sourceNode.restRotation,
       );
       final targetRotation = switch (constraint.kind!) {
-        VrmNodeConstraintKind.rotation => _rotationConstraint(
+        VrmNodeConstraintKind.rotation => rotationConstraint(
           sourceRest: sourceNode.restRotation,
           sourceCurrent: sourceCurrent,
           destinationRest: destinationNode.restRotation,
         ),
-        VrmNodeConstraintKind.roll => _rollConstraint(
+        VrmNodeConstraintKind.roll => rollConstraint(
           sourceRest: sourceNode.restRotation,
           sourceCurrent: sourceCurrent,
           destinationRest: destinationNode.restRotation,
           axis: constraint.rollAxis,
         ),
-        VrmNodeConstraintKind.aim => _aimConstraint(
+        VrmNodeConstraintKind.aim => aimConstraint(
           source: sourceBinding,
           destination: destinationBinding,
           destinationRest: destinationNode.restRotation,
@@ -46,16 +56,16 @@ final class VrmNodeConstraintController {
         ),
       };
       if (targetRotation != null) {
-        final outputRotation = _slerp(
+        final outputRotation = slerp(
           destinationNode.restRotation,
           targetRotation,
-          _clamp01(constraint.weight),
+          clamp01(constraint.weight),
         );
         final current = destinationBinding.localTransform;
-        destinationBinding.localTransform = _trsMatrix(
-          _matrixTranslation(current),
+        destinationBinding.localTransform = trsMatrix(
+          matrixTranslation(current),
           outputRotation,
-          _matrixScale(current),
+          matrixScale(current),
         );
       }
     }
@@ -63,7 +73,7 @@ final class VrmNodeConstraintController {
 
   List<double> _parentWorldRotation(VrmSceneBinding binding, int? parent) {
     if (parent == null) return const [0, 0, 0, 1];
-    return _matrixRotation(
+    return matrixRotation(
       binding.nodeByGltfIndex(parent).worldTransform,
       fallback: const [0, 0, 0, 1],
     );
@@ -86,7 +96,7 @@ final class _RunnableNodeConstraint {
 
 List<_RunnableNodeConstraint> _buildConstraintPlan(GltfAsset gltf) {
   final nodes = gltf.nodes;
-  final parents = _nodeParents(gltf);
+  final parents = nodeParents(gltf);
   final candidates = <int, _RunnableNodeConstraint>{};
   for (final destination in nodes) {
     final constraint = destination.nodeConstraint;
@@ -98,7 +108,7 @@ List<_RunnableNodeConstraint> _buildConstraintPlan(GltfAsset gltf) {
         constraint.specVersion != '1.0' ||
         constraint.declaredKindCount != 1 ||
         constraint.kind == null ||
-        !_constraintHasValidWeight(constraint) ||
+        !constraintHasValidWeight(constraint) ||
         source == null ||
         source.index == destination.index) {
       continue;

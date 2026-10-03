@@ -1,6 +1,11 @@
-part of '../../flvtterm.dart';
+import 'package:meta/meta.dart';
 
-VrmLookAt? _parseLookAt(Object? value, _DiagnosticSink sink) {
+import '../diagnostics.dart';
+import '../json_values.dart';
+import 'vrm_types.dart';
+
+@internal
+VrmLookAt? parseLookAt(Object? value, DiagnosticSink sink) {
   if (value is! Map) {
     sink.error(
       'vrm.invalidLookAtObject',
@@ -9,8 +14,8 @@ VrmLookAt? _parseLookAt(Object? value, _DiagnosticSink sink) {
     );
     return null;
   }
-  final raw = _object(value);
-  final type = _string(raw['type']);
+  final raw = jsonObject(value);
+  final type = jsonString(raw['type']);
   final invalidType =
       raw.containsKey('type') &&
       (type == null ||
@@ -23,7 +28,7 @@ VrmLookAt? _parseLookAt(Object? value, _DiagnosticSink sink) {
     );
   }
   if (raw.containsKey('offsetFromHeadBone') &&
-      _doubleList(raw['offsetFromHeadBone'], 3, const []).length != 3) {
+      jsonDoubleList(raw['offsetFromHeadBone'], 3, const []).length != 3) {
     sink.error(
       'vrm.invalidLookAtOffset',
       'LookAt offsetFromHeadBone must contain three numbers.',
@@ -47,10 +52,10 @@ VrmLookAt? _parseLookAt(Object? value, _DiagnosticSink sink) {
   );
   final rangeMapVerticalUp = _parseRangeMap(raw, sink, 'rangeMapVerticalUp');
   if (invalidType) return null;
-  return VrmLookAt._(
+  return VrmLookAt.internal(
     type: VrmLookAtType.fromSpecName(type),
     originNode: null,
-    offsetFromHeadBone: _doubleList(raw['offsetFromHeadBone'], 3, const [
+    offsetFromHeadBone: jsonDoubleList(raw['offsetFromHeadBone'], 3, const [
       0,
       0,
       0,
@@ -65,7 +70,7 @@ VrmLookAt? _parseLookAt(Object? value, _DiagnosticSink sink) {
 
 VrmLookAtRangeMap _parseRangeMap(
   Map<String, Object?> parent,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String field,
 ) {
   final value = parent[field];
@@ -77,9 +82,9 @@ VrmLookAtRangeMap _parseRangeMap(
     );
     return VrmLookAtRangeMap(inputMaxValue: 0, outputScale: 0);
   }
-  final raw = _object(value);
-  final inputMaxValue = _double(raw['inputMaxValue']);
-  final outputScale = _double(raw['outputScale']);
+  final raw = jsonObject(value);
+  final inputMaxValue = jsonDouble(raw['inputMaxValue']);
+  final outputScale = jsonDouble(raw['outputScale']);
   if (raw.containsKey('inputMaxValue') &&
       (inputMaxValue == null || inputMaxValue < 0 || inputMaxValue > 180)) {
     sink.error(

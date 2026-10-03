@@ -1,14 +1,28 @@
-part of '../../flvtterm.dart';
+import 'package:meta/meta.dart';
 
-VrmExtension _normalizeVrm0Extension(
+import '../diagnostics.dart';
+import '../gltf/animation_math.dart';
+import '../gltf/gltf_structure_validation.dart';
+import '../gltf/gltf_types.dart';
+import '../math_types.dart';
+import '../runtime/expression_helpers.dart';
+import '../safe_list_index.dart';
+import '../vrm/spring_bone_types.dart';
+import '../vrm/vrm_enums.dart';
+import '../vrm/vrm_humanoid_parser.dart';
+import '../vrm/vrm_types.dart';
+import 'vrm0_types.dart';
+
+@internal
+VrmExtension normalizeVrm0Extension(
   GltfAsset gltf,
   Vrm0Extension legacy,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   final humanoid = _normalizeVrm0Humanoid(gltf, legacy.humanoid, sink);
   final firstPerson = _normalizeVrm0FirstPerson(gltf, legacy.firstPerson, sink);
 
-  return VrmExtension._(
+  return VrmExtension.internal(
     sourceVersion: VrmSourceVersion.vrm0,
     specVersion: legacy.specVersion,
     meta: _normalizeVrm0Meta(gltf, legacy.meta, sink),
@@ -27,13 +41,13 @@ VrmExtension _normalizeVrm0Extension(
 VrmMeta _normalizeVrm0Meta(
   GltfAsset gltf,
   Vrm0Meta? legacy,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   final thumbnailImage = _vrm0ThumbnailImage(gltf, legacy?.texture, sink);
   final author = legacy?.author;
   final reference = legacy?.reference;
 
-  return VrmMeta._(
+  return VrmMeta.internal(
     name: legacy?.title,
     version: legacy?.version,
     authors: author == null || author.isEmpty ? const [] : [author],
@@ -62,7 +76,7 @@ VrmMeta _normalizeVrm0Meta(
 int? _vrm0ThumbnailImage(
   GltfAsset gltf,
   int? textureIndex,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   if (textureIndex == null) return null;
   if (textureIndex < 0 || textureIndex >= gltf.textures.length) {
@@ -100,7 +114,7 @@ bool _vrm0UsageAllowed(String? value) => value?.toLowerCase() == 'allow';
 VrmHumanoid _normalizeVrm0Humanoid(
   GltfAsset gltf,
   Vrm0Humanoid? legacy,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   if (legacy == null) {
     sink.error(
@@ -108,7 +122,7 @@ VrmHumanoid _normalizeVrm0Humanoid(
       'VRM.humanoid is required for a runtime humanoid avatar.',
       jsonPath: r'$.extensions.VRM.humanoid',
     );
-    return VrmHumanoid._(humanBones: const {}, raw: const {});
+    return VrmHumanoid.internal(humanBones: const {}, raw: const {});
   }
 
   final humanBones = <VrmHumanoidBone, VrmHumanBone>{};
@@ -189,14 +203,14 @@ VrmHumanoid _normalizeVrm0Humanoid(
 
   _validateVrm0HumanoidTransforms(gltf, humanBones, sourceIndices, sink);
   _validateVrm0HumanoidParents(gltf, humanBones, sourceIndices, sink);
-  return VrmHumanoid._(humanBones: humanBones, raw: legacy.raw);
+  return VrmHumanoid.internal(humanBones: humanBones, raw: legacy.raw);
 }
 
 void _validateVrm0HumanoidTransforms(
   GltfAsset gltf,
   Map<VrmHumanoidBone, VrmHumanBone> humanBones,
   Map<VrmHumanoidBone, int> sourceIndices,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   for (final entry in humanBones.entries) {
     final bone = entry.key;
@@ -205,7 +219,7 @@ void _validateVrm0HumanoidTransforms(
     final sourceIndex = sourceIndices[bone]!;
     final path = '\$.extensions.VRM.humanoid.humanBones[$sourceIndex].node';
     if (node.restScale.any((component) => component <= 0) ||
-        _hasReflectedMatrixBasis(node.matrix)) {
+        hasReflectedMatrixBasis(node.matrix)) {
       sink.error(
         'vrm0.nonPositiveHumanoidScale',
         'Legacy humanoid bone ${bone.specName} must have positive scale.',
@@ -223,9 +237,9 @@ void _validateVrm0HumanoidTransforms(
     }
     final rotation = node.restRotation;
     final isIdentity =
-        _nearlyZero(rotation[0]) &&
-        _nearlyZero(rotation[1]) &&
-        _nearlyZero(rotation[2]) &&
+        nearlyZero(rotation[0]) &&
+        nearlyZero(rotation[1]) &&
+        nearlyZero(rotation[2]) &&
         (rotation[3].abs() - 1).abs() <= 1e-5;
     if (!isIdentity) {
       sink.error(
@@ -242,18 +256,15 @@ void _validateVrm0HumanoidParents(
   GltfAsset gltf,
   Map<VrmHumanoidBone, VrmHumanBone> humanBones,
   Map<VrmHumanoidBone, int> sourceIndices,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
-  final parents = _nodeParents(gltf);
+  final parents = nodeParents(gltf);
   for (final entry in humanBones.entries) {
-    final expectedParent = _nearestAssignedHumanoidParent(
-      entry.key,
-      humanBones,
-    );
+    final expectedParent = nearestAssignedHumanoidParent(entry.key, humanBones);
     if (expectedParent == null) continue;
     final parentNode = humanBones[expectedParent]?.node;
     if (parentNode != null &&
-        _isDescendantOf(entry.value.node, parentNode, parents)) {
+        isDescendantOf(entry.value.node, parentNode, parents)) {
       continue;
     }
     sink.error(
@@ -303,7 +314,7 @@ const _vrm0RequiredHumanoidBones = <VrmHumanoidBone>{
 VrmFirstPerson _normalizeVrm0FirstPerson(
   GltfAsset gltf,
   Vrm0FirstPerson? legacy,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   final annotations = <VrmFirstPersonMeshAnnotation>[];
   for (var i = 0; i < (legacy?.meshAnnotations.length ?? 0); i++) {
@@ -330,7 +341,7 @@ VrmFirstPerson _normalizeVrm0FirstPerson(
     ]);
   }
 
-  return VrmFirstPerson._(
+  return VrmFirstPerson.internal(
     firstPersonBone: _vrm0NodeOrNull(
       gltf,
       legacy?.firstPersonBone,
@@ -345,7 +356,7 @@ VrmFirstPerson _normalizeVrm0FirstPerson(
 
 VrmFirstPersonMeshAnnotationType _vrm0FirstPersonAnnotationType(
   String? value,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path,
 ) {
   final normalized = value?.toLowerCase();
@@ -368,7 +379,7 @@ VrmFirstPersonMeshAnnotationType _vrm0FirstPersonAnnotationType(
 VrmLookAt? _normalizeVrm0LookAt(
   Vrm0FirstPerson? legacy,
   int? firstPersonBone,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   if (legacy == null ||
       (legacy.lookAtTypeName == null &&
@@ -393,7 +404,7 @@ VrmLookAt? _normalizeVrm0LookAt(
   };
   final defaultOutputScale = lookAtType == VrmLookAtType.bone ? 10.0 : 1.0;
 
-  return VrmLookAt._(
+  return VrmLookAt.internal(
     type: lookAtType,
     originNode: firstPersonBone,
     offsetFromHeadBone: _vrm0VectorList(
@@ -430,7 +441,7 @@ VrmLookAt? _normalizeVrm0LookAt(
 
 VrmLookAtRangeMap _normalizeVrm0DegreeMap(
   Vrm0DegreeMap? legacy,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String field,
   double defaultOutputScale,
 ) {
@@ -458,7 +469,7 @@ VrmLookAtRangeMap _normalizeVrm0DegreeMap(
 VrmExpressions _normalizeVrm0Expressions(
   GltfAsset gltf,
   Vrm0Extension legacy,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   final preset = <VrmExpressionPreset, VrmExpression>{};
   final custom = <String, VrmExpression>{};
@@ -523,7 +534,7 @@ VrmExpressions _normalizeVrm0Expressions(
       );
     }
 
-    final expression = VrmExpression._(
+    final expression = VrmExpression.internal(
       name: expressionName,
       isBinary: group.isBinary ?? false,
       morphTargetBinds: morphTargetBinds,
@@ -598,7 +609,7 @@ VrmExpressions _normalizeVrm0Expressions(
     }
   }
 
-  return VrmExpressions._(
+  return VrmExpressions.internal(
     preset: preset,
     custom: custom,
     raw: legacy.blendShapeMaster?.raw ?? const {},
@@ -647,7 +658,7 @@ VrmExpressionPreset? _vrm0ExpressionPreset(String? value) {
 List<VrmMorphTargetBind> _normalizeVrm0MorphTargetBinds(
   GltfAsset gltf,
   Vrm0BlendShapeBind source,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   int groupIndex,
   int bindIndex,
 ) {
@@ -692,7 +703,7 @@ List<VrmMorphTargetBind> _normalizeVrm0MorphTargetBinds(
       VrmMorphTargetBind(
         node: node,
         index: morph,
-        weight: weight.isFinite ? _clamp01(weight / 100) : 0,
+        weight: weight.isFinite ? clamp01(weight / 100) : 0,
         raw: source.raw,
       ),
   ]);
@@ -702,7 +713,7 @@ void _normalizeVrm0MaterialValueBind(
   GltfAsset gltf,
   Vrm0Extension legacy,
   Vrm0MaterialValueBind source,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   int groupIndex,
   int bindIndex,
   List<VrmMaterialColorBind> colorBinds,
@@ -828,7 +839,7 @@ VrmVector4? _vrm0ColorTarget(List<double> values) {
   }
   final gltfMaterial = gltf.materials.elementAtOrNull(material);
   if (gltfMaterial == null) return (VrmVector2.one, VrmVector2.zero);
-  final base = _baseTextureTransform(gltfMaterial);
+  final base = baseTextureTransform(gltfMaterial);
   return (base.scale, base.offset);
 }
 
@@ -836,7 +847,7 @@ int? _vrm0MaterialIndex(
   GltfAsset gltf,
   List<Vrm0MaterialProperty> materialProperties,
   String? name,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path,
 ) {
   if (name == null) return null;
@@ -875,7 +886,7 @@ int? _vrm0MaterialIndex(
 List<int> _vrm0NodesForMesh(
   GltfAsset gltf,
   int mesh,
-  _DiagnosticSink sink, {
+  DiagnosticSink sink, {
   required String path,
   required String purpose,
 }) {
@@ -898,7 +909,7 @@ List<int> _vrm0NodesForMesh(
 int? _vrm0NodeOrNull(
   GltfAsset gltf,
   int? node,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path,
   String code,
 ) {
@@ -915,10 +926,11 @@ int? _vrm0NodeOrNull(
   return node;
 }
 
-VrmSpringBone? _normalizeVrm0SpringBone(
+@internal
+VrmSpringBone? normalizeVrm0SpringBone(
   GltfAsset gltf,
   Vrm0Extension legacy,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   final secondary = legacy.secondaryAnimation;
   if (secondary == null) return null;
@@ -951,10 +963,10 @@ VrmSpringBone? _normalizeVrm0SpringBone(
       final offset = _vrm0VectorList(source.offset, VrmVector3.zero);
       final radius = source.radius ?? 0;
       colliders.add(
-        VrmSpringBoneCollider._(
+        VrmSpringBoneCollider.internal(
           index: normalizedIndex,
           node: node,
-          shape: VrmSpringBoneColliderShape._(
+          shape: VrmSpringBoneColliderShape.internal(
             type: VrmSpringBoneColliderShapeType.sphere,
             declaredShapeCount: 1,
             offset: offset,
@@ -967,7 +979,7 @@ VrmSpringBone? _normalizeVrm0SpringBone(
       );
     }
     colliderGroups.add(
-      VrmSpringBoneColliderGroup._(
+      VrmSpringBoneColliderGroup.internal(
         index: groupIndex,
         name: null,
         colliders: groupColliderIndices,
@@ -1019,12 +1031,12 @@ VrmSpringBone? _normalizeVrm0SpringBone(
         }
       }
       springs.add(
-        VrmSpringBoneSpring._(
+        VrmSpringBoneSpring.internal(
           index: springIndex,
           name: source.comment,
           joints: [
             for (var jointIndex = 0; jointIndex < subtree.length; jointIndex++)
-              VrmSpringBoneJoint._(
+              VrmSpringBoneJoint.internal(
                 index: jointIndex,
                 node: subtree[jointIndex],
                 hitRadius: source.hitRadius ?? 0,
@@ -1050,7 +1062,7 @@ VrmSpringBone? _normalizeVrm0SpringBone(
       );
     }
   }
-  return VrmSpringBone._(
+  return VrmSpringBone.internal(
     sourceVersion: VrmSourceVersion.vrm0,
     specVersion: '0.0',
     colliders: colliders,
@@ -1063,7 +1075,7 @@ VrmSpringBone? _normalizeVrm0SpringBone(
 List<int> _vrm0SpringSubtree(
   GltfAsset gltf,
   int root,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   int groupIndex,
   int rootIndex,
 ) {

@@ -1,7 +1,18 @@
-part of '../../flvtterm.dart';
+import 'package:meta/meta.dart';
 
-final class _VrmaRetargetPlan {
-  _VrmaRetargetPlan(
+import '../gltf/gltf_animation_types.dart';
+import '../gltf/gltf_scene_types.dart';
+import '../safe_list_index.dart';
+import '../vrm/vrm_assets.dart';
+import '../vrm/vrm_enums.dart';
+import '../vrm/vrm_humanoid_parser.dart';
+import 'constraint_math.dart';
+import 'motion_arm_spacing.dart';
+import 'motion_retargeter.dart';
+
+@internal
+final class VrmaRetargetPlan {
+  VrmaRetargetPlan(
     VrmModel model,
     VrmAnimationAsset animation, {
     required Map<int, List<double>> destinationRestWorldRotations,
@@ -12,9 +23,9 @@ final class _VrmaRetargetPlan {
        ),
        expressionTargets = _buildVrmaExpressionTargets(animation),
        lookAtNode = animation.animation.lookAt,
-       armSpacing = _ArmSpacing.of(model);
+       armSpacing = ArmSpacing.of(model);
 
-  _VrmaRetargetPlan.humanoidOnly(
+  VrmaRetargetPlan.humanoidOnly(
     VrmModel model,
     VrmAnimationAsset animation, {
     required Map<int, List<double>> destinationRestWorldRotations,
@@ -25,25 +36,25 @@ final class _VrmaRetargetPlan {
        ),
        expressionTargets = const [],
        lookAtNode = null,
-       armSpacing = _ArmSpacing.of(model);
+       armSpacing = ArmSpacing.of(model);
 
-  final List<_VrmaRetargetTarget> targets;
-  final List<_VrmaExpressionTarget> expressionTargets;
+  final List<VrmaRetargetTarget> targets;
+  final List<VrmaExpressionTarget> expressionTargets;
   final int? lookAtNode;
 
   /// Null when the avatar lacks the bones or body skin arm spacing measures.
-  final _ArmSpacing? armSpacing;
+  final ArmSpacing? armSpacing;
 }
 
-List<_VrmaRetargetTarget> _buildVrmaRetargetTargets(
+List<VrmaRetargetTarget> _buildVrmaRetargetTargets(
   VrmModel model,
   VrmAnimationAsset animation,
   Map<int, List<double>> destinationRestWorldRotations,
 ) {
   final sourceBones = animation.animation.humanoid.humanBones;
   final destinationBones = model.vrm.humanoid.humanBones;
-  final sourceRestWorldRotations = _restWorldRotations(animation.gltf);
-  final targets = <_VrmaRetargetTarget>[];
+  final sourceRestWorldRotations = restWorldRotations(animation.gltf);
+  final targets = <VrmaRetargetTarget>[];
   for (final entry in sourceBones.entries) {
     final bone = entry.key;
     if (bone == VrmHumanoidBone.leftEye || bone == VrmHumanoidBone.rightEye) {
@@ -56,8 +67,8 @@ List<_VrmaRetargetTarget> _buildVrmaRetargetTargets(
         : model.gltf.nodes.elementAtOrNull(destinationAssignment.node);
     if (sourceNode == null || destinationNode == null) continue;
 
-    final collapsedAncestors = <_VrmaSourceBone>[];
-    var ancestor = _directHumanoidParent[bone];
+    final collapsedAncestors = <VrmaSourceBone>[];
+    var ancestor = directHumanoidParent[bone];
     while (ancestor != null) {
       final sourceAncestor = sourceBones[ancestor];
       final destinationAncestor = destinationBones[ancestor];
@@ -66,18 +77,18 @@ List<_VrmaRetargetTarget> _buildVrmaRetargetTargets(
         final node = animation.gltf.nodes.elementAtOrNull(sourceAncestor.node);
         if (node != null) {
           collapsedAncestors.add(
-            _VrmaSourceBone(
+            VrmaSourceBone(
               node,
               sourceRestWorldRotations[node.index] ?? node.restRotation,
             ),
           );
         }
       }
-      ancestor = _directHumanoidParent[ancestor];
+      ancestor = directHumanoidParent[ancestor];
     }
 
     targets.add(
-      _VrmaRetargetTarget(
+      VrmaRetargetTarget(
         bone: bone,
         sourceNode: sourceNode,
         sourceRestWorldRotation:
@@ -100,7 +111,7 @@ List<double> _destinationRestWorldRotation(
   VrmSourceVersion version,
   List<double> sourceWorldRotation,
 ) => switch (version) {
-  VrmSourceVersion.vrm0 => _quatMultiply(const [
+  VrmSourceVersion.vrm0 => quatMultiply(const [
     0.0,
     1.0,
     0.0,
@@ -109,7 +120,7 @@ List<double> _destinationRestWorldRotation(
   VrmSourceVersion.vrm1 => sourceWorldRotation,
 };
 
-List<_VrmaExpressionTarget> _buildVrmaExpressionTargets(
+List<VrmaExpressionTarget> _buildVrmaExpressionTargets(
   VrmAnimationAsset animation,
 ) {
   final namesByNode = <int, List<String>>{};
@@ -121,12 +132,13 @@ List<_VrmaExpressionTarget> _buildVrmaExpressionTargets(
   }
   return List.unmodifiable([
     for (final entry in namesByNode.entries)
-      _VrmaExpressionTarget(entry.key, List.unmodifiable(entry.value)),
+      VrmaExpressionTarget(entry.key, List.unmodifiable(entry.value)),
   ]);
 }
 
-final class _VrmaRetargetTarget {
-  const _VrmaRetargetTarget({
+@internal
+final class VrmaRetargetTarget {
+  const VrmaRetargetTarget({
     required this.bone,
     required this.sourceNode,
     required this.sourceRestWorldRotation,
@@ -140,37 +152,37 @@ final class _VrmaRetargetTarget {
   final List<double> sourceRestWorldRotation;
   final GltfNode destinationNode;
   final List<double> destinationRestWorldRotation;
-  final List<_VrmaSourceBone> collapsedAncestors;
+  final List<VrmaSourceBone> collapsedAncestors;
 
   GltfNodePose? sourcePose(GltfAnimationFrame frame) {
     List<double>? normalized;
     for (final ancestor in collapsedAncestors) {
       final rotation = frame.nodePoses[ancestor.node.index]?.rotation;
       if (rotation == null) continue;
-      final next = _normalizedHumanoidRotation(
+      final next = normalizedHumanoidRotation(
         localRest: ancestor.node.restRotation,
         worldRest: ancestor.restWorldRotation,
         current: rotation,
       );
-      normalized = normalized == null ? next : _quatMultiply(normalized, next);
+      normalized = normalized == null ? next : quatMultiply(normalized, next);
     }
 
     final ownPose = frame.nodePoses[sourceNode.index];
     final ownRotation = ownPose?.rotation;
     if (ownRotation != null) {
-      final ownNormalized = _normalizedHumanoidRotation(
+      final ownNormalized = normalizedHumanoidRotation(
         localRest: sourceNode.restRotation,
         worldRest: sourceRestWorldRotation,
         current: ownRotation,
       );
       normalized = normalized == null
           ? ownNormalized
-          : _quatMultiply(normalized, ownNormalized);
+          : quatMultiply(normalized, ownNormalized);
     }
     if (normalized == null) return ownPose;
     return GltfNodePose(
       translation: ownPose?.translation,
-      rotation: _humanoidLocalRotationFromNormalized(
+      rotation: humanoidLocalRotationFromNormalized(
         localRest: sourceNode.restRotation,
         worldRest: sourceRestWorldRotation,
         normalized: normalized,
@@ -180,15 +192,17 @@ final class _VrmaRetargetTarget {
   }
 }
 
-final class _VrmaSourceBone {
-  const _VrmaSourceBone(this.node, this.restWorldRotation);
+@internal
+final class VrmaSourceBone {
+  const VrmaSourceBone(this.node, this.restWorldRotation);
 
   final GltfNode node;
   final List<double> restWorldRotation;
 }
 
-final class _VrmaExpressionTarget {
-  const _VrmaExpressionTarget(this.nodeIndex, this.names);
+@internal
+final class VrmaExpressionTarget {
+  const VrmaExpressionTarget(this.nodeIndex, this.names);
 
   final int nodeIndex;
   final List<String> names;

@@ -1,9 +1,21 @@
-part of '../../flvtterm.dart';
+import 'package:meta/meta.dart';
 
-VrmExpressions _parseExpressions(
+import '../diagnostics.dart';
+import '../gltf/animation_math.dart';
+import '../gltf/gltf_node_constraint_validation.dart';
+import '../gltf/gltf_types.dart';
+import '../json_values.dart';
+import '../math_types.dart';
+import '../runtime/expression_controller.dart';
+import '../safe_list_index.dart';
+import 'vrm_enums.dart';
+import 'vrm_types.dart';
+
+@internal
+VrmExpressions parseExpressions(
   Object? value,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   if (value is! Map) {
     sink.error(
@@ -12,7 +24,7 @@ VrmExpressions _parseExpressions(
       jsonPath: r'$.extensions.VRMC_vrm.expressions',
     );
   }
-  final raw = _object(value);
+  final raw = jsonObject(value);
   final preset = <VrmExpressionPreset, VrmExpression>{};
   final custom = <String, VrmExpression>{};
 
@@ -55,7 +67,7 @@ VrmExpressions _parseExpressions(
     if (expression != null) custom[entry.key] = expression;
   }
 
-  return VrmExpressions._(
+  return VrmExpressions.internal(
     preset: Map.unmodifiable(preset),
     custom: Map.unmodifiable(custom),
     raw: raw,
@@ -65,7 +77,7 @@ VrmExpressions _parseExpressions(
 Map<String, Object?> _expressionGroup(
   Map<String, Object?> raw,
   String field,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   if (!raw.containsKey(field)) return const {};
   final value = raw[field];
@@ -82,7 +94,7 @@ VrmExpression? _parseExpression(
   String name,
   Object? value,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path,
 ) {
   if (value is! Map) {
@@ -93,8 +105,8 @@ VrmExpression? _parseExpression(
     );
     return null;
   }
-  final raw = _object(value);
-  if (raw.containsKey('isBinary') && _bool(raw['isBinary']) == null) {
+  final raw = jsonObject(value);
+  if (raw.containsKey('isBinary') && jsonBool(raw['isBinary']) == null) {
     sink.error(
       'vrm.invalidExpressionIsBinary',
       'Expression isBinary must be a boolean.',
@@ -106,7 +118,7 @@ VrmExpression? _parseExpression(
     'overrideBlink',
     'overrideLookAt',
   ]) {
-    final overrideMode = _string(raw[field]);
+    final overrideMode = jsonString(raw[field]);
     if (raw.containsKey(field) && raw[field] is! String) {
       sink.error(
         'vrm.invalidExpressionOverrideMode',
@@ -126,7 +138,7 @@ VrmExpression? _parseExpression(
   }
   final preset = VrmExpressionPreset.fromSpecName(name);
   final disallowMouthOverride =
-      preset != null && _lipSyncPresetNames.contains(name);
+      preset != null && lipSyncPresetNames.contains(name);
   final disallowBlinkOverride = switch (preset) {
     VrmExpressionPreset.blink ||
     VrmExpressionPreset.blinkLeft ||
@@ -159,9 +171,9 @@ VrmExpression? _parseExpression(
     path,
   );
 
-  return VrmExpression._(
+  return VrmExpression.internal(
     name: name,
-    isBinary: _bool(raw['isBinary']) ?? false,
+    isBinary: jsonBool(raw['isBinary']) ?? false,
     morphTargetBinds: [
       for (var i = 0; i < morphTargetBindItems.length; i++)
         ?_parseMorphTargetBind(
@@ -217,11 +229,11 @@ VrmExpression? _parseExpression(
 VrmExpressionOverrideMode _parseExpressionOverrideMode(
   Map<String, Object?> raw,
   String field,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path, {
   required bool disallowSameKind,
 }) {
-  final mode = VrmExpressionOverrideMode.fromSpecName(_string(raw[field]));
+  final mode = VrmExpressionOverrideMode.fromSpecName(jsonString(raw[field]));
   if (disallowSameKind && mode != VrmExpressionOverrideMode.none) {
     sink.error(
       'vrm.invalidExpressionOverrideKind',
@@ -236,7 +248,7 @@ VrmExpressionOverrideMode _parseExpressionOverrideMode(
 List<Object?> _expressionBindList(
   Map<String, Object?> raw,
   String field,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path,
 ) {
   if (!raw.containsKey(field)) return const [];
@@ -253,7 +265,7 @@ List<Object?> _expressionBindList(
 VrmMorphTargetBind? _parseMorphTargetBind(
   Object? value,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path,
 ) {
   if (value is! Map) {
@@ -263,12 +275,12 @@ VrmMorphTargetBind? _parseMorphTargetBind(
       jsonPath: path,
     );
   }
-  final raw = _object(value);
+  final raw = jsonObject(value);
   final nodeValue = raw['node'];
   final indexValue = raw['index'];
-  final node = _int(nodeValue);
-  final index = _int(indexValue);
-  final weight = _double(raw['weight']);
+  final node = jsonInt(nodeValue);
+  final index = jsonInt(indexValue);
+  final weight = jsonDouble(raw['weight']);
   if (!raw.containsKey('node') ||
       !raw.containsKey('index') ||
       !raw.containsKey('weight')) {
@@ -295,7 +307,7 @@ VrmMorphTargetBind? _parseMorphTargetBind(
     );
     return null;
   }
-  _validateIndex(
+  validateIndex(
     node,
     gltf.nodes.length,
     sink,
@@ -337,7 +349,7 @@ VrmMorphTargetBind? _parseMorphTargetBind(
   return VrmMorphTargetBind(
     node: node,
     index: index,
-    weight: _clamp01(weight),
+    weight: clamp01(weight),
     raw: raw,
   );
 }
@@ -345,7 +357,7 @@ VrmMorphTargetBind? _parseMorphTargetBind(
 VrmMaterialColorBind? _parseMaterialColorBind(
   Object? value,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path,
 ) {
   if (value is! Map) {
@@ -355,10 +367,10 @@ VrmMaterialColorBind? _parseMaterialColorBind(
       jsonPath: path,
     );
   }
-  final raw = _object(value);
+  final raw = jsonObject(value);
   final materialValue = raw['material'];
-  final material = _int(materialValue);
-  final type = _string(raw['type']);
+  final material = jsonInt(materialValue);
+  final type = jsonString(raw['type']);
   if (!raw.containsKey('material') ||
       type == null ||
       !raw.containsKey('targetValue')) {
@@ -386,7 +398,7 @@ VrmMaterialColorBind? _parseMaterialColorBind(
       jsonPath: '$path.type',
     );
   }
-  if (_doubleList(raw['targetValue'], 4, const []).length != 4) {
+  if (jsonDoubleList(raw['targetValue'], 4, const []).length != 4) {
     valid = false;
     sink.error(
       'vrm.invalidMaterialColorTargetValue',
@@ -394,7 +406,7 @@ VrmMaterialColorBind? _parseMaterialColorBind(
       jsonPath: '$path.targetValue',
     );
   }
-  _validateIndex(
+  validateIndex(
     material,
     gltf.materials.length,
     sink,
@@ -405,7 +417,7 @@ VrmMaterialColorBind? _parseMaterialColorBind(
   return VrmMaterialColorBind(
     material: material,
     type: type,
-    targetValue: _vector4(raw['targetValue'], VrmVector4.zero),
+    targetValue: jsonVector4(raw['targetValue'], VrmVector4.zero),
     raw: raw,
   );
 }
@@ -422,7 +434,7 @@ const _materialColorBindTypes = {
 VrmTextureTransformBind? _parseTextureTransformBind(
   Object? value,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path,
 ) {
   if (value is! Map) {
@@ -432,9 +444,9 @@ VrmTextureTransformBind? _parseTextureTransformBind(
       jsonPath: path,
     );
   }
-  final raw = _object(value);
+  final raw = jsonObject(value);
   final materialValue = raw['material'];
-  final material = _int(materialValue);
+  final material = jsonInt(materialValue);
   if (!raw.containsKey('material')) {
     sink.error(
       'vrm.invalidTextureTransformBind',
@@ -451,7 +463,7 @@ VrmTextureTransformBind? _parseTextureTransformBind(
     );
     return null;
   }
-  _validateIndex(
+  validateIndex(
     material,
     gltf.materials.length,
     sink,
@@ -460,7 +472,7 @@ VrmTextureTransformBind? _parseTextureTransformBind(
   );
   var valid = material >= 0 && material < gltf.materials.length;
   if (raw.containsKey('scale') &&
-      _doubleList(raw['scale'], 2, const []).length != 2) {
+      jsonDoubleList(raw['scale'], 2, const []).length != 2) {
     valid = false;
     sink.error(
       'vrm.invalidTextureTransformScale',
@@ -469,7 +481,7 @@ VrmTextureTransformBind? _parseTextureTransformBind(
     );
   }
   if (raw.containsKey('offset') &&
-      _doubleList(raw['offset'], 2, const []).length != 2) {
+      jsonDoubleList(raw['offset'], 2, const []).length != 2) {
     valid = false;
     sink.error(
       'vrm.invalidTextureTransformOffset',
@@ -480,8 +492,8 @@ VrmTextureTransformBind? _parseTextureTransformBind(
   if (!valid) return null;
   return VrmTextureTransformBind(
     material: material,
-    scale: _vector2(raw['scale'], VrmVector2.one),
-    offset: _vector2(raw['offset'], VrmVector2.zero),
+    scale: jsonVector2(raw['scale'], VrmVector2.one),
+    offset: jsonVector2(raw['offset'], VrmVector2.zero),
     raw: raw,
   );
 }

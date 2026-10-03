@@ -1,6 +1,16 @@
-part of '../../flvtterm.dart';
+import 'dart:math' as math;
 
-bool? _meshHasHeadInfluence(VrmModel model, int nodeIndex) {
+import 'package:meta/meta.dart';
+
+import '../gltf/accessor_reader.dart';
+import '../gltf/gltf_mesh_types.dart';
+import '../gltf/gltf_types.dart';
+import '../safe_list_index.dart';
+import 'vrm_assets.dart';
+import 'vrm_enums.dart';
+
+@internal
+bool? meshHasHeadInfluence(VrmModel model, int nodeIndex) {
   final node = model.gltf.nodes.elementAtOrNull(nodeIndex);
   if (node == null || node.mesh == null) return null;
   final mesh = model.gltf.meshes.elementAtOrNull(node.mesh!);
@@ -9,7 +19,7 @@ bool? _meshHasHeadInfluence(VrmModel model, int nodeIndex) {
   var sawClassifiedPrimitive = false;
   var sawUnclassifiedPrimitive = false;
   for (var i = 0; i < mesh.primitives.length; i++) {
-    final hasHeadInfluence = _primitiveHasHeadInfluence(model, nodeIndex, i);
+    final hasHeadInfluence = primitiveHasHeadInfluence(model, nodeIndex, i);
     if (hasHeadInfluence == null) {
       sawUnclassifiedPrimitive = true;
       continue;
@@ -21,7 +31,8 @@ bool? _meshHasHeadInfluence(VrmModel model, int nodeIndex) {
   return sawClassifiedPrimitive ? false : null;
 }
 
-bool? _primitiveHasHeadInfluence(
+@internal
+bool? primitiveHasHeadInfluence(
   VrmModel model,
   int nodeIndex,
   int primitiveIndex,
@@ -35,7 +46,8 @@ bool? _primitiveHasHeadInfluence(
   return influences.contains(true);
 }
 
-List<bool>? _primitiveTriangleHeadInfluence(
+@internal
+List<bool>? primitiveTriangleHeadInfluence(
   VrmModel model,
   int nodeIndex,
   int primitiveIndex,
@@ -55,7 +67,7 @@ List<bool>? _primitiveTriangleHeadInfluence(
   if (vertexInfluence == null) return null;
   final indices = primitive.indices == null
       ? null
-      : _readAccessorNumbers(
+      : readGltfAccessorNumbers(
           model.gltf,
           primitive.indices!,
           applyNormalization: false,
@@ -83,11 +95,8 @@ List<bool>? _primitiveTriangleHeadInfluence(
   return result;
 }
 
-int? _primitiveTriangleCount(
-  GltfAsset gltf,
-  int nodeIndex,
-  int primitiveIndex,
-) {
+@internal
+int? primitiveTriangleCount(GltfAsset gltf, int nodeIndex, int primitiveIndex) {
   final node = gltf.nodes.elementAtOrNull(nodeIndex);
   if (node == null || node.mesh == null) return null;
   final primitive = gltf.meshes
@@ -138,12 +147,12 @@ List<bool>? _primitiveVertexHeadInfluence(
     final suffix = entry.key.substring('JOINTS_'.length);
     final weightAccessor = primitive.attributes['WEIGHTS_$suffix'];
     if (weightAccessor == null) continue;
-    final joints = _readAccessorNumbers(
+    final joints = readGltfAccessorNumbers(
       model.gltf,
       entry.value,
       applyNormalization: false,
     );
-    final weights = _readAccessorNumbers(model.gltf, weightAccessor);
+    final weights = readGltfAccessorNumbers(model.gltf, weightAccessor);
     if (joints == null || weights == null) return null;
     final jointComponents = model.gltf.accessors
         .elementAtOrNull(entry.value)

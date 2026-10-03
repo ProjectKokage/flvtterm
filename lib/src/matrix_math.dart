@@ -1,6 +1,12 @@
-part of '../flvtterm.dart';
+import 'dart:math' as math;
 
-VrmMatrix4 _trsMatrix(
+import 'package:meta/meta.dart';
+
+import 'gltf/animation_math.dart';
+import 'math_types.dart';
+
+@internal
+VrmMatrix4 trsMatrix(
   List<double> translation,
   List<double> rotation,
   List<double> scale,
@@ -42,16 +48,19 @@ VrmMatrix4 _trsMatrix(
   ]);
 }
 
-List<double> _matrixTranslation(VrmMatrix4 matrix) => [
+@internal
+List<double> matrixTranslation(VrmMatrix4 matrix) => [
   matrix.storage[12],
   matrix.storage[13],
   matrix.storage[14],
 ];
 
-VrmVector3 _matrixPosition(VrmMatrix4 matrix) =>
+@internal
+VrmVector3 matrixPosition(VrmMatrix4 matrix) =>
     VrmVector3(matrix.storage[12], matrix.storage[13], matrix.storage[14]);
 
-VrmMatrix4 _multiplyMatrices(VrmMatrix4 a, VrmMatrix4 b) {
+@internal
+VrmMatrix4 multiplyMatrices(VrmMatrix4 a, VrmMatrix4 b) {
   final left = a.storage;
   final right = b.storage;
   return VrmMatrix4([
@@ -64,7 +73,8 @@ VrmMatrix4 _multiplyMatrices(VrmMatrix4 a, VrmMatrix4 b) {
   ]);
 }
 
-VrmMatrix4? _tryInvertAffineMatrix(VrmMatrix4 matrix) {
+@internal
+VrmMatrix4? tryInvertAffineMatrix(VrmMatrix4 matrix) {
   final m = matrix.storage;
   final a = m[0];
   final b = m[4];
@@ -111,7 +121,8 @@ VrmMatrix4? _tryInvertAffineMatrix(VrmMatrix4 matrix) {
   ]);
 }
 
-VrmVector3 _transformPoint(VrmMatrix4 matrix, VrmVector3 point) {
+@internal
+VrmVector3 transformPoint(VrmMatrix4 matrix, VrmVector3 point) {
   final m = matrix.storage;
   return VrmVector3(
     point.x * m[0] + point.y * m[4] + point.z * m[8] + m[12],
@@ -120,7 +131,8 @@ VrmVector3 _transformPoint(VrmMatrix4 matrix, VrmVector3 point) {
   );
 }
 
-List<double> _matrixScale(VrmMatrix4 matrix) {
+@internal
+List<double> matrixScale(VrmMatrix4 matrix) {
   final m = matrix.storage;
   return [
     math.sqrt(m[0] * m[0] + m[1] * m[1] + m[2] * m[2]),
@@ -129,12 +141,13 @@ List<double> _matrixScale(VrmMatrix4 matrix) {
   ];
 }
 
-List<double> _matrixRotation(
+@internal
+List<double> matrixRotation(
   VrmMatrix4 matrix, {
   required List<double> fallback,
 }) {
   final m = matrix.storage;
-  final scale = _matrixScale(matrix);
+  final scale = matrixScale(matrix);
   if (scale.any((value) => !value.isFinite || value.abs() < 1e-12)) {
     return fallback;
   }
@@ -150,7 +163,7 @@ List<double> _matrixRotation(
   final trace = m00 + m11 + m22;
   if (trace > 0) {
     final s = math.sqrt(trace + 1) * 2;
-    return _normalize([
+    return normalizeList([
       (m21 - m12) / s,
       (m02 - m20) / s,
       (m10 - m01) / s,
@@ -159,7 +172,7 @@ List<double> _matrixRotation(
   }
   if (m00 > m11 && m00 > m22) {
     final s = math.sqrt(1 + m00 - m11 - m22) * 2;
-    return _normalize([
+    return normalizeList([
       0.25 * s,
       (m01 + m10) / s,
       (m02 + m20) / s,
@@ -168,7 +181,7 @@ List<double> _matrixRotation(
   }
   if (m11 > m22) {
     final s = math.sqrt(1 + m11 - m00 - m22) * 2;
-    return _normalize([
+    return normalizeList([
       (m01 + m10) / s,
       0.25 * s,
       (m12 + m21) / s,
@@ -176,7 +189,7 @@ List<double> _matrixRotation(
     ]);
   }
   final s = math.sqrt(1 + m22 - m00 - m11) * 2;
-  return _normalize([
+  return normalizeList([
     (m02 + m20) / s,
     (m12 + m21) / s,
     0.25 * s,
@@ -184,7 +197,8 @@ List<double> _matrixRotation(
   ]);
 }
 
-bool _isIdentityMatrix(VrmMatrix4 matrix) {
+@internal
+bool isIdentityMatrix(VrmMatrix4 matrix) {
   final m = matrix.storage;
   const identity = [
     1.0,

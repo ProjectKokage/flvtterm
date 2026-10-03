@@ -1,4 +1,4 @@
-part of '../../flvtterm.dart';
+import '../math_types.dart';
 
 /// Renderer-neutral scene binding for applying VRM runtime state.
 abstract interface class VrmSceneBinding {

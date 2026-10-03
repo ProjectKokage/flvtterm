@@ -1,10 +1,16 @@
-part of '../../flvtterm.dart';
+import 'package:meta/meta.dart';
 
-VrmAnimationExtension? _parseVrmaExtension(
-  GltfAsset gltf,
-  _DiagnosticSink sink,
-) {
-  final rootExtensions = _object(gltf.json['extensions']);
+import '../diagnostics.dart';
+import '../gltf/gltf_node_constraint_validation.dart';
+import '../gltf/gltf_types.dart';
+import '../json_values.dart';
+import '../vrm/vrm_assets.dart';
+import '../vrm/vrm_enums.dart';
+import '../vrm/vrm_humanoid_parser.dart';
+
+@internal
+VrmAnimationExtension? parseVrmaExtension(GltfAsset gltf, DiagnosticSink sink) {
+  final rootExtensions = jsonObject(gltf.json['extensions']);
   if (rootExtensions.containsKey('VRMC_vrm')) {
     sink.warning(
       'vrma.embeddedVrmExtension',
@@ -21,7 +27,7 @@ VrmAnimationExtension? _parseVrmaExtension(
     );
     return null;
   }
-  final raw = _object(extensionValue);
+  final raw = jsonObject(extensionValue);
   if (extensionValue == null) {
     sink.error(
       'vrma.missingExtension',
@@ -30,7 +36,7 @@ VrmAnimationExtension? _parseVrmaExtension(
     );
     return null;
   }
-  final specVersion = _string(raw['specVersion']);
+  final specVersion = jsonString(raw['specVersion']);
   if (!raw.containsKey('specVersion')) {
     sink.error(
       'vrma.missingSpecVersion',
@@ -46,14 +52,14 @@ VrmAnimationExtension? _parseVrmaExtension(
   }
 
   if (raw['humanoid'] is Map &&
-      !_object(raw['humanoid']).containsKey('humanBones')) {
+      !jsonObject(raw['humanoid']).containsKey('humanBones')) {
     sink.error(
       'vrma.missingHumanoidHumanBones',
       'VRMC_vrm_animation.humanoid.humanBones is required when humanoid is present.',
       jsonPath: r'$.extensions.VRMC_vrm_animation.humanoid.humanBones',
     );
   }
-  final humanoid = _parseHumanoid(
+  final humanoid = parseHumanoid(
     raw.containsKey('humanoid') ? raw['humanoid'] : const <String, Object?>{},
     gltf,
     sink,
@@ -78,7 +84,7 @@ VrmAnimationExtension? _parseVrmaExtension(
       sink.warning(
         'vrma.unknownPresetExpression',
         'Unknown VRMA preset expression "${entry.key}" was ignored.',
-        jsonPath: _vrmaExpressionPath('preset', entry.key),
+        jsonPath: vrmaExpressionPath('preset', entry.key),
       );
       continue;
     }
@@ -91,7 +97,7 @@ VrmAnimationExtension? _parseVrmaExtension(
       sink.error(
         'vrma.invalidLookExpressionTarget',
         '${preset.specName} must use VRMA LookAt, not expression animation.',
-        jsonPath: _vrmaExpressionPath('preset', preset.specName),
+        jsonPath: vrmaExpressionPath('preset', preset.specName),
       );
       continue;
     }
@@ -113,7 +119,7 @@ VrmAnimationExtension? _parseVrmaExtension(
       sink.error(
         'vrma.customExpressionPresetCollision',
         'Custom expression "${entry.key}" collides with a preset expression.',
-        jsonPath: _vrmaExpressionPath('custom', entry.key),
+        jsonPath: vrmaExpressionPath('custom', entry.key),
       );
       continue;
     }
@@ -133,7 +139,7 @@ VrmAnimationExtension? _parseVrmaExtension(
     hasLookAt ? lookAtValue : const <String, Object?>{},
     sink,
   );
-  final lookAtNode = _int(lookAt['node']);
+  final lookAtNode = jsonInt(lookAt['node']);
   if (lookAt.containsKey('node') && lookAtNode == null) {
     sink.error(
       'vrma.invalidLookAtNode',
@@ -142,7 +148,7 @@ VrmAnimationExtension? _parseVrmaExtension(
     );
   }
   if (lookAtNode != null) {
-    _validateIndex(
+    validateIndex(
       lookAtNode,
       gltf.nodes.length,
       sink,
@@ -153,20 +159,20 @@ VrmAnimationExtension? _parseVrmaExtension(
   final validLookAtNode =
       lookAtNode != null && lookAtNode >= 0 && lookAtNode < gltf.nodes.length;
   if (lookAt.containsKey('offsetFromHeadBone') &&
-      _doubleList(lookAt['offsetFromHeadBone'], 3, const []).length != 3) {
+      jsonDoubleList(lookAt['offsetFromHeadBone'], 3, const []).length != 3) {
     sink.error(
       'vrma.invalidLookAtOffset',
       'VRMA LookAt offsetFromHeadBone must contain three numbers.',
       jsonPath: r'$.extensions.VRMC_vrm_animation.lookAt.offsetFromHeadBone',
     );
   }
-  return VrmAnimationExtension._(
+  return VrmAnimationExtension.internal(
     specVersion: specVersion,
     humanoid: humanoid,
     presetExpressions: presetExpressions,
     customExpressions: customExpressions,
     lookAt: validLookAtNode ? lookAtNode : null,
-    offsetFromHeadBone: _doubleList(lookAt['offsetFromHeadBone'], 3, const [
+    offsetFromHeadBone: jsonDoubleList(lookAt['offsetFromHeadBone'], 3, const [
       0,
       0,
       0,
@@ -179,7 +185,7 @@ int? _parseVrmaExpressionNode(
   String name,
   Object? value,
   GltfAsset gltf,
-  _DiagnosticSink sink, {
+  DiagnosticSink sink, {
   required String group,
 }) {
   final isPreset = group == 'preset';
@@ -192,11 +198,11 @@ int? _parseVrmaExpressionNode(
           ? 'vrma.invalidPresetExpressionObject'
           : 'vrma.invalidCustomExpressionObject',
       'VRMA $group expression "$name" must be a JSON object.',
-      jsonPath: _vrmaExpressionPath(group, name),
+      jsonPath: vrmaExpressionPath(group, name),
     );
   }
-  final expression = _object(value);
-  final path = _vrmaExpressionPath(group, name, '.node');
+  final expression = jsonObject(value);
+  final path = vrmaExpressionPath(group, name, '.node');
   if (!expression.containsKey('node')) {
     sink.error(
       isPreset
@@ -207,7 +213,7 @@ int? _parseVrmaExpressionNode(
     );
     return null;
   }
-  final node = _int(expression['node']);
+  final node = jsonInt(expression['node']);
   if (node == null) {
     sink.error(
       invalidNodeCode,
@@ -216,11 +222,11 @@ int? _parseVrmaExpressionNode(
     );
     return null;
   }
-  _validateIndex(node, gltf.nodes.length, sink, invalidNodeCode, path);
+  validateIndex(node, gltf.nodes.length, sink, invalidNodeCode, path);
   return node >= 0 && node < gltf.nodes.length ? node : null;
 }
 
-Map<String, Object?> _vrmaExpressions(Object? value, _DiagnosticSink sink) {
+Map<String, Object?> _vrmaExpressions(Object? value, DiagnosticSink sink) {
   if (value is! Map) {
     sink.error(
       'vrma.invalidExpressionsObject',
@@ -228,13 +234,13 @@ Map<String, Object?> _vrmaExpressions(Object? value, _DiagnosticSink sink) {
       jsonPath: r'$.extensions.VRMC_vrm_animation.expressions',
     );
   }
-  return _object(value);
+  return jsonObject(value);
 }
 
 Map<String, Object?> _vrmaExpressionGroup(
   Map<String, Object?> raw,
   String field,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   if (!raw.containsKey(field)) return const {};
   final value = raw[field];
@@ -247,7 +253,7 @@ Map<String, Object?> _vrmaExpressionGroup(
   return const {};
 }
 
-Map<String, Object?> _vrmaLookAt(Object? value, _DiagnosticSink sink) {
+Map<String, Object?> _vrmaLookAt(Object? value, DiagnosticSink sink) {
   if (value is! Map) {
     sink.error(
       'vrma.invalidLookAtObject',
@@ -255,8 +261,9 @@ Map<String, Object?> _vrmaLookAt(Object? value, _DiagnosticSink sink) {
       jsonPath: r'$.extensions.VRMC_vrm_animation.lookAt',
     );
   }
-  return _object(value);
+  return jsonObject(value);
 }
 
-String _vrmaExpressionPath(String group, String name, [String suffix = '']) =>
+@internal
+String vrmaExpressionPath(String group, String name, [String suffix = '']) =>
     '\$.extensions.VRMC_vrm_animation.expressions.$group.$name$suffix';

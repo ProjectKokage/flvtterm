@@ -1,4 +1,23 @@
-part of '../../flvtterm.dart';
+import 'dart:math' as math;
+
+import '../gltf/animation_math.dart';
+import '../gltf/gltf_animation_types.dart';
+import '../gltf/gltf_scene_types.dart';
+import '../gltf/gltf_types.dart';
+import '../math_types.dart';
+import '../matrix_math.dart';
+import '../safe_list_index.dart';
+import '../vrm/vrm_assets.dart';
+import '../vrm/vrm_enums.dart';
+import 'constraint_math.dart';
+import 'expression_controller.dart';
+import 'look_at_controller.dart';
+import 'look_at_math.dart';
+import 'motion_arm_spacing.dart';
+import 'motion_retargeter.dart';
+import 'motion_vrma_plan.dart';
+import 'runtime.dart';
+import 'scene_binding.dart';
 
 /// Plays renderer-neutral motion sources into a runtime binding.
 ///
@@ -8,7 +27,7 @@ final class VrmMotionController {
   /// Creates a motion controller for [model].
   VrmMotionController(this.model)
     : _evaluator = GltfAnimationEvaluator(model.gltf),
-      _modelRestWorldRotations = _restWorldRotations(model.gltf);
+      _modelRestWorldRotations = restWorldRotations(model.gltf);
 
   /// Parsed model backing this controller.
   final VrmModel model;
@@ -41,7 +60,7 @@ final class VrmMotionController {
   final _additiveLayers = <_AdditiveMotionLayer>[];
   var _nextAdditiveLayerId = 0;
   GltfAnimationEvaluator? _vrmaEvaluator;
-  _VrmaRetargetPlan? _vrmaRetargetPlan;
+  VrmaRetargetPlan? _vrmaRetargetPlan;
   GltfAnimationEvaluator? _externalGltfEvaluator;
   Set<int>? _nodeMask;
   var _vrmaHipsTranslationScale = 1.0;
@@ -88,7 +107,7 @@ final class VrmMotionController {
   /// Current clip progress in `[0, 1]`.
   double get normalizedProgress {
     final duration = durationSeconds;
-    return duration <= 0 ? 0 : _clamp01(_timeSeconds / duration);
+    return duration <= 0 ? 0 : clamp01(_timeSeconds / duration);
   }
 
   /// Samples only the override source's model-root translation at its current
@@ -303,7 +322,7 @@ final class VrmMotionController {
     _animationIndex = index;
     _vrma = animation;
     _vrmaEvaluator = GltfAnimationEvaluator(animation.gltf);
-    _vrmaRetargetPlan = _VrmaRetargetPlan(
+    _vrmaRetargetPlan = VrmaRetargetPlan(
       model,
       animation,
       destinationRestWorldRotations: _modelRestWorldRotations,
@@ -582,8 +601,8 @@ final class VrmMotionController {
     if (animationIndex == null &&
         programmaticPose == null &&
         proceduralMotion == null) {
-      expressions._setMotionInputs(_additiveMotionInputs(const {}));
-      lookAt._setMotionYawPitch(_additiveLookAt(null));
+      expressions.setMotionInputs(_additiveMotionInputs(const {}));
+      lookAt.setMotionYawPitch(_additiveLookAt(null));
       _applyMorphWeights(binding, const {}, 1);
       _applyAdditiveNodePoses(binding);
       _applyModelRootPose(binding, null, 1);
@@ -620,10 +639,10 @@ final class VrmMotionController {
     final frame = evaluator.evaluate(activeAnimationIndex, _timeSeconds);
     final fade = _fadeWeight;
 
-    expressions._setMotionInputs(
+    expressions.setMotionInputs(
       _additiveMotionInputs(_blendMotionInputs(const {}, fade)),
     );
-    lookAt._setMotionYawPitch(_additiveLookAt(_blendLookAt(null, fade)));
+    lookAt.setMotionYawPitch(_additiveLookAt(_blendLookAt(null, fade)));
     _applyNodePoses(
       binding,
       frame.nodePoses,
@@ -701,13 +720,12 @@ final class VrmMotionController {
     _clearActiveSource();
   }
 
-  double get _fadeWeight => _fadeInSeconds == 0
-      ? 1.0
-      : _clamp01(_fadeElapsedSeconds / _fadeInSeconds);
+  double get _fadeWeight =>
+      _fadeInSeconds == 0 ? 1.0 : clamp01(_fadeElapsedSeconds / _fadeInSeconds);
 
   double get _fadeOutProgress => _fadeOutSeconds == 0
       ? 1
-      : _clamp01(_fadeOutElapsedSeconds / _fadeOutSeconds);
+      : clamp01(_fadeOutElapsedSeconds / _fadeOutSeconds);
 
   void _clearIfFadeOutFinished() {
     if (_stopping && _fadeOutElapsedSeconds >= _fadeOutSeconds) {
@@ -855,7 +873,10 @@ final class VrmSampledHumanoidMotion {
         translation: [hips.x, hips.y, hips.z],
       );
     }
-    return GltfAnimationFrame._(nodePoses: poses, morphWeights: const {});
+    return GltfAnimationFrame.internal(
+      nodePoses: poses,
+      morphWeights: const {},
+    );
   }
 }
 
@@ -877,7 +898,7 @@ extension VrmSampledHumanoidPlayback on VrmMotionController {
     if (_shouldIgnorePlay(priority)) return;
     _prepareSourceReplacement(fadeIn);
     _sampledHumanoid = source;
-    _vrmaRetargetPlan = _VrmaRetargetPlan.humanoidOnly(
+    _vrmaRetargetPlan = VrmaRetargetPlan.humanoidOnly(
       model,
       source.restPose,
       destinationRestWorldRotations: _modelRestWorldRotations,
@@ -1000,13 +1021,13 @@ extension VrmAdditiveMotionLayers on VrmMotionController {
       evaluator: evaluator,
       referenceGltf: referenceGltf,
       vrmaRetargetPlan: source is VrmAnimationAsset
-          ? _VrmaRetargetPlan(
+          ? VrmaRetargetPlan(
               model,
               source,
               destinationRestWorldRotations: _modelRestWorldRotations,
             )
           : source is VrmSampledHumanoidMotion
-          ? _VrmaRetargetPlan.humanoidOnly(
+          ? VrmaRetargetPlan.humanoidOnly(
               model,
               source.restPose,
               destinationRestWorldRotations: _modelRestWorldRotations,
@@ -1017,7 +1038,7 @@ extension VrmAdditiveMotionLayers on VrmMotionController {
       loop: loop,
       speed: _finiteOrZero(speed),
       timeSeconds: _startTimeSeconds(startTime, startTimeSeconds),
-      weight: _clamp01(weight),
+      weight: clamp01(weight),
       hipsTranslationScale: hipsTranslationScale.isFinite
           ? hipsTranslationScale
           : 1,
@@ -1035,7 +1056,7 @@ extension VrmAdditiveMotionLayers on VrmMotionController {
   bool setAdditiveLayerWeight(int layerId, double weight) {
     for (final layer in _additiveLayers) {
       if (layer.id != layerId) continue;
-      layer.weight = _clamp01(weight);
+      layer.weight = clamp01(weight);
       return true;
     }
     return false;
@@ -1150,7 +1171,7 @@ final class _AdditiveMotionLayer {
   final Object source;
   final GltfAnimationEvaluator? evaluator;
   final GltfAsset? referenceGltf;
-  final _VrmaRetargetPlan? vrmaRetargetPlan;
+  final VrmaRetargetPlan? vrmaRetargetPlan;
   final int? animationIndex;
   final double durationSeconds;
   final bool loop;
@@ -1232,7 +1253,7 @@ GltfNodePose _relativeAdditiveNodePose(GltfNodePose pose, GltfNode rest) {
           ]
         : null,
     rotation: rotation != null && rotation.length >= 4
-        ? _quatMultiply(_quatInverse(rest.restRotation), rotation)
+        ? quatMultiply(quatInverse(rest.restRotation), rotation)
         : null,
     scale: scale != null && scale.length >= 3
         ? [
@@ -1257,13 +1278,13 @@ extension _VrmMotionApply on VrmMotionController {
     final progress = _fadeOutProgress;
     _applyNodePoses(binding, const {}, progress, from: source.nodePoses);
     _applyMorphWeights(binding, const {}, progress, from: source.morphWeights);
-    expressions._setMotionInputs(
+    expressions.setMotionInputs(
       _additiveMotionInputs({
         for (final entry in source.expressionWeights.entries)
           entry.key: entry.value * (1 - progress),
       }),
     );
-    lookAt._setMotionYawPitch(
+    lookAt.setMotionYawPitch(
       _additiveLookAt(_lerpSnapshotLookAt(source.lookAt, null, progress)),
     );
     _applyAdditiveNodePoses(binding);
@@ -1290,20 +1311,20 @@ extension _VrmMotionApply on VrmMotionController {
       fade,
       from: _crossFadeFrom?.morphWeights,
     );
-    expressions._setMotionInputs(
+    expressions.setMotionInputs(
       _additiveMotionInputs(
         _blendMotionInputs({
           for (final entry in pose.expressionWeights.entries)
-            entry.key: _clamp01(entry.value),
+            entry.key: clamp01(entry.value),
         }, fade),
       ),
     );
     final yaw = pose.lookAtYawDegrees;
     final pitch = pose.lookAtPitchDegrees;
-    lookAt._setMotionYawPitch(
+    lookAt.setMotionYawPitch(
       _additiveLookAt(
         _blendLookAt(
-          yaw == null || pitch == null ? null : _YawPitch(yaw, pitch),
+          yaw == null || pitch == null ? null : YawPitch(yaw, pitch),
           fade,
         ),
       ),
@@ -1333,18 +1354,18 @@ extension _VrmMotionApply on VrmMotionController {
       final node = model.gltf.nodes.elementAtOrNull(nodeIndex);
       if (node == null) continue;
       final targetPose = targetAllowed ? nodePoses[nodeIndex] : null;
-      binding.nodeByGltfIndex(nodeIndex).localTransform = _trsMatrix(
-        _lerpList(
+      binding.nodeByGltfIndex(nodeIndex).localTransform = trsMatrix(
+        lerpList(
           _finiteListOr(fromPose?.translation, node.restTranslation, 3),
           _finiteListOr(targetPose?.translation, node.restTranslation, 3),
           fade,
         ),
-        _slerp(
+        slerp(
           _finiteListOr(fromPose?.rotation, node.restRotation, 4),
           _finiteListOr(targetPose?.rotation, node.restRotation, 4),
           fade,
         ),
-        _lerpList(
+        lerpList(
           _finiteListOr(fromPose?.scale, node.restScale, 3),
           _finiteListOr(targetPose?.scale, node.restScale, 3),
           fade,
@@ -1420,19 +1441,19 @@ extension _VrmMotionApply on VrmMotionController {
     );
     if (pose == null && from == null && !hasAdditiveRoot) return;
     final translation = List<double>.of(
-      _lerpList(
+      lerpList(
         _finiteListOr(from?.translation, const [0.0, 0.0, 0.0], 3),
         _finiteListOr(pose?.translation, const [0.0, 0.0, 0.0], 3),
         fade,
       ),
     );
-    var rotation = _slerp(
+    var rotation = slerp(
       _finiteListOr(from?.rotation, const [0.0, 0.0, 0.0, 1.0], 4),
       _finiteListOr(pose?.rotation, const [0.0, 0.0, 0.0, 1.0], 4),
       fade,
     );
     final scale = List<double>.of(
-      _lerpList(
+      lerpList(
         _finiteListOr(from?.scale, const [1.0, 1.0, 1.0], 3),
         _finiteListOr(pose?.scale, const [1.0, 1.0, 1.0], 3),
         fade,
@@ -1452,9 +1473,9 @@ extension _VrmMotionApply on VrmMotionController {
         translation[2] += values[2] * weight;
       }
       if (_hasFiniteLength(additiveRotation, 4)) {
-        rotation = _quatMultiply(
+        rotation = quatMultiply(
           rotation,
-          _slerp(const [0.0, 0.0, 0.0, 1.0], additiveRotation!, weight),
+          slerp(const [0.0, 0.0, 0.0, 1.0], additiveRotation!, weight),
         );
       }
       if (_hasFiniteLength(additiveScale, 3)) {
@@ -1464,14 +1485,14 @@ extension _VrmMotionApply on VrmMotionController {
         scale[2] *= 1 + (values[2] - 1) * weight;
       }
     }
-    final transform = _trsMatrix(translation, rotation, scale);
+    final transform = trsMatrix(translation, rotation, scale);
     if (binding case final VrmModelRootBinding rootBinding) {
       rootBinding.modelRootMotionTransform = transform;
       return;
     }
     for (final nodeIndex in _sceneRootNodeIndices()) {
       final node = binding.nodeByGltfIndex(nodeIndex);
-      node.localTransform = _multiplyMatrices(transform, node.localTransform);
+      node.localTransform = multiplyMatrices(transform, node.localTransform);
     }
   }
 
@@ -1490,12 +1511,12 @@ extension _VrmMotionApply on VrmMotionController {
         if (gltfNode == null) continue;
         final node = binding.nodeByGltfIndex(entry.key);
         final current = node.localTransform;
-        final translation = _matrixTranslation(current);
-        final rotation = _matrixRotation(
+        final translation = matrixTranslation(current);
+        final rotation = matrixRotation(
           current,
           fallback: gltfNode.restRotation,
         );
-        final scale = _matrixScale(current);
+        final scale = matrixScale(current);
         final additive = entry.value;
         final additiveTranslation = additive.translation;
         final additiveRotation = additive.rotation;
@@ -1512,7 +1533,7 @@ extension _VrmMotionApply on VrmMotionController {
             : null;
         final weight = layer.weight;
 
-        node.localTransform = _trsMatrix(
+        node.localTransform = trsMatrix(
           finiteAdditiveTranslation == null
               ? translation
               : [
@@ -1522,9 +1543,9 @@ extension _VrmMotionApply on VrmMotionController {
                 ],
           finiteAdditiveRotation == null
               ? rotation
-              : _quatMultiply(
+              : quatMultiply(
                   rotation,
-                  _slerp(
+                  slerp(
                     const [0.0, 0.0, 0.0, 1.0],
                     finiteAdditiveRotation,
                     weight,
@@ -1553,7 +1574,7 @@ extension _VrmMotionApply on VrmMotionController {
       names.addAll(layer.frame.expressionWeights.keys);
     }
     return {
-      for (final name in names) name: _clamp01(_additiveExpression(name, base)),
+      for (final name in names) name: clamp01(_additiveExpression(name, base)),
     };
   }
 
@@ -1587,7 +1608,7 @@ extension _VrmMotionApply on VrmMotionController {
     return value;
   }
 
-  _YawPitch? _additiveLookAt(_YawPitch? base) {
+  YawPitch? _additiveLookAt(YawPitch? base) {
     var hasValue = base != null;
     var yaw = base?.yawDegrees ?? 0.0;
     var pitch = base?.pitchDegrees ?? 0.0;
@@ -1598,7 +1619,7 @@ extension _VrmMotionApply on VrmMotionController {
       yaw += additive.yawDegrees * layer.weight;
       pitch += additive.pitchDegrees * layer.weight;
     }
-    return hasValue ? _YawPitch(yaw, pitch) : null;
+    return hasValue ? YawPitch(yaw, pitch) : null;
   }
 
   List<double> _finiteListOr(
@@ -1696,9 +1717,9 @@ extension _VrmMotionSnapshot on VrmMotionController {
       morphWeights: pose.morphWeights,
       expressionWeights: {
         for (final entry in pose.expressionWeights.entries)
-          entry.key: _clamp01(entry.value),
+          entry.key: clamp01(entry.value),
       },
-      lookAt: yaw == null || pitch == null ? null : _YawPitch(yaw, pitch),
+      lookAt: yaw == null || pitch == null ? null : YawPitch(yaw, pitch),
     );
   }
 
@@ -1744,17 +1765,17 @@ extension _VrmMotionSnapshot on VrmMotionController {
       final from = source[nodeIndex];
       final to = target[nodeIndex];
       result[nodeIndex] = GltfNodePose(
-        translation: _lerpList(
+        translation: lerpList(
           _snapshotListOr(from?.translation, node.restTranslation, 3),
           _snapshotListOr(to?.translation, node.restTranslation, 3),
           fade,
         ),
-        rotation: _slerp(
+        rotation: slerp(
           _snapshotListOr(from?.rotation, node.restRotation, 4),
           _snapshotListOr(to?.rotation, node.restRotation, 4),
           fade,
         ),
-        scale: _lerpList(
+        scale: lerpList(
           _snapshotListOr(from?.scale, node.restScale, 3),
           _snapshotListOr(to?.scale, node.restScale, 3),
           fade,
@@ -1771,17 +1792,17 @@ extension _VrmMotionSnapshot on VrmMotionController {
   ) {
     if (source == null && target == null) return null;
     return GltfNodePose(
-      translation: _lerpList(
+      translation: lerpList(
         _snapshotListOr(source?.translation, const [0.0, 0.0, 0.0], 3),
         _snapshotListOr(target?.translation, const [0.0, 0.0, 0.0], 3),
         fade,
       ),
-      rotation: _slerp(
+      rotation: slerp(
         _snapshotListOr(source?.rotation, const [0.0, 0.0, 0.0, 1.0], 4),
         _snapshotListOr(target?.rotation, const [0.0, 0.0, 0.0, 1.0], 4),
         fade,
       ),
-      scale: _lerpList(
+      scale: lerpList(
         _snapshotListOr(source?.scale, const [1.0, 1.0, 1.0], 3),
         _snapshotListOr(target?.scale, const [1.0, 1.0, 1.0], 3),
         fade,
@@ -1823,7 +1844,7 @@ extension _VrmMotionSnapshot on VrmMotionController {
   ) {
     return Map.unmodifiable({
       for (final name in {...source.keys, ...target.keys})
-        name: _clamp01(
+        name: clamp01(
           (source[name] ?? 0.0) * (1 - fade) + (target[name] ?? 0.0) * fade,
         ),
     });
@@ -1837,13 +1858,13 @@ extension _VrmMotionSnapshot on VrmMotionController {
         _crossFadeFrom?.expressionWeights ?? const <String, double>{};
     return {
       for (final name in {...source.keys, ...target.keys})
-        name: _clamp01(
+        name: clamp01(
           (source[name] ?? 0.0) * (1 - fade) + (target[name] ?? 0.0) * fade,
         ),
     };
   }
 
-  _YawPitch? _blendLookAt(_YawPitch? target, double fade) =>
+  YawPitch? _blendLookAt(YawPitch? target, double fade) =>
       _lerpSnapshotLookAt(_crossFadeFrom?.lookAt, target, fade);
 }
 
@@ -1854,13 +1875,9 @@ GltfNodePose? _programmaticRootPose(VrmProgrammaticPose pose) {
       : GltfNodePose(translation: [root.x, root.y, root.z]);
 }
 
-_YawPitch? _lerpSnapshotLookAt(
-  _YawPitch? source,
-  _YawPitch? target,
-  double fade,
-) {
+YawPitch? _lerpSnapshotLookAt(YawPitch? source, YawPitch? target, double fade) {
   if (source == null && target == null) return null;
-  return _YawPitch(
+  return YawPitch(
     (source?.yawDegrees ?? 0.0) * (1 - fade) +
         (target?.yawDegrees ?? 0.0) * fade,
     (source?.pitchDegrees ?? 0.0) * (1 - fade) +
@@ -1899,7 +1916,7 @@ final class _MotionSnapshot {
   final GltfNodePose? modelRootPose;
   final Map<int, List<double>> morphWeights;
   final Map<String, double> expressionWeights;
-  final _YawPitch? lookAt;
+  final YawPitch? lookAt;
 }
 
 void _applyVrmaMotion(
@@ -1937,12 +1954,12 @@ void _applyHumanoidMotionSnapshot(
     fade,
     from: controller._crossFadeFrom?.nodePoses,
   );
-  expressions._setMotionInputs(
+  expressions.setMotionInputs(
     controller._additiveMotionInputs(
       controller._blendMotionInputs(snapshot.expressionWeights, fade),
     ),
   );
-  lookAt._setMotionYawPitch(
+  lookAt.setMotionYawPitch(
     controller._additiveLookAt(controller._blendLookAt(snapshot.lookAt, fade)),
   );
   controller._applyAdditiveNodePoses(binding);
@@ -1972,7 +1989,7 @@ _MotionSnapshot _snapshotVrmaFrame(
   GltfAnimationFrame frame, {
   bool Function(int nodeIndex)? isNodeAllowed,
   double? hipsTranslationScale,
-  _VrmaRetargetPlan? retargetPlan,
+  VrmaRetargetPlan? retargetPlan,
   bool spaceArms = true,
 }) {
   final model = controller.model;
@@ -1982,12 +1999,12 @@ _MotionSnapshot _snapshotVrmaFrame(
   final resolvedPlan =
       retargetPlan ??
       controller._vrmaRetargetPlan ??
-      _VrmaRetargetPlan(
+      VrmaRetargetPlan(
         model,
         vrma,
         destinationRestWorldRotations: controller._modelRestWorldRotations,
       );
-  final sourcePoses = <_VrmaRetargetTarget, GltfNodePose>{
+  final sourcePoses = <VrmaRetargetTarget, GltfNodePose>{
     for (final target in resolvedPlan.targets)
       if (allowsNode(target.destinationNode.index))
         target: ?target.sourcePose(frame),
@@ -2020,7 +2037,7 @@ _MotionSnapshot _snapshotVrmaFrame(
     final translation = frame.nodePoses[target.nodeIndex]?.translation;
     if (translation == null) continue;
     for (final expressionName in target.names) {
-      expressionWeights[expressionName] = _clamp01(translation[0]);
+      expressionWeights[expressionName] = clamp01(translation[0]);
     }
   }
   final lookAtNode = resolvedPlan.lookAtNode;
@@ -2033,19 +2050,19 @@ _MotionSnapshot _snapshotVrmaFrame(
     expressionWeights: Map.unmodifiable(expressionWeights),
     lookAt: lookAtRotation == null
         ? null
-        : _yawPitchFromExtrinsicZxy(lookAtRotation),
+        : yawPitchFromExtrinsicZxy(lookAtRotation),
   );
 }
 
 /// Replaces the upper-arm poses in [sourcePoses] by [armSpacing]'s.
 void _spaceArms(
-  _ArmSpacing armSpacing,
-  Map<_VrmaRetargetTarget, GltfNodePose> sourcePoses,
+  ArmSpacing armSpacing,
+  Map<VrmaRetargetTarget, GltfNodePose> sourcePoses,
 ) {
   final normalized = <VrmHumanoidBone, List<double>>{
     for (final MapEntry(key: target, value: pose) in sourcePoses.entries)
       if (pose.rotation case final rotation?)
-        target.bone: _normalizedHumanoidRotation(
+        target.bone: normalizedHumanoidRotation(
           localRest: target.sourceNode.restRotation,
           worldRest: target.sourceRestWorldRotation,
           current: rotation,
@@ -2053,7 +2070,7 @@ void _spaceArms(
   };
   final adjusted = armSpacing.adjust(normalized);
   for (final MapEntry(key: target, value: pose) in sourcePoses.entries) {
-    if (!_armSpacingSides.any((side) => side.upperArm == target.bone) ||
+    if (!armSpacingSides.any((side) => side.upperArm == target.bone) ||
         pose.rotation == null) {
       continue;
     }
@@ -2063,7 +2080,7 @@ void _spaceArms(
     }
     sourcePoses[target] = GltfNodePose(
       translation: pose.translation,
-      rotation: _humanoidLocalRotationFromNormalized(
+      rotation: humanoidLocalRotationFromNormalized(
         localRest: target.sourceNode.restRotation,
         worldRest: target.sourceRestWorldRotation,
         normalized: rotation,

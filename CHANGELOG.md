@@ -1,3 +1,11 @@
+## 0.2.7 (unreleased)
+
+- Make every file under `lib/src` its own library instead of a `part` of one
+  library. The exported API is unchanged. The package now depends on `meta`:
+  the constructors the parsers call and six members that only flvtterm uses
+  are public under `@internal`, so the analyzer warns when another package
+  uses them.
+
 ## 0.2.6
 
 - Keep one copy of a GLB's BIN chunk. `GltfAsset.binaryChunk` is that copy;

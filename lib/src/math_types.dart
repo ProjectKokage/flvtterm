@@ -1,5 +1,3 @@
-part of '../flvtterm.dart';
-
 /// Immutable two-component vector used by renderer-neutral bindings.
 final class VrmVector2 {
   /// Creates a vector.

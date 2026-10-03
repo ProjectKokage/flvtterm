@@ -1,4 +1,21 @@
-part of '../../flvtterm.dart';
+import 'package:meta/meta.dart';
+
+import '../diagnostics.dart';
+import '../gltf/gltf_animation_types.dart';
+import '../gltf/gltf_types.dart';
+import '../math_types.dart';
+import '../safe_list_index.dart';
+import '../vrm/vrm_assets.dart';
+import '../vrm/vrm_enums.dart';
+import 'expression_controller.dart';
+import 'expression_helpers.dart';
+import 'look_at_controller.dart';
+import 'motion_controller.dart';
+import 'node_constraint_controller.dart';
+import 'runtime_transform_helpers.dart';
+import 'scene_binding.dart';
+import 'scene_binding_cache.dart';
+import 'spring_bone_controller.dart';
 
 /// Runtime object that can apply renderer-neutral VRM state to a scene binding.
 final class VrmRuntime {
@@ -50,7 +67,7 @@ final class VrmRuntime {
 
   /// Binds this runtime to a renderer scene.
   void bind(VrmSceneBinding binding) {
-    _binding = _resolveSceneBinding(model, binding);
+    _binding = resolveSceneBinding(model, binding);
     _needsInitialPoseReset = true;
     springBones.reset();
   }
@@ -77,7 +94,7 @@ final class VrmRuntime {
       final index = model.vrm.humanoid.nodeFor(bone);
       if (index == null) continue;
       final transform = binding.nodeByGltfIndex(index).localTransform;
-      final pose = _capturedNodePose(transform);
+      final pose = capturedNodePose(transform);
       if (pose == null) return null;
       nodes[index] = pose;
     }
@@ -156,22 +173,23 @@ final class VrmRuntime {
             .materialByGltfIndex(bind.material)
             .setColor(
               bind.type,
-              _baseMaterialColorForModel(model, bind.material, bind.type),
+              baseMaterialColorForModel(model, bind.material, bind.type),
             );
       }
       for (final bind in expression.textureTransformBinds) {
         final material = model.gltf.materials.elementAtOrNull(bind.material);
         if (material == null) continue;
-        _setTextureTransforms(
+        setTextureTransforms(
           binding.materialByGltfIndex(bind.material),
-          _baseTextureTransformsForModel(model, bind.material),
+          baseTextureTransformsForModel(model, bind.material),
         );
       }
     }
   }
 }
 
-List<int> _activeSceneRootNodeIndices(GltfAsset gltf) {
+@internal
+List<int> activeSceneRootNodeIndices(GltfAsset gltf) {
   final sceneIndex = gltf.scene ?? (gltf.scenes.isEmpty ? null : 0);
   if (sceneIndex == null) return const [];
   return gltf.scenes.elementAtOrNull(sceneIndex)?.nodes ?? const [];

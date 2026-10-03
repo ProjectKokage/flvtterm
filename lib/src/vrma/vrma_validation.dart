@@ -1,9 +1,20 @@
-part of '../../flvtterm.dart';
+import 'package:meta/meta.dart';
 
-void _validateVrmaAnimationRules(
+import '../diagnostics.dart';
+import '../gltf/accessor_reader.dart';
+import '../gltf/gltf_animation_types.dart';
+import '../gltf/gltf_types.dart';
+import '../safe_list_index.dart';
+import '../vrm/vrm_assets.dart';
+import '../vrm/vrm_enums.dart';
+import '../vrm/vrm_humanoid_parser.dart';
+import 'vrma_parser.dart';
+
+@internal
+void validateVrmaAnimationRules(
   GltfAsset gltf,
   VrmAnimationExtension animation,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   _validateVrmaHumanoidRestPose(gltf, animation, sink);
 
@@ -37,7 +48,7 @@ void _validateVrmaAnimationRules(
       sink.error(
         'vrma.invalidLookExpressionTarget',
         '${preset.specName} must use VRMA LookAt, not expression animation.',
-        jsonPath: _vrmaExpressionPath('preset', preset.specName),
+        jsonPath: vrmaExpressionPath('preset', preset.specName),
       );
     }
   }
@@ -114,13 +125,13 @@ void _validateVrmaAnimationRules(
 void _validateVrmaHumanoidRestPose(
   GltfAsset gltf,
   VrmAnimationExtension animation,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   for (final assignment in animation.humanoid.humanBones.values) {
     final node = gltf.nodes.elementAtOrNull(assignment.node);
     if (node == null) continue;
     if (node.restScale.every(_isUnitScaleComponent) &&
-        !_hasReflectedMatrixBasis(node.matrix)) {
+        !hasReflectedMatrixBasis(node.matrix)) {
       continue;
     }
     sink.warning(
@@ -140,7 +151,7 @@ void _validateVrmaExpressionWeightRange(
   GltfAsset gltf,
   GltfAnimation animation,
   GltfAnimationChannel channel,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   final samplerIndex = channel.sampler;
   if (samplerIndex == null ||
@@ -151,7 +162,7 @@ void _validateVrmaExpressionWeightRange(
   final sampler = animation.samplers[samplerIndex];
   final output = sampler.output;
   if (output == null) return;
-  final values = _readAccessorNumbers(gltf, output, requireFloat: true);
+  final values = readGltfAccessorNumbers(gltf, output, requireFloat: true);
   if (values == null) return;
   final stride = sampler.interpolation == 'CUBICSPLINE' ? 9 : 3;
   final xOffset = sampler.interpolation == 'CUBICSPLINE' ? 3 : 0;

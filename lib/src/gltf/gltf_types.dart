@@ -1,16 +1,31 @@
-part of '../../flvtterm.dart';
+import 'dart:typed_data';
+
+import 'package:meta/meta.dart';
+
+import '../diagnostics.dart';
+import '../json_values.dart';
+import '../parser.dart';
+import 'accessor_reader.dart';
+import 'gltf_animation_types.dart';
+import 'gltf_camera_types.dart';
+import 'gltf_material_types.dart';
+import 'gltf_mesh_types.dart';
+import 'gltf_resource_types.dart';
+import 'gltf_scene_types.dart';
 
 /// Resolves non-`data:` glTF URIs to bytes.
 typedef GltfUriResolver = Uint8List? Function(String uri);
 
 /// Parsed glTF 2.0 asset data needed by VRM runtimes.
 final class GltfAsset {
-  GltfAsset._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  GltfAsset.internal({
     required Map<String, Object?> json,
     required this.binaryChunk,
     required Map<String, Object?> extensions,
     required Object? extras,
-    required bool hasUriResolver,
+    required this.hasUriResolver,
     required Map<String, String> uriResolverFailures,
     required List<String> extensionsUsed,
     required List<String> extensionsRequired,
@@ -28,11 +43,10 @@ final class GltfAsset {
     required List<GltfImage> images,
     required List<GltfSampler> samplers,
     required List<GltfAnimation> animations,
-  }) : json = _immutableJsonValue(json) as Map<String, Object?>,
-       extras = _immutableJsonValue(extras),
-       extensions = _immutableJsonValue(extensions) as Map<String, Object?>,
-       _hasUriResolver = hasUriResolver,
-       _uriResolverFailures = Map.unmodifiable(uriResolverFailures),
+  }) : json = immutableJsonValue(json) as Map<String, Object?>,
+       extras = immutableJsonValue(extras),
+       extensions = immutableJsonValue(extensions) as Map<String, Object?>,
+       uriResolverFailures = Map.unmodifiable(uriResolverFailures),
        extensionsUsed = List.unmodifiable(extensionsUsed),
        extensionsRequired = List.unmodifiable(extensionsRequired),
        buffers = List.unmodifiable(buffers),
@@ -65,29 +79,33 @@ final class GltfAsset {
   final Object? extras;
 
   /// Raw root `asset` object.
-  Map<String, Object?> get asset => _object(json['asset']);
+  Map<String, Object?> get asset => jsonObject(json['asset']);
 
   /// Root `asset.version`.
-  String? get assetVersion => _string(asset['version']);
+  String? get assetVersion => jsonString(asset['version']);
 
   /// Root `asset.minVersion`.
-  String? get assetMinVersion => _string(asset['minVersion']);
+  String? get assetMinVersion => jsonString(asset['minVersion']);
 
   /// Root `asset.generator`.
-  String? get assetGenerator => _string(asset['generator']);
+  String? get assetGenerator => jsonString(asset['generator']);
 
   /// Root `asset.copyright`.
-  String? get assetCopyright => _string(asset['copyright']);
+  String? get assetCopyright => jsonString(asset['copyright']);
 
   /// Root `asset.extensions`, preserved.
-  Map<String, Object?> get assetExtensions => _object(asset['extensions']);
+  Map<String, Object?> get assetExtensions => jsonObject(asset['extensions']);
 
   /// Root `asset.extras`, preserved.
-  Object? get assetExtras => _immutableJsonValue(asset['extras']);
+  Object? get assetExtras => immutableJsonValue(asset['extras']);
 
-  final bool _hasUriResolver;
+  /// Whether the parser was given a resolver for external URIs.
+  @internal
+  final bool hasUriResolver;
 
-  final Map<String, String> _uriResolverFailures;
+  /// Why the resolver failed, for each URI it could not load, by JSON path.
+  @internal
+  final Map<String, String> uriResolverFailures;
 
   /// Root `extensionsUsed` names.
   final List<String> extensionsUsed;
@@ -137,10 +155,13 @@ final class GltfAsset {
   /// glTF animations, preserving indices.
   final List<GltfAnimation> animations;
 
-  // Animation accessors are immutable after parsing. Evaluators memoize their
-  // bounded decoded values here so separate runtime layers over the same asset
-  // do not decode the same buffer data again.
-  final Map<(int, bool, bool), List<double>?> _animationAccessorCache = {};
+  /// Decoded animation accessor values, kept per asset.
+  ///
+  /// Animation accessors are immutable after parsing. Evaluators memoize their
+  /// bounded decoded values here so separate runtime layers over the same asset
+  /// do not decode the same buffer data again.
+  @internal
+  final Map<(int, bool, bool), List<double>?> animationAccessorCache = {};
 
   /// Parses a GLB or JSON glTF 2.0 asset.
   ///
@@ -179,7 +200,7 @@ final class GltfAsset {
     VrmValidationMode validation = VrmValidationMode.strict,
     GltfUriResolver? uriResolver,
     bool adoptBytes = false,
-  }) => _Parser.parseGltf(
+  }) => AssetParser.parseGltf(
     bytes,
     validation,
     uriResolver: uriResolver,
@@ -197,7 +218,7 @@ final class GltfAsset {
     bool requireFloat = false,
     bool applyNormalization = true,
   }) {
-    return _readAccessorNumbers(
+    return readGltfAccessorNumbers(
       this,
       accessorIndex,
       requireFloat: requireFloat,
@@ -210,5 +231,5 @@ final class GltfAsset {
   /// Returns `null` when the bufferView index or backing buffer data is
   /// invalid.
   Uint8List? readBufferViewBytes(int bufferViewIndex) =>
-      _bufferViewBytes(buffers, bufferViews, bufferViewIndex);
+      gltfBufferViewBytes(buffers, bufferViews, bufferViewIndex);
 }

@@ -1,9 +1,17 @@
-part of '../../flvtterm.dart';
+import 'package:meta/meta.dart';
 
-VrmFirstPerson _parseFirstPerson(
+import '../diagnostics.dart';
+import '../gltf/gltf_node_constraint_validation.dart';
+import '../gltf/gltf_types.dart';
+import '../json_values.dart';
+import 'vrm_enums.dart';
+import 'vrm_types.dart';
+
+@internal
+VrmFirstPerson parseFirstPerson(
   Object? value,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   if (value is! Map) {
     sink.error(
@@ -12,7 +20,7 @@ VrmFirstPerson _parseFirstPerson(
       jsonPath: r'$.extensions.VRMC_vrm.firstPerson',
     );
   }
-  final raw = _object(value);
+  final raw = jsonObject(value);
   final annotations = <VrmFirstPersonMeshAnnotation>[];
   final rawAnnotations = raw['meshAnnotations'];
   if (raw.containsKey('meshAnnotations') &&
@@ -23,7 +31,7 @@ VrmFirstPerson _parseFirstPerson(
       jsonPath: r'$.extensions.VRMC_vrm.firstPerson.meshAnnotations',
     );
   }
-  final annotationsJson = _list(rawAnnotations);
+  final annotationsJson = jsonList(rawAnnotations);
   for (var i = 0; i < annotationsJson.length; i++) {
     final item = annotationsJson[i];
     final annotationPath =
@@ -36,11 +44,11 @@ VrmFirstPerson _parseFirstPerson(
       );
       continue;
     }
-    final object = _object(item);
+    final object = jsonObject(item);
     final nodeValue = object['node'];
     final typeValue = object['type'];
-    final node = _int(nodeValue);
-    final type = _string(typeValue);
+    final node = jsonInt(nodeValue);
+    final type = jsonString(typeValue);
     var valid = true;
     if (!object.containsKey('node')) {
       valid = false;
@@ -84,7 +92,7 @@ VrmFirstPerson _parseFirstPerson(
         jsonPath: '$annotationPath.type',
       );
     }
-    _validateIndex(
+    validateIndex(
       node,
       gltf.nodes.length,
       sink,
@@ -110,7 +118,7 @@ VrmFirstPerson _parseFirstPerson(
       ),
     );
   }
-  return VrmFirstPerson._(
+  return VrmFirstPerson.internal(
     firstPersonBone: null,
     meshAnnotations: List.unmodifiable(annotations),
     raw: raw,

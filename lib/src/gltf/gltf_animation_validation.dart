@@ -1,12 +1,20 @@
-part of '../../flvtterm.dart';
+import 'package:meta/meta.dart';
 
-void _validateGltfAnimations(GltfAsset gltf, _DiagnosticSink sink) {
-  final rawAnimations = _list(gltf.json['animations']);
+import '../diagnostics.dart';
+import '../json_values.dart';
+import '../safe_list_index.dart';
+import 'gltf_node_constraint_validation.dart';
+import 'gltf_structure_validation.dart';
+import 'gltf_types.dart';
+
+@internal
+void validateGltfAnimations(GltfAsset gltf, DiagnosticSink sink) {
+  final rawAnimations = jsonList(gltf.json['animations']);
   for (final animation in gltf.animations) {
-    final rawAnimation = _object(
+    final rawAnimation = jsonObject(
       rawAnimations.elementAtOrNull(animation.index),
     );
-    _validateRequiredArray(
+    validateRequiredArray(
       rawAnimation,
       'channels',
       sink,
@@ -15,7 +23,7 @@ void _validateGltfAnimations(GltfAsset gltf, _DiagnosticSink sink) {
       'Animation channels must be a non-empty array.',
       _animationPath(animation.index, '.channels'),
     );
-    _validateRequiredArray(
+    validateRequiredArray(
       rawAnimation,
       'samplers',
       sink,
@@ -24,8 +32,8 @@ void _validateGltfAnimations(GltfAsset gltf, _DiagnosticSink sink) {
       'Animation samplers must be a non-empty array.',
       _animationPath(animation.index, '.samplers'),
     );
-    final rawChannels = _list(rawAnimation['channels']);
-    final rawAnimationSamplers = _list(rawAnimation['samplers']);
+    final rawChannels = jsonList(rawAnimation['channels']);
+    final rawAnimationSamplers = jsonList(rawAnimation['samplers']);
     final channelTargets = <String>{};
     for (
       var channelIndex = 0;
@@ -43,10 +51,10 @@ void _validateGltfAnimations(GltfAsset gltf, _DiagnosticSink sink) {
         );
         continue;
       }
-      final rawChannel = _object(rawChannelValue);
+      final rawChannel = jsonObject(rawChannelValue);
       final hasTarget = rawChannel.containsKey('target');
       final targetIsObject = rawChannel['target'] is Map;
-      final rawTarget = _object(rawChannel['target']);
+      final rawTarget = jsonObject(rawChannel['target']);
       if (rawChannel.containsKey('sampler') && rawChannel['sampler'] is! int) {
         sink.error(
           'gltf.invalidAnimationSampler',
@@ -61,7 +69,7 @@ void _validateGltfAnimations(GltfAsset gltf, _DiagnosticSink sink) {
         );
       }
       if (channel.sampler != null) {
-        _validateIndex(
+        validateIndex(
           channel.sampler!,
           animation.samplers.length,
           sink,
@@ -89,7 +97,7 @@ void _validateGltfAnimations(GltfAsset gltf, _DiagnosticSink sink) {
           jsonPath: '$channelPath.target.node',
         );
       } else if (channel.targetNode != null) {
-        _validateIndex(
+        validateIndex(
           channel.targetNode!,
           gltf.nodes.length,
           sink,
@@ -129,7 +137,7 @@ void _validateGltfAnimations(GltfAsset gltf, _DiagnosticSink sink) {
           channel.targetNode != null &&
           channel.targetNode! >= 0 &&
           channel.targetNode! < gltf.nodes.length &&
-          !_animationTargetHasMorphTargets(gltf, channel.targetNode!)) {
+          !animationTargetHasMorphTargets(gltf, channel.targetNode!)) {
         sink.error(
           'gltf.animationWeightsWithoutMorphTargets',
           'Animation weights channels must target a node with morph targets.',
@@ -152,7 +160,7 @@ void _validateGltfAnimations(GltfAsset gltf, _DiagnosticSink sink) {
       if (channel.sampler != null &&
           channel.sampler! >= 0 &&
           channel.sampler! < animation.samplers.length) {
-        _validateAnimationChannelOutputCount(
+        validateAnimationChannelOutputCount(
           gltf,
           channel,
           animation.samplers[channel.sampler!],
@@ -179,7 +187,7 @@ void _validateGltfAnimations(GltfAsset gltf, _DiagnosticSink sink) {
         );
         continue;
       }
-      final rawSampler = _object(rawSamplerValue);
+      final rawSampler = jsonObject(rawSamplerValue);
       if (!rawSampler.containsKey('input')) {
         sink.error(
           'gltf.missingAnimationInput',
@@ -218,7 +226,7 @@ void _validateGltfAnimations(GltfAsset gltf, _DiagnosticSink sink) {
         );
       }
       if (sampler.input != null) {
-        _validateIndex(
+        validateIndex(
           sampler.input!,
           gltf.accessors.length,
           sink,
@@ -226,9 +234,9 @@ void _validateGltfAnimations(GltfAsset gltf, _DiagnosticSink sink) {
           '$samplerPath.input',
         );
       }
-      _validateAnimationSamplerAccessors(gltf, sampler, sink, samplerPath);
+      validateAnimationSamplerAccessors(gltf, sampler, sink, samplerPath);
       if (sampler.output != null) {
-        _validateIndex(
+        validateIndex(
           sampler.output!,
           gltf.accessors.length,
           sink,

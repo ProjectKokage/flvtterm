@@ -1,24 +1,29 @@
-part of '../../flvtterm.dart';
+import 'package:meta/meta.dart';
 
-List<GltfAnimation> _parseAnimations(Object? value, _DiagnosticSink sink) {
-  final list = _list(value);
+import '../diagnostics.dart';
+import '../json_values.dart';
+import 'gltf_animation_types.dart';
+
+@internal
+List<GltfAnimation> parseAnimations(Object? value, DiagnosticSink sink) {
+  final list = jsonList(value);
   return [
     for (var i = 0; i < list.length; i++)
-      GltfAnimation._(
+      GltfAnimation.internal(
         index: i,
-        name: _string(_object(list[i])['name']),
+        name: jsonString(jsonObject(list[i])['name']),
         channels: _parseAnimationChannels(
           i,
-          _object(list[i])['channels'],
+          jsonObject(list[i])['channels'],
           sink,
         ),
         samplers: _parseAnimationSamplers(
           i,
-          _object(list[i])['samplers'],
+          jsonObject(list[i])['samplers'],
           sink,
         ),
-        extensions: _object(_object(list[i])['extensions']),
-        extras: _object(list[i])['extras'],
+        extensions: jsonObject(jsonObject(list[i])['extensions']),
+        extras: jsonObject(list[i])['extras'],
       ),
   ];
 }
@@ -26,26 +31,26 @@ List<GltfAnimation> _parseAnimations(Object? value, _DiagnosticSink sink) {
 List<GltfAnimationChannel> _parseAnimationChannels(
   int animationIndex,
   Object? value,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
-  final list = _list(value);
+  final list = jsonList(value);
   return [
     for (var i = 0; i < list.length; i++)
-      GltfAnimationChannel._(
-        sampler: _int(_object(list[i])['sampler']),
-        targetNode: _int(_object(_object(list[i])['target'])['node']),
+      GltfAnimationChannel.internal(
+        sampler: jsonInt(jsonObject(list[i])['sampler']),
+        targetNode: jsonInt(jsonObject(jsonObject(list[i])['target'])['node']),
         targetPath: _parseAnimationTargetPath(
-          _object(_object(list[i])['target']),
+          jsonObject(jsonObject(list[i])['target']),
           sink,
           animationIndex,
           i,
         ),
-        targetExtensions: _object(
-          _object(_object(list[i])['target'])['extensions'],
+        targetExtensions: jsonObject(
+          jsonObject(jsonObject(list[i])['target'])['extensions'],
         ),
-        targetExtras: _object(_object(list[i])['target'])['extras'],
-        extensions: _object(_object(list[i])['extensions']),
-        extras: _object(list[i])['extras'],
+        targetExtras: jsonObject(jsonObject(list[i])['target'])['extras'],
+        extensions: jsonObject(jsonObject(list[i])['extensions']),
+        extras: jsonObject(list[i])['extras'],
       ),
   ];
 }
@@ -53,29 +58,29 @@ List<GltfAnimationChannel> _parseAnimationChannels(
 List<GltfAnimationSampler> _parseAnimationSamplers(
   int animationIndex,
   Object? value,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
-  final list = _list(value);
+  final list = jsonList(value);
   return [
     for (var i = 0; i < list.length; i++)
-      GltfAnimationSampler._(
-        input: _int(_object(list[i])['input']),
-        output: _int(_object(list[i])['output']),
+      GltfAnimationSampler.internal(
+        input: jsonInt(jsonObject(list[i])['input']),
+        output: jsonInt(jsonObject(list[i])['output']),
         interpolation: _parseAnimationInterpolation(
-          _object(list[i]),
+          jsonObject(list[i]),
           sink,
           animationIndex,
           i,
         ),
-        extensions: _object(_object(list[i])['extensions']),
-        extras: _object(list[i])['extras'],
+        extensions: jsonObject(jsonObject(list[i])['extensions']),
+        extras: jsonObject(list[i])['extras'],
       ),
   ];
 }
 
 String? _parseAnimationTargetPath(
   Map<String, Object?> target,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   int animationIndex,
   int channelIndex,
 ) {
@@ -93,7 +98,7 @@ String? _parseAnimationTargetPath(
 
 String _parseAnimationInterpolation(
   Map<String, Object?> sampler,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   int animationIndex,
   int samplerIndex,
 ) {

@@ -1,9 +1,18 @@
-part of '../../flvtterm.dart';
+import 'dart:math' as math;
 
-void _validateGltfCameras(GltfAsset gltf, _DiagnosticSink sink) {
-  final rawCameras = _list(gltf.json['cameras']);
+import 'package:meta/meta.dart';
+
+import '../diagnostics.dart';
+import '../json_values.dart';
+import '../safe_list_index.dart';
+import 'gltf_camera_types.dart';
+import 'gltf_types.dart';
+
+@internal
+void validateGltfCameras(GltfAsset gltf, DiagnosticSink sink) {
+  final rawCameras = jsonList(gltf.json['cameras']);
   for (final camera in gltf.cameras) {
-    final raw = _object(rawCameras.elementAtOrNull(camera.index));
+    final raw = jsonObject(rawCameras.elementAtOrNull(camera.index));
     final type = raw['type'];
     if (type == null) {
       sink.error(
@@ -41,7 +50,7 @@ void _validateGltfCameras(GltfAsset gltf, _DiagnosticSink sink) {
 void _validateCameraProjectionObject(
   Map<String, Object?> raw,
   String key,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   int cameraIndex,
 ) {
   if (!raw.containsKey(key)) {
@@ -62,10 +71,10 @@ void _validateCameraProjectionObject(
 void _validatePerspectiveCamera(
   GltfCamera camera,
   Map<String, Object?> rawCamera,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   if (rawCamera['perspective'] is! Map) return;
-  final raw = _object(rawCamera['perspective']);
+  final raw = jsonObject(rawCamera['perspective']);
   if (!_positive(raw['yfov']) ||
       !_positive(raw['znear']) ||
       (raw.containsKey('aspectRatio') && !_positive(raw['aspectRatio'])) ||
@@ -92,10 +101,10 @@ void _validatePerspectiveCamera(
 void _validateOrthographicCamera(
   GltfCamera camera,
   Map<String, Object?> rawCamera,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   if (rawCamera['orthographic'] is! Map) return;
-  final raw = _object(rawCamera['orthographic']);
+  final raw = jsonObject(rawCamera['orthographic']);
   if (!_nonZero(raw['xmag']) ||
       !_nonZero(raw['ymag']) ||
       !_positive(raw['zfar']) ||

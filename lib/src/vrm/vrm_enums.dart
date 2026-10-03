@@ -1,5 +1,3 @@
-part of '../../flvtterm.dart';
-
 /// VRM specification family used by a parsed model asset.
 enum VrmSourceVersion {
   /// Legacy VRM 0.x assets using the root `VRM` extension.
