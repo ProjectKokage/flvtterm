@@ -1,4 +1,4 @@
-## 0.2.6 (unreleased)
+## 0.2.6
 
 - Keep one copy of a GLB's BIN chunk. `GltfAsset.binaryChunk` is that copy;
   the first buffer and every bufferView image are now views of it instead of
