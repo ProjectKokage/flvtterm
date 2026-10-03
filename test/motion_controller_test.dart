@@ -1,11 +1,17 @@
-part of '../flvtterm_test.dart';
+import 'dart:math' as math;
+import 'dart:typed_data';
 
-void motionControllerTests() {
+import 'package:flvtterm/flvtterm.dart';
+import 'package:test/test.dart';
+
+import 'src/test_fixtures.dart';
+
+void main() {
   test('runtime motion applies embedded glTF node animation', () {
-    final binary = _floats([0.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0]);
-    final json = _minimalVrmJson()
+    final binary = floats([0.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0]);
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(
+        animationStorageJson(
           binary.length,
           [
             [0, 8],
@@ -28,9 +34,9 @@ void motionControllerTests() {
         },
       ];
     final runtime = VrmRuntime(
-      VrmModel.parseGlb(_glb(json, binaryChunk: binary)),
+      VrmModel.parseGlb(glb(json, binaryChunk: binary)),
     );
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.motion.play(0);
@@ -53,10 +59,10 @@ void motionControllerTests() {
   });
 
   test('runtime motion accepts Duration start positions', () {
-    final binary = _floats([0.0, 1.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0]);
-    final json = _minimalVrmJson()
+    final binary = floats([0.0, 1.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0]);
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(
+        animationStorageJson(
           binary.length,
           [
             [0, 8],
@@ -79,9 +85,9 @@ void motionControllerTests() {
         },
       ];
     final runtime = VrmRuntime(
-      VrmModel.parseGlb(_glb(json, binaryChunk: binary)),
+      VrmModel.parseGlb(glb(json, binaryChunk: binary)),
     );
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.motion.play(0, startTime: const Duration(milliseconds: 250));
@@ -94,7 +100,7 @@ void motionControllerTests() {
   });
 
   test('runtime motion reports missing embedded glTF animations clearly', () {
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
 
     expect(
       () => runtime.motion.playEmbeddedGltfAnimation(0),
@@ -109,15 +115,15 @@ void motionControllerTests() {
   });
 
   test('runtime motion skips malformed glTF animation output count', () {
-    final binary = _floats([
+    final binary = floats([
       0.0, 1.0, // input times
       0.0, 0.0, 0.0, // key 0 translation
       2.0, 0.0, 0.0, // key 1 translation
       4.0, 0.0, 0.0, // extra malformed key
     ]);
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(
+        animationStorageJson(
           binary.length,
           [
             [0, 8],
@@ -141,7 +147,7 @@ void motionControllerTests() {
       ];
 
     final result = VrmModel.tryParseGlb(
-      _glb(json, binaryChunk: binary),
+      glb(json, binaryChunk: binary),
       validation: VrmValidationMode.permissive,
     );
     expect(result.asset, isNotNull);
@@ -151,7 +157,7 @@ void motionControllerTests() {
     );
 
     final runtime = VrmRuntime(result.asset!);
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.motion.playEmbeddedGltfAnimation(0);
@@ -163,10 +169,10 @@ void motionControllerTests() {
   });
 
   test('runtime motion skips invalid glTF animation output accessor', () {
-    final binary = _floats([0.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0]);
-    final json = _minimalVrmJson()
+    final binary = floats([0.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0]);
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(
+        animationStorageJson(
           binary.length,
           [
             [0, 8],
@@ -190,7 +196,7 @@ void motionControllerTests() {
       ];
 
     final result = VrmModel.tryParseGlb(
-      _glb(json, binaryChunk: binary),
+      glb(json, binaryChunk: binary),
       validation: VrmValidationMode.permissive,
     );
     expect(result.asset, isNotNull);
@@ -200,7 +206,7 @@ void motionControllerTests() {
     );
 
     final runtime = VrmRuntime(result.asset!);
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.motion.playEmbeddedGltfAnimation(0);
@@ -212,7 +218,7 @@ void motionControllerTests() {
   });
 
   test('runtime motion skips invalid glTF animation input accessor', () {
-    final binary = _floats([
+    final binary = floats([
       0.0, 1.0, 2.0, 3.0, 4.0, 5.0, // misdeclared input times
       0.0, 0.0, 0.0, // key 0 translation
       2.0, 0.0, 0.0, // key 1 translation
@@ -221,9 +227,9 @@ void motionControllerTests() {
       8.0, 0.0, 0.0, // key 4 translation
       10.0, 0.0, 0.0, // key 5 translation
     ]);
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(
+        animationStorageJson(
           binary.length,
           [
             [0, 24],
@@ -247,7 +253,7 @@ void motionControllerTests() {
       ];
 
     final result = VrmModel.tryParseGlb(
-      _glb(json, binaryChunk: binary),
+      glb(json, binaryChunk: binary),
       validation: VrmValidationMode.permissive,
     );
     expect(result.asset, isNotNull);
@@ -258,7 +264,7 @@ void motionControllerTests() {
     expect(GltfAnimationEvaluator(result.asset!.gltf).duration(0), 0.0);
 
     final runtime = VrmRuntime(result.asset!);
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.motion.playEmbeddedGltfAnimation(0);
@@ -270,10 +276,10 @@ void motionControllerTests() {
   });
 
   test('runtime motion skips invalid glTF animation interpolation', () {
-    final binary = _floats([0.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0]);
-    final json = _minimalVrmJson()
+    final binary = floats([0.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0]);
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(
+        animationStorageJson(
           binary.length,
           [
             [0, 8],
@@ -297,7 +303,7 @@ void motionControllerTests() {
       ];
 
     final result = VrmModel.tryParseGlb(
-      _glb(json, binaryChunk: binary),
+      glb(json, binaryChunk: binary),
       validation: VrmValidationMode.permissive,
     );
     expect(result.asset, isNotNull);
@@ -307,7 +313,7 @@ void motionControllerTests() {
     );
 
     final runtime = VrmRuntime(result.asset!);
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.motion.playEmbeddedGltfAnimation(0);
@@ -319,10 +325,10 @@ void motionControllerTests() {
   });
 
   test('runtime motion skips invalid glTF animation input times', () {
-    final binary = _floats([-1.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0]);
-    final json = _minimalVrmJson()
+    final binary = floats([-1.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0]);
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(
+        animationStorageJson(
           binary.length,
           [
             [0, 8],
@@ -346,7 +352,7 @@ void motionControllerTests() {
       ];
 
     final result = VrmModel.tryParseGlb(
-      _glb(json, binaryChunk: binary),
+      glb(json, binaryChunk: binary),
       validation: VrmValidationMode.permissive,
     );
     expect(result.asset, isNotNull);
@@ -357,7 +363,7 @@ void motionControllerTests() {
     expect(GltfAnimationEvaluator(result.asset!.gltf).duration(0), 0.0);
 
     final runtime = VrmRuntime(result.asset!);
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.motion.playEmbeddedGltfAnimation(0);
@@ -379,9 +385,9 @@ void motionControllerTests() {
     data.setFloat32(20, double.infinity, Endian.little);
     data.setFloat32(24, 0.0, Endian.little);
     data.setFloat32(28, 0.0, Endian.little);
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(
+        animationStorageJson(
           binary.length,
           [
             [0, 8],
@@ -405,7 +411,7 @@ void motionControllerTests() {
       ];
 
     final result = VrmModel.tryParseGlb(
-      _glb(json, binaryChunk: binary),
+      glb(json, binaryChunk: binary),
       validation: VrmValidationMode.permissive,
     );
     expect(result.asset, isNotNull);
@@ -415,7 +421,7 @@ void motionControllerTests() {
     );
 
     final runtime = VrmRuntime(result.asset!);
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.motion.playEmbeddedGltfAnimation(0);
@@ -427,10 +433,10 @@ void motionControllerTests() {
   });
 
   test('runtime motion skips animation input accessors without bounds', () {
-    final binary = _floats([0.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0]);
-    final json = _minimalVrmJson()
+    final binary = floats([0.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0]);
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(
+        animationStorageJson(
           binary.length,
           [
             [0, 8],
@@ -457,7 +463,7 @@ void motionControllerTests() {
       ..remove('max');
 
     final result = VrmModel.tryParseGlb(
-      _glb(json, binaryChunk: binary),
+      glb(json, binaryChunk: binary),
       validation: VrmValidationMode.permissive,
     );
     expect(result.asset, isNotNull);
@@ -468,7 +474,7 @@ void motionControllerTests() {
     expect(GltfAnimationEvaluator(result.asset!.gltf).duration(0), 0.0);
 
     final runtime = VrmRuntime(result.asset!);
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.motion.playEmbeddedGltfAnimation(0);
@@ -480,10 +486,10 @@ void motionControllerTests() {
   test(
     'runtime motion priority keeps lower-priority sources from replacing',
     () {
-      final binary = _floats([0.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0]);
-      final json = _minimalVrmJson()
+      final binary = floats([0.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0]);
+      final json = minimalVrmJson()
         ..addAll(
-          _animationStorageJson(
+          animationStorageJson(
             binary.length,
             [
               [0, 8],
@@ -506,9 +512,9 @@ void motionControllerTests() {
           },
         ];
       final runtime = VrmRuntime(
-        VrmModel.parseGlb(_glb(json, binaryChunk: binary)),
+        VrmModel.parseGlb(glb(json, binaryChunk: binary)),
       );
-      final binding = _FakeBinding();
+      final binding = FakeBinding();
       final pose = VrmProgrammaticPose(
         nodePoses: {
           0: GltfNodePose(translation: [7.0, 0.0, 0.0]),
@@ -538,14 +544,14 @@ void motionControllerTests() {
   );
 
   test('runtime motion masks limit animated nodes', () {
-    final binary = _floats([
+    final binary = floats([
       0.0, 1.0, // input times
       0.0, 0.0, 0.0, 2.0, 0.0, 0.0, // node 0 translation
       0.0, 0.0, 0.0, 4.0, 0.0, 0.0, // node 1 translation
     ]);
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(
+        animationStorageJson(
           binary.length,
           [
             [0, 8],
@@ -574,9 +580,9 @@ void motionControllerTests() {
         },
       ];
     final runtime = VrmRuntime(
-      VrmModel.parseGlb(_glb(json, binaryChunk: binary)),
+      VrmModel.parseGlb(glb(json, binaryChunk: binary)),
     );
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.motion.addAdditiveLayer(
@@ -595,9 +601,9 @@ void motionControllerTests() {
     expect(binding.nodes[1]!.localTransform.storage[12], 3.0);
 
     final humanoidRuntime = VrmRuntime(
-      VrmModel.parseGlb(_glb(json, binaryChunk: binary)),
+      VrmModel.parseGlb(glb(json, binaryChunk: binary)),
     );
-    final humanoidBinding = _FakeBinding();
+    final humanoidBinding = FakeBinding();
     humanoidRuntime.bind(humanoidBinding);
     humanoidRuntime.motion.playEmbeddedGltfAnimation(
       0,
@@ -610,10 +616,10 @@ void motionControllerTests() {
   });
 
   test('runtime motion fades in generic glTF animation output', () {
-    final binary = _floats([0.0, 1.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0]);
-    final json = _minimalVrmJson()
+    final binary = floats([0.0, 1.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0]);
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(
+        animationStorageJson(
           binary.length,
           [
             [0, 8],
@@ -636,9 +642,9 @@ void motionControllerTests() {
         },
       ];
     final runtime = VrmRuntime(
-      VrmModel.parseGlb(_glb(json, binaryChunk: binary)),
+      VrmModel.parseGlb(glb(json, binaryChunk: binary)),
     );
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.motion.playEmbeddedGltfAnimation(
@@ -651,14 +657,14 @@ void motionControllerTests() {
   });
 
   test('runtime motion crossfades from the current clip pose', () {
-    final binary = _floats([
+    final binary = floats([
       0.0, 1.0, // input times
       0.0, 0.0, 0.0, 4.0, 0.0, 0.0, // clip 0 translation
       0.0, 0.0, 0.0, -4.0, 0.0, 0.0, // clip 1 translation
     ]);
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(
+        animationStorageJson(
           binary.length,
           [
             [0, 8],
@@ -693,9 +699,9 @@ void motionControllerTests() {
         },
       ];
     final runtime = VrmRuntime(
-      VrmModel.parseGlb(_glb(json, binaryChunk: binary)),
+      VrmModel.parseGlb(glb(json, binaryChunk: binary)),
     );
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.motion.playEmbeddedGltfAnimation(0);
@@ -728,7 +734,7 @@ void motionControllerTests() {
       },
     );
 
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       meshes: [
         for (var i = 0; i < 2; i++)
           {
@@ -742,8 +748,8 @@ void motionControllerTests() {
       ],
       nodeMesh: {0: 0, 1: 1},
     );
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.motion.playProgrammaticPose(
@@ -787,8 +793,8 @@ void motionControllerTests() {
       },
     );
 
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.motion.playProgrammaticPose(pose(0.0));
@@ -812,7 +818,7 @@ void motionControllerTests() {
   });
 
   test('interrupted crossfade preserves morph, expression, and LookAt', () {
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       meshes: [
         {
           'primitives': [
@@ -847,7 +853,7 @@ void motionControllerTests() {
     final vrm =
         (json['extensions']! as Map<String, Object?>)['VRMC_vrm']!
             as Map<String, Object?>;
-    vrm['lookAt'] = _lookAtJson(type: 'expression');
+    vrm['lookAt'] = lookAtJson(type: 'expression');
 
     VrmProgrammaticPose pose(double morph, double happy, double yaw) =>
         VrmProgrammaticPose(
@@ -859,8 +865,8 @@ void motionControllerTests() {
           lookAtPitchDegrees: 0.0,
         );
 
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.motion.playProgrammaticPose(pose(0.0, 0.0, 0.0));
@@ -906,8 +912,8 @@ void motionControllerTests() {
       },
     );
 
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.motion.playProgrammaticPose(pose(4.0));
@@ -936,10 +942,10 @@ void motionControllerTests() {
   });
 
   test('runtime motion fades out before clearing active clip', () {
-    final binary = _floats([0.0, 1.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0]);
-    final json = _minimalVrmJson()
+    final binary = floats([0.0, 1.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0]);
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(
+        animationStorageJson(
           binary.length,
           [
             [0, 8],
@@ -962,9 +968,9 @@ void motionControllerTests() {
         },
       ];
     final runtime = VrmRuntime(
-      VrmModel.parseGlb(_glb(json, binaryChunk: binary)),
+      VrmModel.parseGlb(glb(json, binaryChunk: binary)),
     );
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.motion.playEmbeddedGltfAnimation(0);
@@ -981,10 +987,10 @@ void motionControllerTests() {
   });
 
   test('motion controller clears fade-out during standalone update', () {
-    final binary = _floats([0.0, 1.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0]);
-    final json = _minimalVrmJson()
+    final binary = floats([0.0, 1.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0]);
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(
+        animationStorageJson(
           binary.length,
           [
             [0, 8],
@@ -1007,7 +1013,7 @@ void motionControllerTests() {
         },
       ];
     final controller = VrmMotionController(
-      VrmModel.parseGlb(_glb(json, binaryChunk: binary)),
+      VrmModel.parseGlb(glb(json, binaryChunk: binary)),
     );
 
     controller.playEmbeddedGltfAnimation(0);
@@ -1021,10 +1027,10 @@ void motionControllerTests() {
   });
 
   test('runtime motion supports reverse playback and clamps to start', () {
-    final binary = _floats([0.0, 1.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0]);
-    final json = _minimalVrmJson()
+    final binary = floats([0.0, 1.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0]);
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(
+        animationStorageJson(
           binary.length,
           [
             [0, 8],
@@ -1047,9 +1053,9 @@ void motionControllerTests() {
         },
       ];
     final runtime = VrmRuntime(
-      VrmModel.parseGlb(_glb(json, binaryChunk: binary)),
+      VrmModel.parseGlb(glb(json, binaryChunk: binary)),
     );
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
     var completed = 0;
 
     runtime.bind(binding);
@@ -1073,10 +1079,10 @@ void motionControllerTests() {
   });
 
   test('runtime motion loops reverse playback', () {
-    final binary = _floats([0.0, 1.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0]);
-    final json = _minimalVrmJson()
+    final binary = floats([0.0, 1.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0]);
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(
+        animationStorageJson(
           binary.length,
           [
             [0, 8],
@@ -1099,9 +1105,9 @@ void motionControllerTests() {
         },
       ];
     final runtime = VrmRuntime(
-      VrmModel.parseGlb(_glb(json, binaryChunk: binary)),
+      VrmModel.parseGlb(glb(json, binaryChunk: binary)),
     );
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
     var loops = 0;
 
     runtime.bind(binding);
@@ -1122,10 +1128,10 @@ void motionControllerTests() {
   });
 
   test('runtime motion completes when landing exactly on clip end', () {
-    final binary = _floats([0.0, 1.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0]);
-    final json = _minimalVrmJson()
+    final binary = floats([0.0, 1.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0]);
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(
+        animationStorageJson(
           binary.length,
           [
             [0, 8],
@@ -1148,9 +1154,9 @@ void motionControllerTests() {
         },
       ];
     final runtime = VrmRuntime(
-      VrmModel.parseGlb(_glb(json, binaryChunk: binary)),
+      VrmModel.parseGlb(glb(json, binaryChunk: binary)),
     );
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
     var completed = 0;
 
     runtime.bind(binding);
@@ -1167,10 +1173,10 @@ void motionControllerTests() {
   });
 
   test('runtime motion supports zero playback speed', () {
-    final binary = _floats([0.0, 1.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0]);
-    final json = _minimalVrmJson()
+    final binary = floats([0.0, 1.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0]);
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(
+        animationStorageJson(
           binary.length,
           [
             [0, 8],
@@ -1193,9 +1199,9 @@ void motionControllerTests() {
         },
       ];
     final runtime = VrmRuntime(
-      VrmModel.parseGlb(_glb(json, binaryChunk: binary)),
+      VrmModel.parseGlb(glb(json, binaryChunk: binary)),
     );
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.motion.playEmbeddedGltfAnimation(
@@ -1211,10 +1217,10 @@ void motionControllerTests() {
   });
 
   test('runtime motion changes playback speed while playing', () {
-    final binary = _floats([0.0, 1.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0]);
-    final json = _minimalVrmJson()
+    final binary = floats([0.0, 1.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0]);
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(
+        animationStorageJson(
           binary.length,
           [
             [0, 8],
@@ -1237,9 +1243,9 @@ void motionControllerTests() {
         },
       ];
     final runtime = VrmRuntime(
-      VrmModel.parseGlb(_glb(json, binaryChunk: binary)),
+      VrmModel.parseGlb(glb(json, binaryChunk: binary)),
     );
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.motion.playEmbeddedGltfAnimation(0);
@@ -1258,10 +1264,10 @@ void motionControllerTests() {
   });
 
   test('runtime motion ignores negative update delta', () {
-    final binary = _floats([0.0, 1.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0]);
-    final json = _minimalVrmJson()
+    final binary = floats([0.0, 1.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0]);
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(
+        animationStorageJson(
           binary.length,
           [
             [0, 8],
@@ -1284,9 +1290,9 @@ void motionControllerTests() {
         },
       ];
     final runtime = VrmRuntime(
-      VrmModel.parseGlb(_glb(json, binaryChunk: binary)),
+      VrmModel.parseGlb(glb(json, binaryChunk: binary)),
     );
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.motion.playEmbeddedGltfAnimation(0, startTimeSeconds: 0.5);
@@ -1297,10 +1303,10 @@ void motionControllerTests() {
   });
 
   test('runtime motion sanitizes non-finite time inputs', () {
-    final binary = _floats([0.0, 1.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0]);
-    final json = _minimalVrmJson()
+    final binary = floats([0.0, 1.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0]);
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(
+        animationStorageJson(
           binary.length,
           [
             [0, 8],
@@ -1323,9 +1329,9 @@ void motionControllerTests() {
         },
       ];
     final runtime = VrmRuntime(
-      VrmModel.parseGlb(_glb(json, binaryChunk: binary)),
+      VrmModel.parseGlb(glb(json, binaryChunk: binary)),
     );
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.motion.playEmbeddedGltfAnimation(
@@ -1346,10 +1352,10 @@ void motionControllerTests() {
   });
 
   test('runtime motion applies additive programmatic translation', () {
-    final binary = _floats([0.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0]);
-    final json = _minimalVrmJson()
+    final binary = floats([0.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0]);
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(
+        animationStorageJson(
           binary.length,
           [
             [0, 8],
@@ -1372,9 +1378,9 @@ void motionControllerTests() {
         },
       ];
     final runtime = VrmRuntime(
-      VrmModel.parseGlb(_glb(json, binaryChunk: binary)),
+      VrmModel.parseGlb(glb(json, binaryChunk: binary)),
     );
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
     final additive = VrmProgrammaticPose(
       nodePoses: {
         0: GltfNodePose(translation: [1.0, 0.0, 0.0]),
@@ -1397,14 +1403,14 @@ void motionControllerTests() {
   });
 
   test('runtime motion preserves an intentional identity override pose', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     final nodes = json['nodes']! as List<Map<String, Object?>>;
     nodes[0]
       ..['translation'] = [5.0, 0.0, 0.0]
       ..['rotation'] = [0.0, 0.0, math.sqrt1_2, math.sqrt1_2]
       ..['scale'] = [2.0, 2.0, 2.0];
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.motion.playProgrammaticPose(
@@ -1441,7 +1447,7 @@ void motionControllerTests() {
   });
 
   test('runtime motion stacks additive programmatic layers', () {
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       meshes: [
         {
           'primitives': [
@@ -1454,8 +1460,8 @@ void motionControllerTests() {
       ],
       nodeMesh: {0: 0},
     );
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.motion.setAdditiveProgrammaticPose(
@@ -1487,10 +1493,10 @@ void motionControllerTests() {
   });
 
   test('runtime motion layers an embedded clip with an independent mask', () {
-    final binary = _floats([0.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0]);
-    final json = _minimalVrmJson()
+    final binary = floats([0.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0]);
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(
+        animationStorageJson(
           binary.length,
           [
             [0, 8],
@@ -1513,9 +1519,9 @@ void motionControllerTests() {
         },
       ];
     final runtime = VrmRuntime(
-      VrmModel.parseGlb(_glb(json, binaryChunk: binary)),
+      VrmModel.parseGlb(glb(json, binaryChunk: binary)),
     );
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     final layerId = runtime.motion.addAdditiveLayer(
@@ -1561,7 +1567,7 @@ void motionControllerTests() {
   });
 
   test('runtime motion layers external and procedural additive sources', () {
-    final binary = _floats([0.0, 1.0, 5.0, 0.0, 0.0, 7.0, 0.0, 0.0]);
+    final binary = floats([0.0, 1.0, 5.0, 0.0, 0.0, 7.0, 0.0, 0.0]);
     final json = <String, Object?>{
       'asset': {'version': '2.0'},
       'nodes': [
@@ -1569,7 +1575,7 @@ void motionControllerTests() {
           'translation': [5.0, 0.0, 0.0],
         },
       ],
-      ..._animationStorageJson(
+      ...animationStorageJson(
         binary.length,
         [
           [0, 8],
@@ -1591,9 +1597,9 @@ void motionControllerTests() {
         },
       ],
     };
-    final external = GltfAsset.parse(bytes: _glb(json, binaryChunk: binary));
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
-    final binding = _FakeBinding();
+    final external = GltfAsset.parse(bytes: glb(json, binaryChunk: binary));
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
+    final binding = FakeBinding();
     VrmProgrammaticPose procedural(double time) => VrmProgrammaticPose(
       nodePoses: {
         0: GltfNodePose(translation: [0.0, time, 0.0]),
@@ -1619,18 +1625,18 @@ void motionControllerTests() {
   });
 
   test('runtime motion composes additive VRMA model-root motion', () {
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     final layerId = runtime.motion.addAdditiveLayer(
-      _hipsTranslationVrma(2.0),
+      hipsTranslationVrma(2.0),
       startTime: const Duration(seconds: 1),
       weight: 0.5,
       hipsTranslationScale: 2.0,
     );
     runtime.motion.playVrmAnimation(
-      _hipsTranslationVrma(1.0),
+      hipsTranslationVrma(1.0),
       startTime: const Duration(seconds: 1),
     );
     runtime.update(0);
@@ -1650,7 +1656,7 @@ void motionControllerTests() {
   });
 
   test('runtime motion ignores non-finite morph weights', () {
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       meshes: [
         {
           'weights': [0.25],
@@ -1664,8 +1670,8 @@ void motionControllerTests() {
       ],
       nodeMesh: {0: 0},
     );
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.motion.setAdditiveProgrammaticPose(
@@ -1688,7 +1694,7 @@ void motionControllerTests() {
   });
 
   test('runtime motion ignores morph weights outside target range', () {
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       meshes: [
         {
           'primitives': [
@@ -1701,8 +1707,8 @@ void motionControllerTests() {
       ],
       nodeMesh: {0: 0},
     );
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.motion.setAdditiveProgrammaticPose(
@@ -1726,8 +1732,8 @@ void motionControllerTests() {
   });
 
   test('runtime motion applies additive programmatic rotation and scale', () {
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
+    final binding = FakeBinding();
     final quarterTurnY = [
       0.0,
       math.sin(math.pi / 4),
@@ -1753,7 +1759,7 @@ void motionControllerTests() {
   });
 
   test('runtime motion applies external glTF animation by node index', () {
-    final binary = _floats([0.0, 1.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0]);
+    final binary = floats([0.0, 1.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0]);
     final animationJson =
         <String, Object?>{
             'asset': {'version': '2.0'},
@@ -1762,7 +1768,7 @@ void motionControllerTests() {
             ],
           }
           ..addAll(
-            _animationStorageJson(
+            animationStorageJson(
               binary.length,
               [
                 [0, 8],
@@ -1784,10 +1790,10 @@ void motionControllerTests() {
               ],
             },
           ];
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
+    final binding = FakeBinding();
     final animation = GltfAsset.parse(
-      bytes: _glb(animationJson, binaryChunk: binary),
+      bytes: glb(animationJson, binaryChunk: binary),
     );
 
     runtime.bind(binding);
@@ -1798,9 +1804,9 @@ void motionControllerTests() {
   });
 
   test('runtime motion reports external glTF without animations clearly', () {
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
     final animation = GltfAsset.parse(
-      bytes: _glb({
+      bytes: glb({
         'asset': {'version': '2.0'},
       }),
     );
@@ -1818,7 +1824,7 @@ void motionControllerTests() {
   });
 
   test('runtime motion selects external glTF animation clips by index', () {
-    final binary = _floats([
+    final binary = floats([
       0.0, 1.0, // time
       0.0, 0.0, 0.0, 4.0, 0.0, 0.0, // clip 0 translation
       0.0, 0.0, 0.0, -6.0, 0.0, 0.0, // clip 1 translation
@@ -1831,7 +1837,7 @@ void motionControllerTests() {
             ],
           }
           ..addAll(
-            _animationStorageJson(
+            animationStorageJson(
               binary.length,
               [
                 [0, 8],
@@ -1865,10 +1871,10 @@ void motionControllerTests() {
               ],
             },
           ];
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
+    final binding = FakeBinding();
     final animation = GltfAsset.parse(
-      bytes: _glb(animationJson, binaryChunk: binary),
+      bytes: glb(animationJson, binaryChunk: binary),
     );
 
     runtime.bind(binding);
@@ -1881,9 +1887,9 @@ void motionControllerTests() {
   test(
     'runtime motion supports pause, seek, loop, stop, and morph weights',
     () {
-      final binary = _floats([0.0, 1.0, 0.0, 0.0, 1.0, 0.5]);
+      final binary = floats([0.0, 1.0, 0.0, 0.0, 1.0, 0.5]);
       final json =
-          _minimalVrmJson(
+          minimalVrmJson(
               meshes: [
                 {
                   'weights': [0.2, 0.4],
@@ -1902,7 +1908,7 @@ void motionControllerTests() {
               nodeMesh: {0: 0},
             )
             ..addAll(
-              _animationStorageJson(
+              animationStorageJson(
                 binary.length,
                 [
                   [0, 8],
@@ -1926,9 +1932,9 @@ void motionControllerTests() {
             ];
       (json['nodes']! as List<Map<String, Object?>>)[0]['weights'] = [0.3, 0.6];
       final runtime = VrmRuntime(
-        VrmModel.parseGlb(_glb(json, binaryChunk: binary)),
+        VrmModel.parseGlb(glb(json, binaryChunk: binary)),
       );
-      final binding = _FakeBinding();
+      final binding = FakeBinding();
       var loops = 0;
 
       runtime.bind(binding);
@@ -1967,7 +1973,7 @@ void motionControllerTests() {
   );
 
   test('runtime motion applies programmatic pose source', () {
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       meshes: [
         {
           'primitives': [
@@ -2008,9 +2014,9 @@ void motionControllerTests() {
     final vrm =
         (json['extensions']! as Map<String, Object?>)['VRMC_vrm']!
             as Map<String, Object?>;
-    vrm['lookAt'] = _lookAtJson(type: 'expression');
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
-    final binding = _FakeBinding();
+    vrm['lookAt'] = lookAtJson(type: 'expression');
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.motion.play(
@@ -2078,8 +2084,8 @@ void motionControllerTests() {
   });
 
   test('runtime motion ignores invalid programmatic transform lists', () {
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.motion.setAdditiveProgrammaticPose(
@@ -2110,8 +2116,8 @@ void motionControllerTests() {
   });
 
   test('runtime motion plays procedural pose callbacks', () {
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
+    final binding = FakeBinding();
     VrmProgrammaticPose idle(double timeSeconds) => VrmProgrammaticPose(
       nodePoses: {
         0: GltfNodePose(translation: [timeSeconds, 0.0, 0.0]),

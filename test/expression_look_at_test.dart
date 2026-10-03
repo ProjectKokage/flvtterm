@@ -1,6 +1,11 @@
-part of '../flvtterm_test.dart';
+import 'dart:math' as math;
 
-void expressionLookAtTests() {
+import 'package:flvtterm/flvtterm.dart';
+import 'package:test/test.dart';
+
+import 'src/test_fixtures.dart';
+
+void main() {
   test('expression bind and LookAt range constructors copy raw maps', () {
     final raw = <String, Object?>{
       'extras': <String, Object?>{
@@ -46,7 +51,7 @@ void expressionLookAtTests() {
   });
 
   test('applies expression clamp, binary threshold, and blink override', () {
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       meshes: [
         {
           'primitives': [
@@ -132,8 +137,8 @@ void expressionLookAtTests() {
       'KHR_texture_transform',
       'VENDOR_color',
     ]);
-    final model = VrmModel.parseGlb(_glb(json));
-    final binding = _FakeBinding();
+    final model = VrmModel.parseGlb(glb(json));
+    final binding = FakeBinding();
     final runtime = VrmRuntime(model)..bind(binding);
 
     runtime.emotion.set(VrmEmotion.happy, 0.6);
@@ -191,7 +196,7 @@ void expressionLookAtTests() {
   });
 
   test('preserves per-texture UV bases and excludes MToon MatCap', () {
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       materials: [
         {
           'pbrMetallicRoughness': {
@@ -248,8 +253,8 @@ void expressionLookAtTests() {
     (json['extensionsUsed']! as List<Object?>)
       ..add('KHR_texture_transform')
       ..add('VRMC_materials_mtoon');
-    final model = VrmModel.parseGlb(_glb(json));
-    final binding = _FakeBinding();
+    final model = VrmModel.parseGlb(glb(json));
+    final binding = FakeBinding();
     final runtime = VrmRuntime(model)..bind(binding);
 
     runtime.expressions.setCustom('uv', 0.5);
@@ -286,8 +291,8 @@ void expressionLookAtTests() {
     'expression blend override scales mouth and suppresses binary targets',
     () {
       final model = VrmModel.parseGlb(
-        _glb(
-          _minimalVrmJson(
+        glb(
+          minimalVrmJson(
             expressions: {
               'preset': {
                 'relaxed': {'overrideMouth': 'blend'},
@@ -318,8 +323,8 @@ void expressionLookAtTests() {
 
   test('binary expression override uses output threshold before blocking', () {
     final model = VrmModel.parseGlb(
-      _glb(
-        _minimalVrmJson(
+      glb(
+        minimalVrmJson(
           expressions: {
             'preset': {
               'happy': {'isBinary': true, 'overrideBlink': 'block'},
@@ -347,8 +352,8 @@ void expressionLookAtTests() {
 
   test('material color binds ignore alpha for RGB-only targets', () {
     final model = VrmModel.parseGlb(
-      _glb(
-        _minimalVrmJson(
+      glb(
+        minimalVrmJson(
           materials: [
             {
               'emissiveFactor': [0.1, 0.2, 0.3],
@@ -378,7 +383,7 @@ void expressionLookAtTests() {
         ),
       ),
     );
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
     final runtime = VrmRuntime(model)..bind(binding);
 
     runtime.emotion.set(VrmEmotion.happy, 1.0);
@@ -419,7 +424,7 @@ void expressionLookAtTests() {
       ],
     };
 
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       meshes: [
         {
           'primitives': [
@@ -466,8 +471,8 @@ void expressionLookAtTests() {
     );
     json['textures'] = [<String, Object?>{}];
     (json['extensionsUsed']! as List<Object?>).add('KHR_texture_transform');
-    final binding = _FakeBinding();
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)))..bind(binding);
+    final binding = FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)))..bind(binding);
 
     runtime.expressions
       ..setCustom('a', 0.5)
@@ -496,8 +501,8 @@ void expressionLookAtTests() {
 
   test('expression setters clamp non-finite weights', () {
     final model = VrmModel.parseGlb(
-      _glb(
-        _minimalVrmJson(
+      glb(
+        minimalVrmJson(
           expressions: {
             'preset': {
               'happy': <String, Object?>{},
@@ -521,7 +526,7 @@ void expressionLookAtTests() {
   });
 
   test('reports invalid expression bind indices in permissive mode', () {
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       meshes: [
         {
           'primitives': [
@@ -591,7 +596,7 @@ void expressionLookAtTests() {
     );
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -734,7 +739,7 @@ void expressionLookAtTests() {
       isNot(containsPair(VrmExpressionPreset.angry, anything)),
     );
 
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
     final runtime = VrmRuntime(result.asset!)..bind(binding);
     runtime.emotion.set(VrmEmotion.happy, 1.0);
     runtime.update(0);
@@ -747,19 +752,19 @@ void expressionLookAtTests() {
   });
 
   test('reports invalid expression containers in permissive mode', () {
-    final badRoot = _minimalVrmJson();
+    final badRoot = minimalVrmJson();
     final badRootVrm =
         (badRoot['extensions']! as Map<String, Object?>)['VRMC_vrm']!
             as Map<String, Object?>;
     badRootVrm['expressions'] = 'bad';
 
-    final badGroups = _minimalVrmJson();
+    final badGroups = minimalVrmJson();
     final badGroupsVrm =
         (badGroups['extensions']! as Map<String, Object?>)['VRMC_vrm']!
             as Map<String, Object?>;
     badGroupsVrm['expressions'] = {'preset': 'bad', 'custom': <Object?>[]};
 
-    final badNames = _minimalVrmJson();
+    final badNames = minimalVrmJson();
     final badNamesVrm =
         (badNames['extensions']! as Map<String, Object?>)['VRMC_vrm']!
             as Map<String, Object?>;
@@ -769,15 +774,15 @@ void expressionLookAtTests() {
     };
 
     final badRootResult = VrmModel.tryParseGlb(
-      _glb(badRoot),
+      glb(badRoot),
       validation: VrmValidationMode.permissive,
     );
     final badGroupsResult = VrmModel.tryParseGlb(
-      _glb(badGroups),
+      glb(badGroups),
       validation: VrmValidationMode.permissive,
     );
     final badNamesResult = VrmModel.tryParseGlb(
-      _glb(badNames),
+      glb(badNames),
       validation: VrmValidationMode.permissive,
     );
 
@@ -821,7 +826,7 @@ void expressionLookAtTests() {
   });
 
   test('reports malformed expression bind item objects', () {
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       expressions: {
         'preset': {
           'happy': {
@@ -834,7 +839,7 @@ void expressionLookAtTests() {
     );
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -873,8 +878,8 @@ void expressionLookAtTests() {
 
   test('reports procedural expressions overriding their own kind', () {
     final result = VrmModel.tryParseGlb(
-      _glb(
-        _minimalVrmJson(
+      glb(
+        minimalVrmJson(
           expressions: {
             'preset': {
               'aa': {'overrideMouth': 'blend'},
@@ -914,7 +919,7 @@ void expressionLookAtTests() {
   });
 
   test('LookAt expression mode drives look expression weights', () {
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       meshes: [
         {
           'primitives': [
@@ -956,7 +961,7 @@ void expressionLookAtTests() {
         },
       },
     );
-    final lookAt = _lookAtJson(type: 'expression');
+    final lookAt = lookAtJson(type: 'expression');
     lookAt['extras'] = {'source': 'lookAt'};
     final horizontalInner = Map<String, Object?>.from(
       lookAt['rangeMapHorizontalInner']! as Map,
@@ -966,9 +971,9 @@ void expressionLookAtTests() {
     ((json['extensions']! as Map<String, Object?>)['VRMC_vrm']!
             as Map<String, Object?>)['lookAt'] =
         lookAt;
-    final model = VrmModel.parseGlb(_glb(json));
+    final model = VrmModel.parseGlb(glb(json));
     final runtime = VrmRuntime(model);
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.lookAt.setYawPitch(yawDegrees: 45, pitchDegrees: -30);
@@ -985,7 +990,7 @@ void expressionLookAtTests() {
   });
 
   test('LookAt range map with zero input max snaps nonzero gaze', () {
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       meshes: [
         {
           'primitives': [
@@ -1007,7 +1012,7 @@ void expressionLookAtTests() {
         },
       },
     );
-    final lookAt = _lookAtJson(type: 'expression');
+    final lookAt = lookAtJson(type: 'expression');
     lookAt['rangeMapHorizontalOuter'] = {
       'inputMaxValue': 0.0,
       'outputScale': 0.75,
@@ -1015,8 +1020,8 @@ void expressionLookAtTests() {
     ((json['extensions']! as Map<String, Object?>)['VRMC_vrm']!
             as Map<String, Object?>)['lookAt'] =
         lookAt;
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.lookAt.setYawPitch(yawDegrees: 1, pitchDegrees: 0);
@@ -1026,7 +1031,7 @@ void expressionLookAtTests() {
   });
 
   test('reports invalid LookAt settings in permissive mode', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     ((json['extensions']! as Map<String, Object?>)['VRMC_vrm']!
         as Map<String, Object?>)['lookAt'] = {
       'type': 1,
@@ -1038,7 +1043,7 @@ void expressionLookAtTests() {
     };
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -1068,7 +1073,7 @@ void expressionLookAtTests() {
 
   test('reports invalid LookAt object in permissive mode', () {
     for (final value in ['bad', null]) {
-      final json = Map<String, Object?>.from(_minimalVrmJson());
+      final json = Map<String, Object?>.from(minimalVrmJson());
       final extensions = Map<String, Object?>.from(
         json['extensions']! as Map<String, Object?>,
       );
@@ -1080,7 +1085,7 @@ void expressionLookAtTests() {
       json['extensions'] = extensions;
 
       final result = VrmModel.tryParseGlb(
-        _glb(json),
+        glb(json),
         validation: VrmValidationMode.permissive,
       );
 
@@ -1094,7 +1099,7 @@ void expressionLookAtTests() {
   });
 
   test('runtime skips invalid LookAt type', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     final nodes = json['nodes']! as List<Map<String, Object?>>;
     nodes[2]['children'] = [15, 16];
     nodes
@@ -1108,18 +1113,18 @@ void expressionLookAtTests() {
             as Map<String, Object?>;
     humanBones['leftEye'] = {'node': 15};
     humanBones['rightEye'] = {'node': 16};
-    vrm['lookAt'] = _lookAtJson(
+    vrm['lookAt'] = lookAtJson(
       type: 'bogus',
       horizontalInnerOutput: 10,
       horizontalOuterOutput: 20,
     );
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
     final runtime = VrmRuntime(result.asset!);
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.lookAt.setYawPitch(yawDegrees: 90, pitchDegrees: 0);
@@ -1130,7 +1135,7 @@ void expressionLookAtTests() {
   });
 
   test('LookAt world target converts through model root transform', () {
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       meshes: [
         {
           'primitives': [
@@ -1153,16 +1158,16 @@ void expressionLookAtTests() {
       },
     );
     ((json['extensions']! as Map<String, Object?>)['VRMC_vrm']!
-        as Map<String, Object?>)['lookAt'] = _lookAtJson(
+        as Map<String, Object?>)['lookAt'] = lookAtJson(
       type: 'expression',
     );
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.lookAt.lookAtWorld(
       const VrmVector3(11, 0, 1),
-      modelWorldTransform: _testTrs(translation: const [10, 0, 0]),
+      modelWorldTransform: testTrs(translation: const [10, 0, 0]),
     );
     runtime.update(0);
 
@@ -1170,7 +1175,7 @@ void expressionLookAtTests() {
   });
 
   test('LookAt world target accounts for runtime root motion', () {
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       meshes: [
         {
           'primitives': [
@@ -1193,10 +1198,10 @@ void expressionLookAtTests() {
       },
     );
     ((json['extensions']! as Map<String, Object?>)['VRMC_vrm']!
-        as Map<String, Object?>)['lookAt'] = _lookAtJson(
+        as Map<String, Object?>)['lookAt'] = lookAtJson(
       type: 'expression',
     );
-    final vrmaBinary = _floats([0.0, 1.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0]);
+    final vrmaBinary = floats([0.0, 1.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0]);
     final vrmaJson =
         <String, Object?>{
             'asset': {'version': '2.0'},
@@ -1206,7 +1211,7 @@ void expressionLookAtTests() {
             ],
           }
           ..addAll(
-            _animationStorageJson(vrmaBinary.length, [
+            animationStorageJson(vrmaBinary.length, [
               [0, 8],
               [8, 24],
             ]),
@@ -1234,13 +1239,13 @@ void expressionLookAtTests() {
               },
             },
           };
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.motion.playVrmAnimation(
       VrmAnimationAsset.parse(
-        bytes: _glb(vrmaJson, binaryChunk: vrmaBinary),
+        bytes: glb(vrmaJson, binaryChunk: vrmaBinary),
         validation: VrmValidationMode.permissive,
       ),
     );
@@ -1252,7 +1257,7 @@ void expressionLookAtTests() {
   });
 
   test('LookAt world target accounts for rotated model root', () {
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       meshes: [
         {
           'primitives': [
@@ -1275,16 +1280,16 @@ void expressionLookAtTests() {
       },
     );
     ((json['extensions']! as Map<String, Object?>)['VRMC_vrm']!
-        as Map<String, Object?>)['lookAt'] = _lookAtJson(
+        as Map<String, Object?>)['lookAt'] = lookAtJson(
       type: 'expression',
     );
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.lookAt.lookAtWorld(
       const VrmVector3(1, 0, 0),
-      modelWorldTransform: _testTrs(
+      modelWorldTransform: testTrs(
         rotation: [0.0, math.sqrt1_2, 0.0, math.sqrt1_2],
       ),
     );
@@ -1294,7 +1299,7 @@ void expressionLookAtTests() {
   });
 
   test('LookAt target uses the current animated head position', () {
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       meshes: [
         {
           'primitives': [
@@ -1317,11 +1322,11 @@ void expressionLookAtTests() {
       },
     );
     ((json['extensions']! as Map<String, Object?>)['VRMC_vrm']!
-        as Map<String, Object?>)['lookAt'] = _lookAtJson(
+        as Map<String, Object?>)['lookAt'] = lookAtJson(
       type: 'expression',
     );
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.motion.play(
@@ -1338,7 +1343,7 @@ void expressionLookAtTests() {
   });
 
   test('LookAt target composes animated parent transforms', () {
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       meshes: [
         {
           'primitives': [
@@ -1361,11 +1366,11 @@ void expressionLookAtTests() {
       },
     );
     ((json['extensions']! as Map<String, Object?>)['VRMC_vrm']!
-        as Map<String, Object?>)['lookAt'] = _lookAtJson(
+        as Map<String, Object?>)['lookAt'] = lookAtJson(
       type: 'expression',
     );
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)));
+    final binding = FakeBinding();
     final quarterTurnY = [0.0, math.sqrt1_2, 0.0, math.sqrt1_2];
 
     runtime.bind(binding);
@@ -1384,7 +1389,7 @@ void expressionLookAtTests() {
   });
 
   test('LookAt target applies head-local offset in LookAt space', () {
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       meshes: [
         {
           'primitives': [
@@ -1412,13 +1417,13 @@ void expressionLookAtTests() {
       0.0,
       math.sqrt1_2,
     ];
-    final lookAt = _lookAtJson(type: 'expression');
+    final lookAt = lookAtJson(type: 'expression');
     lookAt['offsetFromHeadBone'] = [1.0, 0.0, 0.0];
     ((json['extensions']! as Map<String, Object?>)['VRMC_vrm']!
             as Map<String, Object?>)['lookAt'] =
         lookAt;
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.lookAt.lookAtModel(VrmVector3.zero);
@@ -1428,7 +1433,7 @@ void expressionLookAtTests() {
   });
 
   test('LookAt bone mode applies eye local transforms', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     final nodes = json['nodes']! as List<Map<String, Object?>>;
     nodes[2]['children'] = [15, 16];
     nodes
@@ -1442,7 +1447,7 @@ void expressionLookAtTests() {
             as Map<String, Object?>;
     humanBones['leftEye'] = {'node': 15};
     humanBones['rightEye'] = {'node': 16};
-    final lookAt = _lookAtJson(
+    final lookAt = lookAtJson(
       type: 'bone',
       horizontalInnerOutput: 10,
       horizontalOuterOutput: 20,
@@ -1452,8 +1457,8 @@ void expressionLookAtTests() {
     (lookAt['rangeMapVerticalUp']! as Map<String, Object?>)['outputScale'] =
         40.0;
     vrm['lookAt'] = lookAt;
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.motion.play(

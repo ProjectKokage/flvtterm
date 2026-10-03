@@ -1,6 +1,11 @@
-part of '../flvtterm_test.dart';
+import 'dart:convert';
+import 'dart:io';
 
-void cliTests() {
+import 'package:test/test.dart';
+
+import 'src/test_fixtures.dart';
+
+void main() {
   test('CLI help exits successfully', () async {
     final result = await _runCli(['--help']);
 
@@ -107,7 +112,7 @@ void cliTests() {
     final directory = await _temporaryDirectory();
     final file = File('${directory.path}/idle.glb');
     await file.writeAsBytes(
-      _glb({
+      glb({
         'asset': {'version': '2.0'},
         'extensionsUsed': ['VRMC_vrm_animation'],
         'extensions': {
@@ -125,7 +130,7 @@ void cliTests() {
   test('CLI detects VRM GLB by root extension', () async {
     final directory = await _temporaryDirectory();
     final file = File('${directory.path}/avatar.glb');
-    await file.writeAsBytes(_glb(_minimalVrmJson()));
+    await file.writeAsBytes(glb(minimalVrmJson()));
 
     final result = await _runCli([file.path]);
 
@@ -136,7 +141,7 @@ void cliTests() {
   test('CLI detects legacy VRM 0.x GLB by root extension', () async {
     final directory = await _temporaryDirectory();
     final file = File('${directory.path}/legacy-avatar.glb');
-    await file.writeAsBytes(_glb(_minimalVrm0Json()));
+    await file.writeAsBytes(glb(minimalVrm0Json()));
 
     final result = await _runCli([file.path]);
 

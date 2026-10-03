@@ -1,10 +1,16 @@
-part of '../flvtterm_test.dart';
+import 'dart:math' as math;
+import 'dart:typed_data';
 
-void armSpacingTests() {
+import 'package:flvtterm/flvtterm.dart';
+import 'package:test/test.dart';
+
+import 'src/test_fixtures.dart';
+
+void main() {
   group('hands kept clear of the body', () {
     // The motion's skeleton: its proportions no longer matter.
     final source = VrmAnimationAsset.parse(
-      bytes: _glb(_armSkeletonJson(shoulder: .19, hip: .095)),
+      bytes: glb(_armSkeletonJson(shoulder: .19, hip: .095)),
       validation: VrmValidationMode.permissive,
     );
     const shoulder = .08;
@@ -40,7 +46,7 @@ void armSpacingTests() {
         );
 
     // The hanging angle from vertical of each arm the binding holds.
-    (double, double) hangingDegrees(VrmModel model, _FakeBinding binding) {
+    (double, double) hangingDegrees(VrmModel model, FakeBinding binding) {
       double angle(VrmHumanoidBone bone) {
         final node = model.vrm.humanoid.nodeFor(bone)!;
         final storage = binding.nodes[node]!.localTransform.storage;
@@ -58,7 +64,7 @@ void armSpacingTests() {
         _armSkeletonGlb(shoulder: shoulder, hip: .07, thigh: thigh),
       );
       final runtime = VrmRuntime(model);
-      final binding = _FakeBinding();
+      final binding = FakeBinding();
       runtime.bind(binding);
       runtime.motion.keepHandsClear = clear;
       runtime.motion.play(arms(outDegrees), speed: 0);
@@ -164,7 +170,7 @@ Map<String, Object?> _armSkeletonJson({
     ],
   ];
   final humanBones = {
-    for (final entry in _boneNodes.entries)
+    for (final entry in boneNodes.entries)
       entry.key.specName: {'node': entry.value},
   };
   return {
@@ -211,7 +217,7 @@ Uint8List _armSkeletonGlb({
   double? thigh,
 }) {
   final json = _armSkeletonJson(shoulder: shoulder, hip: hip, vrm: true);
-  if (thigh == null) return _glb(json);
+  if (thigh == null) return glb(json);
   final nodes = json['nodes']! as List<Map<String, Object?>>;
   // Rest world positions of joints 0 to 14; every rest rotation is identity.
   final world = <List<double>>[];
@@ -249,10 +255,10 @@ Uint8List _armSkeletonGlb({
     ],
   ];
   final binary = BytesBuilder()
-    ..add(_floats(points))
+    ..add(floats(points))
     ..add(joints)
-    ..add(_floats(weights))
-    ..add(_floats(inverseBinds));
+    ..add(floats(weights))
+    ..add(floats(inverseBinds));
   final bytes = binary.toBytes();
   nodes.add({'mesh': 0, 'skin': 0});
   (json['scenes']! as List<Map<String, Object?>>)[0]['nodes'] = [0, 15];
@@ -296,5 +302,5 @@ Uint8List _armSkeletonGlb({
       },
     ],
   });
-  return _glb(json, binaryChunk: bytes);
+  return glb(json, binaryChunk: bytes);
 }

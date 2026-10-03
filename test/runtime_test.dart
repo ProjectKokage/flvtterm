@@ -1,10 +1,15 @@
-part of '../flvtterm_test.dart';
+import 'dart:math' as math;
 
-void runtimeTests() {
+import 'package:flvtterm/flvtterm.dart';
+import 'package:test/test.dart';
+
+import 'src/test_fixtures.dart';
+
+void main() {
   test('runtime resolves scene binding handles once at bind time', () {
     final model = VrmModel.tryParseGlb(
-      _glb(
-        _minimalVrmJson(
+      glb(
+        minimalVrmJson(
           meshes: const [
             {
               'primitives': [
@@ -35,7 +40,7 @@ void runtimeTests() {
       validation: VrmValidationMode.permissive,
     ).asset!;
     final runtime = VrmRuntime(model);
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
 
     runtime.bind(binding);
 
@@ -55,7 +60,7 @@ void runtimeTests() {
   });
 
   test('runtime resets only nodes written by the preceding frame', () {
-    final model = VrmModel.parseGlb(_glb(_minimalVrmJson()));
+    final model = VrmModel.parseGlb(glb(minimalVrmJson()));
     final binding = _CountingBinding();
     final runtime = VrmRuntime(model)..bind(binding);
 
@@ -91,8 +96,8 @@ void runtimeTests() {
   });
 
   test('runtime unbind detaches scene binding', () {
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.update(0);
@@ -104,7 +109,7 @@ void runtimeTests() {
   });
 
   test('runtime commits frame when update throws', () {
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
     final binding = _ThrowingBinding();
 
     runtime.bind(binding);
@@ -116,8 +121,8 @@ void runtimeTests() {
 
   test('runtime resets expression materials before a throwing frame', () {
     final model = VrmModel.parseGlb(
-      _glb(
-        _minimalVrmJson(
+      glb(
+        minimalVrmJson(
           materials: const [
             {
               'pbrMetallicRoughness': {
@@ -141,7 +146,7 @@ void runtimeTests() {
         ),
       ),
     );
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
     final runtime = VrmRuntime(model)
       ..expressions.setPreset(VrmExpressionPreset.happy, 1);
 
@@ -161,8 +166,8 @@ void runtimeTests() {
 
   test('runtime applies frame work in documented order', () {
     final model = VrmModel.tryParseGlb(
-      _glb(
-        _minimalVrmJson(
+      glb(
+        minimalVrmJson(
           meshes: const [
             {
               'primitives': [
@@ -195,7 +200,7 @@ void runtimeTests() {
       ),
       validation: VrmValidationMode.permissive,
     ).asset!;
-    final binding = _OrderBinding();
+    final binding = OrderBinding();
     final runtime = VrmRuntime(model)
       ..expressions.setPreset(VrmExpressionPreset.happy, 1);
 
@@ -223,7 +228,7 @@ void runtimeTests() {
   });
 
   test('runtime applies node constraints before spring bones', () {
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..['extensionsUsed'] = [
         'VRMC_vrm',
         'VRMC_node_constraint',
@@ -263,7 +268,7 @@ void runtimeTests() {
         },
       ],
     };
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)))
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)))
       ..motion.play(
         VrmProgrammaticPose(
           nodePoses: {3: GltfNodePose(rotation: sourceRotation)},
@@ -293,7 +298,7 @@ final class _ThrowingBinding implements VrmSceneBinding {
   }
 
   @override
-  VrmMaterialBinding materialByGltfIndex(int materialIndex) => _FakeMaterial();
+  VrmMaterialBinding materialByGltfIndex(int materialIndex) => FakeMaterial();
 
   @override
   VrmMeshBinding? meshByNodeIndex(int nodeIndex) => null;
@@ -317,7 +322,7 @@ final class _CountingBinding implements VrmSceneBinding {
   void commitFrame() {}
 
   @override
-  VrmMaterialBinding materialByGltfIndex(int materialIndex) => _FakeMaterial();
+  VrmMaterialBinding materialByGltfIndex(int materialIndex) => FakeMaterial();
 
   @override
   VrmMeshBinding? meshByNodeIndex(int nodeIndex) => null;
@@ -364,77 +369,6 @@ final class _ThrowingNode implements VrmNodeBinding {
   VrmMatrix4 get worldTransform => VrmMatrix4.identity();
 }
 
-final class _OrderBinding implements VrmSceneBinding {
-  final events = <String>[];
-  final _nodes = <int, _OrderNode>{};
-  final _meshes = <int, _OrderMesh>{};
-
-  @override
-  void beginFrame() {
-    events.add('begin');
-  }
-
-  @override
-  void commitFrame() {
-    events.add('commit');
-  }
-
-  @override
-  VrmMaterialBinding materialByGltfIndex(int materialIndex) => _FakeMaterial();
-
-  @override
-  VrmMeshBinding? meshByNodeIndex(int nodeIndex) =>
-      _meshes.putIfAbsent(nodeIndex, () => _OrderMesh(nodeIndex, events));
-
-  @override
-  VrmNodeBinding nodeByGltfIndex(int nodeIndex) =>
-      _nodes.putIfAbsent(nodeIndex, () => _OrderNode(nodeIndex, events));
-}
-
-final class _OrderNode implements VrmNodeBinding {
-  _OrderNode(this.index, this.events);
-
-  final int index;
-  final List<String> events;
-  VrmMatrix4 _localTransform = VrmMatrix4.identity();
-
-  @override
-  String? get debugName => 'node$index';
-
-  @override
-  VrmMatrix4 get localTransform => _localTransform;
-
-  @override
-  set localTransform(VrmMatrix4 value) {
-    events.add('node:$index');
-    _localTransform = value;
-  }
-
-  @override
-  VrmMatrix4 get worldTransform => _localTransform;
-}
-
-final class _OrderMesh implements VrmMeshBinding {
-  _OrderMesh(this.nodeIndex, this.events);
-
-  final int nodeIndex;
-  final List<String> events;
-
-  @override
-  void setMorphWeight({
-    required int primitiveIndex,
-    required int morphIndex,
-    required double weight,
-  }) {
-    events.add('morph:$nodeIndex:$primitiveIndex:$morphIndex:$weight');
-  }
-
-  @override
-  void setVisible(bool visible) {
-    events.add('visible:$nodeIndex:$visible');
-  }
-}
-
 final class _ConstraintSpringOrderBinding implements VrmSceneBinding {
   final events = <String>[];
   final _nodes = <int, _ConstraintSpringOrderNode>{};
@@ -446,7 +380,7 @@ final class _ConstraintSpringOrderBinding implements VrmSceneBinding {
   void commitFrame() {}
 
   @override
-  VrmMaterialBinding materialByGltfIndex(int materialIndex) => _FakeMaterial();
+  VrmMaterialBinding materialByGltfIndex(int materialIndex) => FakeMaterial();
 
   @override
   VrmMeshBinding? meshByNodeIndex(int nodeIndex) => null;

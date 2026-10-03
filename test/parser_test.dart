@@ -1,6 +1,13 @@
-part of '../flvtterm_test.dart';
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 
-void parserTests() {
+import 'package:flvtterm/flvtterm.dart';
+import 'package:test/test.dart';
+
+import 'src/test_fixtures.dart';
+
+void main() {
   test('core library stays renderer-neutral', () {
     const bannedImports = [
       'dart:ffi',
@@ -92,7 +99,7 @@ void parserTests() {
   });
 
   test('parsed public string and index lists are immutable', () {
-    final model = VrmModel.parseGlb(_glb(_minimalVrmJson()));
+    final model = VrmModel.parseGlb(glb(minimalVrmJson()));
 
     expect(
       () => model.gltf.extensionsUsed.add('VENDOR_mutation'),
@@ -131,14 +138,14 @@ void parserTests() {
   });
 
   test('parsed public extension and raw maps are immutable', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     final rootExtensions = Map<String, Object?>.from(
       json['extensions']! as Map,
     );
     rootExtensions['EXT_root'] = {'enabled': true};
     json['extensions'] = rootExtensions;
     (json['extensionsUsed']! as List<Object?>).add('EXT_root');
-    final model = VrmModel.parseGlb(_glb(json));
+    final model = VrmModel.parseGlb(glb(json));
     final gltfJsonAsset = model.gltf.json['asset']! as Map<String, Object?>;
     final gltfRootExtension =
         model.gltf.extensions['EXT_root']! as Map<String, Object?>;
@@ -170,7 +177,7 @@ void parserTests() {
   });
 
   test('parsed public mesh primitive collections are immutable', () {
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       meshes: [
         {
           'extensions': {'EXT_mesh': true},
@@ -206,7 +213,7 @@ void parserTests() {
         'max': [0.0, 0.0, 0.0],
       },
     ];
-    final model = VrmModel.parseGlb(_glb(json));
+    final model = VrmModel.parseGlb(glb(json));
     final primitive = model.gltf.meshes.single.primitives.single;
 
     expect(
@@ -230,7 +237,7 @@ void parserTests() {
   });
 
   test('parsed public VRM collections are immutable', () {
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       meshes: [
         {
           'primitives': [
@@ -294,7 +301,7 @@ void parserTests() {
       'offsetFromHeadBone': [0.0, 0.1, 0.2],
     };
 
-    final model = VrmModel.parseGlb(_glb(json));
+    final model = VrmModel.parseGlb(glb(json));
     final happy = model.vrm.expressions.preset[VrmExpressionPreset.happy]!;
 
     expect(() => model.vrm.meta.references.add('copy'), throwsUnsupportedError);
@@ -479,7 +486,7 @@ void parserTests() {
   });
 
   test('parses a minimal VRM 1.0 GLB and preserves humanoid indices', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     json['asset'] = {
       'version': '2.0',
       'minVersion': '2.0',
@@ -492,7 +499,7 @@ void parserTests() {
     };
     (json['extensionsUsed']! as List<Object?>).add('EXT_asset');
 
-    final result = VrmModel.tryParseGlb(_glb(json));
+    final result = VrmModel.tryParseGlb(glb(json));
 
     expect(result.validation.hasErrors, isFalse);
     expect(result.asset, isNotNull);
@@ -509,12 +516,12 @@ void parserTests() {
     expect(result.asset!.gltf.scenes.single.nodes, [0]);
     expect(
       result.asset!.vrm.humanoid.nodeFor(VrmHumanoidBone.leftHand),
-      _boneNodes[VrmHumanoidBone.leftHand],
+      boneNodes[VrmHumanoidBone.leftHand],
     );
   });
 
   test('VRM GLB parser resolves external image URIs', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     json['images'] = [
       {'uri': 'texture.png', 'mimeType': 'image/png'},
     ];
@@ -531,7 +538,7 @@ void parserTests() {
     var requestedUri = '';
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       uriResolver: (uri) {
         requestedUri = uri;
         return pngBytes;
@@ -544,13 +551,13 @@ void parserTests() {
   });
 
   test('reports malformed VRM root extension object', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     final extensions = Map<String, Object?>.from(json['extensions']! as Map);
     json['extensions'] = extensions;
     extensions['VRMC_vrm'] = 'bad';
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -562,7 +569,7 @@ void parserTests() {
   });
 
   test('reports missing required VRM root fields', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     final vrm =
         (json['extensions']! as Map<String, Object?>)['VRMC_vrm']!
             as Map<String, Object?>;
@@ -571,7 +578,7 @@ void parserTests() {
       ..remove('humanoid');
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -591,7 +598,7 @@ void parserTests() {
 
   test('reports explicit null VRM object fields', () {
     final json =
-        jsonDecode(jsonEncode(_minimalVrmJson())) as Map<String, Object?>;
+        jsonDecode(jsonEncode(minimalVrmJson())) as Map<String, Object?>;
     final vrm =
         (json['extensions']! as Map<String, Object?>)['VRMC_vrm']!
             as Map<String, Object?>;
@@ -602,7 +609,7 @@ void parserTests() {
       ..['expressions'] = null;
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -619,14 +626,14 @@ void parserTests() {
   });
 
   test('reports missing VRM specVersion', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     final vrm =
         (json['extensions']! as Map<String, Object?>)['VRMC_vrm']!
             as Map<String, Object?>;
     vrm.remove('specVersion');
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -642,12 +649,12 @@ void parserTests() {
   });
 
   test('warns when a VRM embeds a VRMA root extension', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     final extensions = json['extensions']! as Map<String, Object?>;
     extensions['VRMC_vrm_animation'] = {'specVersion': '1.0'};
     (json['extensionsUsed']! as List<Object?>).add('VRMC_vrm_animation');
 
-    final result = VrmModel.tryParseGlb(_glb(json));
+    final result = VrmModel.tryParseGlb(glb(json));
 
     expect(result.asset, isNotNull);
     expect(result.validation.hasErrors, isFalse);
@@ -676,7 +683,7 @@ void parserTests() {
 
   test('reports malformed GLB JSON UTF-8 instead of throwing', () {
     final result = GltfAsset.tryParse(
-      bytes: _glbChunks([
+      bytes: glbChunks([
         MapEntry(0x4e4f534a, Uint8List.fromList([0xff, 0xff, 0xff, 0xff])),
       ]),
       validation: VrmValidationMode.permissive,
@@ -747,7 +754,7 @@ void parserTests() {
       json['extras'] = '${json['extras']}x';
       jsonBytesLength = utf8.encode(jsonEncode(json)).length;
     }
-    final bytes = _glb(json);
+    final bytes = glb(json);
     bytes[20 + jsonBytesLength] = 0x09;
 
     final result = GltfAsset.tryParse(
@@ -761,7 +768,7 @@ void parserTests() {
       contains('glb.invalidJsonChunkPadding'),
     );
 
-    final zeroPadded = _glb(json);
+    final zeroPadded = glb(json);
     zeroPadded[20 + jsonBytesLength] = 0x00;
     final zeroResult = GltfAsset.tryParse(
       bytes: zeroPadded,
@@ -775,7 +782,7 @@ void parserTests() {
   });
 
   test('does not read past declared GLB length', () {
-    final bytes = _glb({
+    final bytes = glb({
       'asset': {'version': '2.0'},
     });
     final data = ByteData.sublistView(bytes);
@@ -801,7 +808,7 @@ void parserTests() {
         }),
       ),
     );
-    final bytes = _glbChunks([
+    final bytes = glbChunks([
       MapEntry(0x4e4f534a, jsonChunk),
       MapEntry(0x004e4942, Uint8List(4)),
       MapEntry(0x4e4f534a, jsonChunk),
@@ -828,7 +835,7 @@ void parserTests() {
         }),
       ),
     );
-    final bytes = _glbChunks([
+    final bytes = glbChunks([
       MapEntry(0x4e4f534a, jsonChunk),
       MapEntry(0x12345678, Uint8List(4)),
       MapEntry(0x004e4942, Uint8List(4)),
@@ -851,7 +858,7 @@ void parserTests() {
   test('exposes GLB BIN chunk bytes as buffer data', () {
     final binary = Uint8List.fromList([1, 2, 3, 4]);
     final result = GltfAsset.tryParse(
-      bytes: _glb({
+      bytes: glb({
         'asset': {'version': '2.0'},
         'buffers': [
           {'byteLength': 4},
@@ -1698,7 +1705,7 @@ void parserTests() {
       0x0a,
     ]);
     final result = GltfAsset.tryParse(
-      bytes: _glb({
+      bytes: glb({
         'asset': {'version': '2.0'},
         'buffers': [
           {'byteLength': pngBytes.length},
@@ -2025,12 +2032,12 @@ void parserTests() {
   });
 
   test('generic glTF parser warns for animation target without node', () {
-    final binary = _floats([0.0, 0.0, 0.0, 0.0]);
+    final binary = floats([0.0, 0.0, 0.0, 0.0]);
     final json = <String, Object?>{
       'asset': {'version': '2.0'},
     };
     json.addAll(
-      _animationStorageJson(binary.length, [
+      animationStorageJson(binary.length, [
         [0, 4],
         [4, 12],
       ]),
@@ -2049,7 +2056,7 @@ void parserTests() {
       },
     ];
 
-    final result = GltfAsset.tryParse(bytes: _glb(json, binaryChunk: binary));
+    final result = GltfAsset.tryParse(bytes: glb(json, binaryChunk: binary));
 
     expect(result.asset, isNotNull);
     expect(result.validation.hasErrors, isFalse);
@@ -2585,7 +2592,7 @@ void parserTests() {
   });
 
   test('runtime rest pose respects glTF node matrix transforms', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     final nodes = json['nodes']! as List<Map<String, Object?>>;
     nodes[0]
       ..remove('translation')
@@ -2607,8 +2614,8 @@ void parserTests() {
         5.0,
         1.0,
       ];
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)));
+    final binding = FakeBinding();
     final node = runtime.model.gltf.nodes[0];
     final trsNode = runtime.model.gltf.nodes[1];
 
@@ -2629,7 +2636,7 @@ void parserTests() {
   });
 
   test('reports glTF node matrices that are not decomposable to TRS', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     final nodes = json['nodes']! as List<Map<String, Object?>>;
     nodes[0]
       ..remove('translation')
@@ -2653,7 +2660,7 @@ void parserTests() {
       ];
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -2665,7 +2672,7 @@ void parserTests() {
   });
 
   test('reports invalid glTF node transform shapes in permissive mode', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     json['scene'] = 'bad-scene';
     json['scenes'] = [
       {
@@ -2815,7 +2822,7 @@ void parserTests() {
     ];
 
     final result = VrmModel.tryParseGlb(
-      _glb(json, binaryChunk: _floats([0.0, 1.0])),
+      glb(json, binaryChunk: floats([0.0, 1.0])),
       validation: VrmValidationMode.permissive,
     );
 
@@ -2996,10 +3003,10 @@ void parserTests() {
   });
 
   test('reports invalid glTF animation input times', () {
-    final binary = _floats([0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
-    final json = _minimalVrmJson()
+    final binary = floats([0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(
+        animationStorageJson(
           binary.length,
           [
             [0, 8],
@@ -3023,7 +3030,7 @@ void parserTests() {
       ];
 
     final result = VrmModel.tryParseGlb(
-      _glb(json, binaryChunk: binary),
+      glb(json, binaryChunk: binary),
       validation: VrmValidationMode.permissive,
     );
 
@@ -3051,9 +3058,9 @@ void parserTests() {
     data.setFloat32(20, 0.0, Endian.little);
     data.setFloat32(24, 1.0, Endian.little);
     data.setFloat32(28, 0.0, Endian.little);
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(
+        animationStorageJson(
           binary.length,
           [
             [0, 8],
@@ -3077,7 +3084,7 @@ void parserTests() {
       ];
 
     final result = VrmModel.tryParseGlb(
-      _glb(json, binaryChunk: binary),
+      glb(json, binaryChunk: binary),
       validation: VrmValidationMode.permissive,
     );
 
@@ -3090,7 +3097,7 @@ void parserTests() {
   });
 
   test('preserves glTF leaf extensions and extras', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     final nodes = [
       for (final node in json['nodes']! as List<Map<String, Object?>>)
         Map<String, Object?>.from(node),
@@ -3322,7 +3329,7 @@ void parserTests() {
 
     final binary = Uint8List(12);
     ByteData.sublistView(binary).setFloat32(8, 1.0, Endian.little);
-    final model = VrmModel.parseGlb(_glb(json, binaryChunk: binary));
+    final model = VrmModel.parseGlb(glb(json, binaryChunk: binary));
     void expectExtraMapImmutable(Object? value) {
       final extra = value! as Map<String, Object?>;
       expect(() => extra['mutated'] = true, throwsUnsupportedError);

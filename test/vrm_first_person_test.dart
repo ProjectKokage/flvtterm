@@ -1,6 +1,12 @@
-part of '../flvtterm_test.dart';
+import 'dart:convert';
+import 'dart:typed_data';
 
-void vrmFirstPersonTests() {
+import 'package:flvtterm/flvtterm.dart';
+import 'package:test/test.dart';
+
+import 'src/test_fixtures.dart';
+
+void main() {
   test('humanoid and first-person constructors copy raw maps', () {
     final raw = <String, Object?>{
       'extras': <String, Object?>{
@@ -30,7 +36,7 @@ void vrmFirstPersonTests() {
   });
 
   test('strict mode rejects missing required humanoid bones', () {
-    final json = (jsonDecode(jsonEncode(_minimalVrmJson())) as Map)
+    final json = (jsonDecode(jsonEncode(minimalVrmJson())) as Map)
         .cast<String, Object?>();
     json['scene'] = 2;
     (json['scenes']! as List<Object?>).add({
@@ -47,9 +53,9 @@ void vrmFirstPersonTests() {
     humanBoneMap.remove('head');
     humanBoneMap['neck'] = <String, Object?>{'node': 'bad'};
 
-    final strict = VrmModel.tryParseGlb(_glb(json));
+    final strict = VrmModel.tryParseGlb(glb(json));
     final permissive = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -67,7 +73,7 @@ void vrmFirstPersonTests() {
   });
 
   test('drops invalid humanoid bone mappings', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     final vrm =
         (json['extensions']! as Map<String, Object?>)['VRMC_vrm']!
             as Map<String, Object?>;
@@ -88,7 +94,7 @@ void vrmFirstPersonTests() {
     humanBones['chest'] = {'node': 2};
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -109,13 +115,13 @@ void vrmFirstPersonTests() {
   });
 
   test('reports invalid humanoid containers', () {
-    final badRoot = _minimalVrmJson();
+    final badRoot = minimalVrmJson();
     final badRootVrm =
         (badRoot['extensions']! as Map<String, Object?>)['VRMC_vrm']!
             as Map<String, Object?>;
     badRootVrm['humanoid'] = 'bad';
 
-    final badBones = _minimalVrmJson();
+    final badBones = minimalVrmJson();
     final badBonesVrm =
         (badBones['extensions']! as Map<String, Object?>)['VRMC_vrm']!
             as Map<String, Object?>;
@@ -125,7 +131,7 @@ void vrmFirstPersonTests() {
     badBonesVrm['humanoid'] = badBonesHumanoid;
     badBonesHumanoid['humanBones'] = 'bad';
 
-    final badBone = _minimalVrmJson();
+    final badBone = minimalVrmJson();
     final badBoneVrm =
         (badBone['extensions']! as Map<String, Object?>)['VRMC_vrm']!
             as Map<String, Object?>;
@@ -140,15 +146,15 @@ void vrmFirstPersonTests() {
     badBoneMap['head'] = 'bad';
 
     final badRootResult = VrmModel.tryParseGlb(
-      _glb(badRoot),
+      glb(badRoot),
       validation: VrmValidationMode.permissive,
     );
     final badBonesResult = VrmModel.tryParseGlb(
-      _glb(badBones),
+      glb(badBones),
       validation: VrmValidationMode.permissive,
     );
     final badBoneResult = VrmModel.tryParseGlb(
-      _glb(badBone),
+      glb(badBone),
       validation: VrmValidationMode.permissive,
     );
 
@@ -170,14 +176,14 @@ void vrmFirstPersonTests() {
   });
 
   test('reports VRM humanoid object without humanBones', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     final vrm =
         (json['extensions']! as Map<String, Object?>)['VRMC_vrm']!
             as Map<String, Object?>;
     vrm['humanoid'] = <String, Object?>{};
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -193,13 +199,13 @@ void vrmFirstPersonTests() {
   });
 
   test('reports humanoid scale and parent diagnostics with paths', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     final nodes = json['nodes']! as List<Map<String, Object?>>;
     nodes[0]['scale'] = [1.0, 0.0, 1.0];
     nodes[3]['children'] = <int>[5];
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -225,7 +231,7 @@ void vrmFirstPersonTests() {
   });
 
   test('reports reflected humanoid matrix basis as non-positive scale', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     final nodes = json['nodes']! as List<Map<String, Object?>>;
     nodes[0]['matrix'] = [
       -1.0,
@@ -247,7 +253,7 @@ void vrmFirstPersonTests() {
     ];
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -260,7 +266,7 @@ void vrmFirstPersonTests() {
   });
 
   test('reports malformed VRM meta authors in permissive mode', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     final meta =
         ((json['extensions']! as Map<String, Object?>)['VRMC_vrm']!
                 as Map<String, Object?>)['meta']!
@@ -268,7 +274,7 @@ void vrmFirstPersonTests() {
     meta['authors'] = ['Author', '', 3];
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -287,7 +293,7 @@ void vrmFirstPersonTests() {
       ]),
     );
 
-    final badAuthors = _minimalVrmJson();
+    final badAuthors = minimalVrmJson();
     final badAuthorsMeta =
         ((badAuthors['extensions']! as Map<String, Object?>)['VRMC_vrm']!
                 as Map<String, Object?>)['meta']!
@@ -295,7 +301,7 @@ void vrmFirstPersonTests() {
     badAuthorsMeta['authors'] = 'Author';
 
     final badAuthorsResult = VrmModel.tryParseGlb(
-      _glb(badAuthors),
+      glb(badAuthors),
       validation: VrmValidationMode.permissive,
     );
 
@@ -317,14 +323,14 @@ void vrmFirstPersonTests() {
   });
 
   test('reports malformed VRM meta object in permissive mode', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     final vrm =
         (json['extensions']! as Map<String, Object?>)['VRMC_vrm']!
             as Map<String, Object?>;
     vrm['meta'] = 'bad';
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -336,7 +342,7 @@ void vrmFirstPersonTests() {
   });
 
   test('reports malformed required VRM meta strings', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     final meta =
         ((json['extensions']! as Map<String, Object?>)['VRMC_vrm']!
                 as Map<String, Object?>)['meta']!
@@ -346,7 +352,7 @@ void vrmFirstPersonTests() {
       ..['licenseUrl'] = 9;
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -367,21 +373,21 @@ void vrmFirstPersonTests() {
   });
 
   test('allows empty VRM meta licenseUrl', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     final meta =
         ((json['extensions']! as Map<String, Object?>)['VRMC_vrm']!
                 as Map<String, Object?>)['meta']!
             as Map<String, Object?>;
     meta['licenseUrl'] = '';
 
-    final result = VrmModel.tryParseGlb(_glb(json));
+    final result = VrmModel.tryParseGlb(glb(json));
 
     expect(result.validation.hasErrors, isFalse);
     expect(result.asset!.vrm.meta.licenseUrl, '');
   });
 
   test('parses VRM meta license and thumbnail fields', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     json['images'] = [
       {
         'uri':
@@ -410,7 +416,7 @@ void vrmFirstPersonTests() {
       ..['modification'] = 'allowModificationRedistribution'
       ..['otherLicenseUrl'] = 'https://example.com/other';
 
-    final result = VrmModel.tryParseGlb(_glb(json));
+    final result = VrmModel.tryParseGlb(glb(json));
     final parsed = result.asset!.vrm.meta;
 
     expect(result.validation.hasErrors, isFalse);
@@ -470,7 +476,7 @@ void vrmFirstPersonTests() {
   });
 
   test('reports malformed optional VRM meta fields', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     final meta =
         ((json['extensions']! as Map<String, Object?>)['VRMC_vrm']!
                 as Map<String, Object?>)['meta']!
@@ -483,7 +489,7 @@ void vrmFirstPersonTests() {
       ..['allowRedistribution'] = 'yes';
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -506,7 +512,7 @@ void vrmFirstPersonTests() {
   });
 
   test('first-person annotations default missing meshes to auto', () {
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       meshes: [
         {
           'primitives': [
@@ -532,7 +538,7 @@ void vrmFirstPersonTests() {
     };
     (json['extensionsUsed']! as List<Object?>).add('VENDOR_visibility');
 
-    final model = VrmModel.parseGlb(_glb(json));
+    final model = VrmModel.parseGlb(glb(json));
     final annotation = model.vrm.firstPerson.meshAnnotations.single;
     expect(model.vrm.firstPerson.raw['extras'], {'source': 'first-person'});
     expect(
@@ -546,13 +552,13 @@ void vrmFirstPersonTests() {
       VrmFirstPersonMeshAnnotationType.auto,
     );
     expect(
-      VrmModel.parseGlb(_glb(_minimalVrmJson())).vrm.firstPerson.typeForNode(0),
+      VrmModel.parseGlb(glb(minimalVrmJson())).vrm.firstPerson.typeForNode(0),
       VrmFirstPersonMeshAnnotationType.auto,
     );
   });
 
   test('reports invalid first-person mesh annotations', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     final vrm =
         (json['extensions']! as Map<String, Object?>)['VRMC_vrm']!
             as Map<String, Object?>;
@@ -567,7 +573,7 @@ void vrmFirstPersonTests() {
     };
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -638,19 +644,19 @@ void vrmFirstPersonTests() {
   });
 
   test('reports invalid first-person containers', () {
-    final badRoot = _minimalVrmJson();
+    final badRoot = minimalVrmJson();
     final badRootVrm =
         (badRoot['extensions']! as Map<String, Object?>)['VRMC_vrm']!
             as Map<String, Object?>;
     badRootVrm['firstPerson'] = 'bad';
 
-    final badList = _minimalVrmJson();
+    final badList = minimalVrmJson();
     final badListVrm =
         (badList['extensions']! as Map<String, Object?>)['VRMC_vrm']!
             as Map<String, Object?>;
     badListVrm['firstPerson'] = {'meshAnnotations': <Object?>[]};
 
-    final badEntry = _minimalVrmJson();
+    final badEntry = minimalVrmJson();
     final badEntryVrm =
         (badEntry['extensions']! as Map<String, Object?>)['VRMC_vrm']!
             as Map<String, Object?>;
@@ -659,15 +665,15 @@ void vrmFirstPersonTests() {
     };
 
     final badRootResult = VrmModel.tryParseGlb(
-      _glb(badRoot),
+      glb(badRoot),
       validation: VrmValidationMode.permissive,
     );
     final badListResult = VrmModel.tryParseGlb(
-      _glb(badList),
+      glb(badList),
       validation: VrmValidationMode.permissive,
     );
     final badEntryResult = VrmModel.tryParseGlb(
-      _glb(badEntry),
+      glb(badEntry),
       validation: VrmValidationMode.permissive,
     );
 
@@ -695,7 +701,7 @@ void vrmFirstPersonTests() {
     data.setFloat32(4, 1.0, Endian.little);
     binary[20] = 1;
     data.setFloat32(24, 1.0, Endian.little);
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       meshes: [
         {
           'primitives': [
@@ -745,7 +751,7 @@ void vrmFirstPersonTests() {
         },
       ];
 
-    final model = VrmModel.parseGlb(_glb(json, binaryChunk: binary));
+    final model = VrmModel.parseGlb(glb(json, binaryChunk: binary));
 
     expect(
       model.conservativeFirstPersonTypeForNode(0),
@@ -775,7 +781,7 @@ void vrmFirstPersonTests() {
     expect(model.firstPersonNeedsGeometrySplit(1), isFalse);
 
     final runtime = VrmRuntime(model);
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
 
     expect(
       runtime.firstPerson.geometrySplitWarnings().single,
@@ -825,7 +831,7 @@ void vrmFirstPersonTests() {
     final data = ByteData.sublistView(binary);
     binary[0] = 1;
     data.setFloat32(4, 1.0, Endian.little);
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       meshes: [
         {
           'primitives': [
@@ -860,7 +866,7 @@ void vrmFirstPersonTests() {
         },
       ];
 
-    final model = VrmModel.parseGlb(_glb(json, binaryChunk: binary));
+    final model = VrmModel.parseGlb(glb(json, binaryChunk: binary));
 
     expect(
       model.conservativeFirstPersonTypeForNode(0),
@@ -875,7 +881,7 @@ void vrmFirstPersonTests() {
       binary[vertex * 4] = vertex == 0 ? 0 : 1;
       data.setFloat32(24 + vertex * 16, 1.0, Endian.little);
     }
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       meshes: [
         {
           'primitives': [
@@ -907,7 +913,7 @@ void vrmFirstPersonTests() {
         },
       ];
 
-    final model = VrmModel.parseGlb(_glb(json, binaryChunk: binary));
+    final model = VrmModel.parseGlb(glb(json, binaryChunk: binary));
 
     expect(model.firstPersonTriangleTypesForPrimitive(0, 0), [
       VrmFirstPersonMeshAnnotationType.thirdPersonOnly,
@@ -936,7 +942,7 @@ void vrmFirstPersonTests() {
       binary[16 + vertex * 4] = vertex == 1 ? 0 : 1;
       data.setFloat32(96 + vertex * 16, 1.0, Endian.little);
     }
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       meshes: [
         {
           'primitives': [
@@ -976,7 +982,7 @@ void vrmFirstPersonTests() {
         },
       ];
 
-    final model = VrmModel.parseGlb(_glb(json, binaryChunk: binary));
+    final model = VrmModel.parseGlb(glb(json, binaryChunk: binary));
 
     expect(model.firstPersonTriangleTypesForPrimitive(0, 0), [
       VrmFirstPersonMeshAnnotationType.thirdPersonOnly,
@@ -994,7 +1000,7 @@ void vrmFirstPersonTests() {
     final data = ByteData.sublistView(binary);
     binary[0] = 1;
     data.setFloat32(4, 1.0, Endian.little);
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       meshes: [
         {
           'primitives': [
@@ -1029,7 +1035,7 @@ void vrmFirstPersonTests() {
       ];
 
     final result = VrmModel.tryParseGlb(
-      _glb(json, binaryChunk: binary),
+      glb(json, binaryChunk: binary),
       validation: VrmValidationMode.permissive,
     );
     final model = result.asset!;
@@ -1059,7 +1065,7 @@ void vrmFirstPersonTests() {
   });
 
   test('first-person auto warnings report unclassified meshes', () {
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       meshes: [
         {
           'primitives': [
@@ -1069,7 +1075,7 @@ void vrmFirstPersonTests() {
       ],
       nodeMesh: {0: 0},
     );
-    final model = VrmModel.parseGlb(_glb(json));
+    final model = VrmModel.parseGlb(glb(json));
 
     final warning = VrmRuntime(
       model,
@@ -1090,7 +1096,7 @@ void vrmFirstPersonTests() {
   });
 
   test('first-person classification ignores invalid vertex counts', () {
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       meshes: [
         {
           'primitives': [
@@ -1113,7 +1119,7 @@ void vrmFirstPersonTests() {
         },
       ];
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
     final model = result.asset!;
@@ -1128,12 +1134,12 @@ void vrmFirstPersonTests() {
     );
     expect(model.firstPersonTriangleTypesForPrimitive(0, 0), isEmpty);
 
-    final runtime = VrmRuntime(model)..bind(_FakeBinding());
+    final runtime = VrmRuntime(model)..bind(FakeBinding());
     expect(() => runtime.update(0), returnsNormally);
   });
 
   test('runtime applies first-person mesh visibility policy', () {
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       meshes: [
         {
           'primitives': [
@@ -1163,8 +1169,8 @@ void vrmFirstPersonTests() {
         {'node': 3, 'type': 'both'},
       ],
     };
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.firstPerson.useFirstPerson();
@@ -1184,7 +1190,7 @@ void vrmFirstPersonTests() {
 }
 
 Uint8List _vrmWithThumbnail(String mimeType, Uint8List imageBytes) {
-  final json = _minimalVrmJson();
+  final json = minimalVrmJson();
   json['images'] = [
     {'uri': 'data:$mimeType;base64,${base64.encode(imageBytes)}'},
   ];
@@ -1192,7 +1198,7 @@ Uint8List _vrmWithThumbnail(String mimeType, Uint8List imageBytes) {
       (json['extensions']! as Map<String, Object?>)['VRMC_vrm']!
           as Map<String, Object?>;
   (vrm['meta']! as Map<String, Object?>)['thumbnailImage'] = 0;
-  return _glb(json);
+  return glb(json);
 }
 
 Uint8List _testPngHeader({required int width, required int height}) {
