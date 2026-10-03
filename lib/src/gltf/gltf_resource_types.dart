@@ -2,6 +2,7 @@ part of '../../flvtterm.dart';
 
 /// Parsed glTF buffer.
 final class GltfBuffer {
+  /// [data] must be bytes the asset owns, as an unmodifiable view.
   GltfBuffer._({
     required this.index,
     required this.name,
@@ -10,9 +11,7 @@ final class GltfBuffer {
     required Uint8List? data,
     required Map<String, Object?> extensions,
     required Object? extras,
-  }) : _data = data == null
-           ? null
-           : Uint8List.fromList(data).asUnmodifiableView(),
+  }) : _data = data,
        extensions = _immutableJsonValue(extensions) as Map<String, Object?>,
        extras = _immutableJsonValue(extras);
 
@@ -31,6 +30,9 @@ final class GltfBuffer {
   final Uint8List? _data;
 
   /// Resolved buffer bytes for GLB BIN, data URI, or caller-resolved URI data.
+  ///
+  /// The bytes are unmodifiable and owned by the asset. For a GLB's first
+  /// buffer they are a view of [GltfAsset.binaryChunk], not a second copy.
   Uint8List? get data => _data;
 
   /// Buffer extensions, preserved.
@@ -277,6 +279,7 @@ final class GltfTexture {
 
 /// Parsed glTF image.
 final class GltfImage {
+  /// [data] must be bytes the asset owns, as an unmodifiable view.
   GltfImage._({
     required this.index,
     required this.name,
@@ -286,9 +289,7 @@ final class GltfImage {
     required Uint8List? data,
     required Map<String, Object?> extensions,
     required Object? extras,
-  }) : _data = data == null
-           ? null
-           : Uint8List.fromList(data).asUnmodifiableView(),
+  }) : _data = data,
        extensions = _immutableJsonValue(extensions) as Map<String, Object?>,
        extras = _immutableJsonValue(extras);
 
@@ -310,6 +311,9 @@ final class GltfImage {
   final Uint8List? _data;
 
   /// Resolved image bytes for `data:`, caller-resolved URI, or bufferView images.
+  ///
+  /// The bytes are unmodifiable and owned by the asset. A bufferView image is
+  /// a view of its buffer's bytes, so its `offsetInBytes` may be non-zero.
   Uint8List? get data => _data;
 
   /// Image extensions, preserved.

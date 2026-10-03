@@ -114,6 +114,84 @@ void gltfBufferTests() {
     expect(() => imageData[0] = 0, throwsUnsupportedError);
   });
 
+  test('parsed bytes do not follow later changes to the caller bytes', () {
+    const png = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+    final binary = Uint8List.fromList([1, 2, 3, 4, ...png]);
+    final source = _glb({
+      'asset': {'version': '2.0'},
+      'buffers': [
+        {'byteLength': binary.length},
+      ],
+      'bufferViews': [
+        {'buffer': 0, 'byteOffset': 4, 'byteLength': png.length},
+      ],
+      'images': [
+        {'bufferView': 0, 'mimeType': 'image/png'},
+      ],
+    }, binaryChunk: binary);
+    final asset = GltfAsset.parse(bytes: source);
+
+    source.fillRange(0, source.length, 0xff);
+
+    expect(asset.binaryChunk, [1, 2, 3, 4, ...png]);
+    expect(asset.buffers.single.data, [1, 2, 3, 4, ...png]);
+    expect(asset.readBufferViewBytes(0), png);
+    expect(asset.images.single.data, png);
+  });
+
+  test('parsed bytes do not follow later changes to resolver bytes', () {
+    final resolved = Uint8List.fromList([9, 8, 7, 6]);
+    final asset = GltfAsset.parse(
+      bytes: Uint8List.fromList(
+        utf8.encode(
+          jsonEncode({
+            'asset': {'version': '2.0'},
+            'buffers': [
+              {'uri': 'data.bin', 'byteLength': resolved.length},
+            ],
+            'images': [
+              {'uri': 'image.png'},
+            ],
+          }),
+        ),
+      ),
+      uriResolver: (_) => resolved,
+    );
+
+    resolved.fillRange(0, resolved.length, 0);
+
+    expect(asset.buffers.single.data, [9, 8, 7, 6]);
+    expect(asset.images.single.data, [9, 8, 7, 6]);
+    expect(() => asset.buffers.single.data![0] = 0, throwsUnsupportedError);
+    expect(() => asset.images.single.data![0] = 0, throwsUnsupportedError);
+  });
+
+  test('a GLB keeps one copy of its binary chunk', () {
+    const png = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+    final binary = Uint8List.fromList([1, 2, 3, 4, ...png]);
+    final asset = GltfAsset.parse(
+      bytes: _glb({
+        'asset': {'version': '2.0'},
+        'buffers': [
+          {'byteLength': binary.length},
+        ],
+        'bufferViews': [
+          {'buffer': 0, 'byteOffset': 4, 'byteLength': png.length},
+        ],
+        'images': [
+          {'bufferView': 0, 'mimeType': 'image/png'},
+        ],
+      }, binaryChunk: binary),
+    );
+    final chunk = asset.binaryChunk!;
+
+    // The buffer and the embedded image are views into the chunk's memory,
+    // at their own offsets, instead of separate copies.
+    expect(asset.buffers.single.data!.offsetInBytes, chunk.offsetInBytes);
+    expect(asset.images.single.data!.offsetInBytes, chunk.offsetInBytes + 4);
+    expect(asset.images.single.data, png);
+  });
+
   test('does not expose GLB BIN padding as buffer data', () {
     final data = Uint8List.fromList([1, 2, 3]);
     final result = GltfAsset.tryParse(

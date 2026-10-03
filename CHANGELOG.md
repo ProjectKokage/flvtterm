@@ -1,3 +1,12 @@
+## 0.2.6 (unreleased)
+
+- Keep one copy of a GLB's BIN chunk. `GltfAsset.binaryChunk` is that copy;
+  the first buffer and every bufferView image are now views of it instead of
+  further copies, which removes one BIN-sized and one image-sized allocation
+  per loaded model. The bytes stay unmodifiable and independent of the bytes
+  passed to the parser. A bufferView image's `data.offsetInBytes` may now be
+  non-zero. Data-URI bytes are no longer copied a second time.
+
 ## 0.2.5
 
 - Promote the well-known VRM 0.x custom expression name "Surprised"

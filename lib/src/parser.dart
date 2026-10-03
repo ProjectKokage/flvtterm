@@ -412,18 +412,24 @@ GltfAsset? _parseGltfJsonString(
     sink,
   );
 
+  // The one copy of the caller's BIN chunk. Buffer 0 and every embedded
+  // image are views of it, so the asset neither follows later changes to the
+  // caller's bytes nor keeps the chunk more than once.
+  final ownedBinaryChunk = binaryChunk == null
+      ? null
+      : Uint8List.fromList(binaryChunk).asUnmodifiableView();
   final uriResolverFailures = <String, String>{};
   final buffers = _parseBuffers(
     json['buffers'],
     sink,
-    binaryChunk,
+    ownedBinaryChunk,
     uriResolver,
     uriResolverFailures,
   );
   final bufferViews = _parseBufferViews(json['bufferViews']);
   final gltf = GltfAsset._(
     json: json,
-    binaryChunk: binaryChunk,
+    binaryChunk: ownedBinaryChunk,
     extensions: _object(json['extensions']),
     extras: json['extras'],
     hasUriResolver: uriResolver != null,
