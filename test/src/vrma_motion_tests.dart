@@ -2082,7 +2082,10 @@ void vrmaMotionTests() {
     final json = {
       'asset': {'version': '2.0'},
       'extensions': {
-        'VRMC_vrm_animation': {'specVersion': '1.0', 'humanoid': {}},
+        'VRMC_vrm_animation': {
+          'specVersion': '1.0',
+          'humanoid': <String, Object?>{},
+        },
       },
     };
 

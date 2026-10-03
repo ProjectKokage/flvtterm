@@ -29,7 +29,7 @@ void materialTests() {
                 'emissiveTexture': {'index': 0},
                 'extensions': {
                   'KHR_materials_emissive_strength': {'emissiveStrength': 2.5},
-                  'KHR_materials_unlit': {},
+                  'KHR_materials_unlit': <String, Object?>{},
                   'VRMC_materials_mtoon': {
                     'specVersion': '1.0',
                     'transparentWithZWrite': true,
@@ -391,7 +391,7 @@ void materialTests() {
           ..['images'] = [
             {'uri': 'data:image/png;base64,', 'bufferView': 0},
             {'uri': 1, 'bufferView': 'bad', 'mimeType': 3},
-            {},
+            <String, Object?>{},
           ];
 
     final result = VrmModel.tryParseGlb(

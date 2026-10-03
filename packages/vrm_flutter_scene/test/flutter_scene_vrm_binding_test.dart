@@ -897,10 +897,10 @@ Uint8List _minimalVrmGlb({
               if (mtoonMaterial && !legacy)
                 'extensions': {
                   'VRMC_materials_mtoon': {'specVersion': '1.0'},
-                  'KHR_materials_unlit': {},
+                  'KHR_materials_unlit': <String, Object?>{},
                 },
             },
-            if (skippedPrimitiveBeforeMaterial) {},
+            if (skippedPrimitiveBeforeMaterial) <String, Object?>{},
           ],
         if (hasMaterialTexture) ...{
           'textures': [
