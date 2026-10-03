@@ -529,3 +529,32 @@ VrmVector3 _springInverseTransformPoint(
   );
   return VrmVector3(result.x, result.y, result.z);
 }
+
+final class _SpringVector3 {
+  _SpringVector3() : x = 0, y = 0, z = 0;
+
+  _SpringVector3.from(VrmVector3 value) : x = value.x, y = value.y, z = value.z;
+
+  double x;
+  double y;
+  double z;
+
+  void set(double x, double y, double z) {
+    this.x = x;
+    this.y = y;
+    this.z = z;
+  }
+
+  void copyFrom(_SpringVector3 other) {
+    x = other.x;
+    y = other.y;
+    z = other.z;
+  }
+}
+
+final class _SpringNodePath {
+  const _SpringNodePath(this.nodes, this.bindings);
+
+  final List<GltfNode> nodes;
+  final List<VrmNodeBinding> bindings;
+}

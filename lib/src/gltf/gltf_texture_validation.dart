@@ -1,5 +1,10 @@
 part of '../../flvtterm.dart';
 
+const _gltfImageMimeTypes = {'image/jpeg', 'image/png'};
+const _samplerMagFilters = {9728, 9729};
+const _samplerMinFilters = {9728, 9729, 9984, 9985, 9986, 9987};
+const _samplerWrapModes = {33071, 33648, 10497};
+
 void _validateGltfTextureResources(GltfAsset gltf, _DiagnosticSink sink) {
   final rawTextures = _list(gltf.json['textures']);
   for (final texture in gltf.textures) {

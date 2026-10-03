@@ -193,3 +193,13 @@ void _setTextureTransforms(
   final transform = transforms.values.first;
   binding.setTextureTransform(scale: transform.scale, offset: transform.offset);
 }
+
+final class _TextureTransformAccum {
+  _TextureTransformAccum({
+    this.scale = VrmVector2.one,
+    this.offset = VrmVector2.zero,
+  });
+
+  VrmVector2 scale;
+  VrmVector2 offset;
+}

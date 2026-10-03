@@ -1,5 +1,10 @@
 part of '../../flvtterm.dart';
 
+const _gltfBufferMimeTypes = {
+  'application/octet-stream',
+  'application/gltf-buffer',
+};
+
 void _validateGltfBuffers(GltfAsset gltf, _DiagnosticSink sink) {
   final rawBuffers = _list(gltf.json['buffers']);
   for (final buffer in gltf.buffers) {
