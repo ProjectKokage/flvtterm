@@ -38,16 +38,21 @@ final class FlutterSceneVrmAsset {
   final Set<int> straightAlphaTextureIndices;
 
   /// Loads a VRM GLB from bytes into both flvtterm core and Flutter Scene.
+  ///
+  /// With [adoptBytes], the parsed model keeps views of [bytes] instead of
+  /// copying the BIN chunk; the caller must not change [bytes] afterwards.
   static Future<FlutterSceneVrmAsset> fromGlbBytes(
     Uint8List bytes, {
     VrmValidationMode validation = VrmValidationMode.strict,
     GltfUriResolver? uriResolver,
     FlutterSceneVrmBindingOptions? bindingOptions,
+    bool adoptBytes = false,
   }) async {
     final model = VrmModel.parseGlb(
       bytes,
       validation: validation,
       uriResolver: uriResolver,
+      adoptBytes: adoptBytes,
     );
     final rootNode = await importResolvedFlutterSceneGlb(bytes, model);
     final corrections = await correctFlutterSceneMaterials(rootNode, model);
@@ -78,6 +83,9 @@ final class FlutterSceneVrmAsset {
       validation: validation,
       uriResolver: uriResolver,
       bindingOptions: bindingOptions,
+      // The bundle's bytes were loaded for this call and nothing else
+      // changes them.
+      adoptBytes: true,
     );
   }
 }

@@ -81,6 +81,12 @@ a preset declared through `presetName` always wins over the custom clip.
 
 Use `VrmModel.parseGlb(bytes)` when validation errors should throw.
 
+The parser copies a GLB's BIN chunk once, so the model does not follow later
+changes to `bytes`. A caller that hands its bytes over and no longer changes
+them can pass `adoptBytes: true`; the model then keeps views of those bytes
+and copies nothing. The same option exists on `GltfAsset.parse`,
+`VrmAnimationAsset.parse` and `FlutterSceneVrmAsset.fromGlbBytes`.
+
 For JSON glTF or VRMA files that reference external buffers or images, keep
 platform I/O outside the core package and provide bytes through `uriResolver`:
 

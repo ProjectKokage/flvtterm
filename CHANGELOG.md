@@ -6,6 +6,12 @@
   per loaded model. The bytes stay unmodifiable and independent of the bytes
   passed to the parser. A bufferView image's `data.offsetInBytes` may now be
   non-zero. Data-URI bytes are no longer copied a second time.
+- Add `adoptBytes` to `GltfAsset.parse`/`tryParse`, `VrmModel.parseGlb`/
+  `tryParseGlb`, `VrmAnimationAsset.parse`/`tryParse` and the adapter's
+  `FlutterSceneVrmAsset.fromGlbBytes`. A caller that hands its GLB bytes over
+  and no longer changes them gets views of those bytes instead of a copy of
+  the BIN chunk. The default still copies. `fromGlbAsset` adopts the bytes it
+  loads from the bundle.
 
 ## 0.2.5
 

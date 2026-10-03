@@ -246,15 +246,22 @@ final class VrmModel {
   /// Parses a VRM 0.x or VRM 1.0 GLB.
   ///
   /// Throws in strict mode when version-specific validation fails.
+  ///
+  /// With [adoptBytes], the asset keeps views of [bytes] instead of copying
+  /// the GLB's BIN chunk. The caller hands the bytes over and must not change
+  /// them afterwards: a later change would reach the parsed asset without
+  /// validation. It has no effect on a JSON glTF, which has no BIN chunk.
   static VrmModel parseGlb(
     Uint8List bytes, {
     VrmValidationMode validation = VrmValidationMode.strict,
     GltfUriResolver? uriResolver,
+    bool adoptBytes = false,
   }) {
     final result = tryParseGlb(
       bytes,
       validation: validation,
       uriResolver: uriResolver,
+      adoptBytes: adoptBytes,
     );
     final asset = result.asset;
     if (asset == null) {
@@ -264,11 +271,22 @@ final class VrmModel {
   }
 
   /// Parses either VRM version without throwing for asset validation failures.
+  ///
+  /// With [adoptBytes], the asset keeps views of [bytes] instead of copying
+  /// the GLB's BIN chunk. The caller hands the bytes over and must not change
+  /// them afterwards: a later change would reach the parsed asset without
+  /// validation. It has no effect on a JSON glTF, which has no BIN chunk.
   static VrmParseResult<VrmModel> tryParseGlb(
     Uint8List bytes, {
     VrmValidationMode validation = VrmValidationMode.strict,
     GltfUriResolver? uriResolver,
-  }) => _Parser.parseVrmGlb(bytes, validation, uriResolver: uriResolver);
+    bool adoptBytes = false,
+  }) => _Parser.parseVrmGlb(
+    bytes,
+    validation,
+    uriResolver: uriResolver,
+    adoptBytes: adoptBytes,
+  );
 }
 
 final _vrm0SourceToRuntimeTransform = VrmMatrix4(const [
@@ -361,15 +379,22 @@ final class VrmAnimationAsset {
   int? get defaultAnimationIndex => gltf.animations.isEmpty ? null : 0;
 
   /// Parses a VRMA GLB or JSON glTF asset.
+  ///
+  /// With [adoptBytes], the asset keeps views of [bytes] instead of copying
+  /// the GLB's BIN chunk. The caller hands the bytes over and must not change
+  /// them afterwards: a later change would reach the parsed asset without
+  /// validation. It has no effect on a JSON glTF, which has no BIN chunk.
   static VrmAnimationAsset parse({
     required Uint8List bytes,
     VrmValidationMode validation = VrmValidationMode.strict,
     GltfUriResolver? uriResolver,
+    bool adoptBytes = false,
   }) {
     final result = tryParse(
       bytes: bytes,
       validation: validation,
       uriResolver: uriResolver,
+      adoptBytes: adoptBytes,
     );
     final asset = result.asset;
     if (asset == null) {
@@ -383,9 +408,20 @@ final class VrmAnimationAsset {
 
   /// Parses a VRMA GLB or JSON glTF asset without throwing for validation
   /// failures.
+  ///
+  /// With [adoptBytes], the asset keeps views of [bytes] instead of copying
+  /// the GLB's BIN chunk. The caller hands the bytes over and must not change
+  /// them afterwards: a later change would reach the parsed asset without
+  /// validation. It has no effect on a JSON glTF, which has no BIN chunk.
   static VrmParseResult<VrmAnimationAsset> tryParse({
     required Uint8List bytes,
     VrmValidationMode validation = VrmValidationMode.strict,
     GltfUriResolver? uriResolver,
-  }) => _Parser.parseVrma(bytes, validation, uriResolver: uriResolver);
+    bool adoptBytes = false,
+  }) => _Parser.parseVrma(
+    bytes,
+    validation,
+    uriResolver: uriResolver,
+    adoptBytes: adoptBytes,
+  );
 }
