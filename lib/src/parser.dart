@@ -374,7 +374,9 @@ GltfAsset? _parseGltfJsonString(
     sink.error('gltf.rootNotObject', 'glTF JSON root must be an object.');
     return null;
   }
-  final json = decoded.cast<String, Object?>();
+  // Frozen once here; every later freeze of a part of this tree returns that
+  // part unchanged.
+  final json = _immutableJsonValue(decoded) as Map<String, Object?>;
   final assetObject = _validateAssetObject(json, sink);
   if (assetObject != null) {
     final versionValue = assetObject['version'];

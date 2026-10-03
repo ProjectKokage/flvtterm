@@ -12,6 +12,10 @@
   and no longer changes them gets views of those bytes instead of a copy of
   the BIN chunk. The default still copies. `fromGlbAsset` adopts the bytes it
   loads from the bundle.
+- Freeze the parsed JSON tree once. Reading a field of an already frozen
+  object no longer deep-copies its subtree, so `extensions` and `extras`
+  values are the tree's own unmodifiable maps. Parsing a 26.8 MB VRM is about
+  10% faster.
 
 ## 0.2.5
 
