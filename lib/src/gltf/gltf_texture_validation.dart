@@ -152,7 +152,7 @@ void _validateGltfTextureResources(GltfAsset gltf, _DiagnosticSink sink) {
         );
       }
     }
-    _validateImageData(image, gltf, sink);
+    _validateImageData(image, sink);
     if (hasUri && hasBufferView) {
       sink.error(
         'gltf.invalidImageSource',
@@ -190,10 +190,11 @@ String _samplerPath(int samplerIndex, String suffix) =>
 String _imagePath(int imageIndex, String suffix) =>
     '\$.images[$imageIndex]$suffix';
 
-void _validateImageData(GltfImage image, GltfAsset gltf, _DiagnosticSink sink) {
+void _validateImageData(GltfImage image, _DiagnosticSink sink) {
   final mimeType = image.mimeType ?? _dataUriMediaType(image.uri ?? '');
   if (!_gltfImageMimeTypes.contains(mimeType)) return;
-  final bytes = _imageBytes(image, gltf, sink);
+  // The parser resolved the image's bytes, from its URI or its bufferView.
+  final bytes = image.data;
   if (bytes == null || bytes.isEmpty) return;
   final valid = switch (mimeType) {
     'image/png' => _hasPngSignature(bytes),
@@ -206,20 +207,6 @@ void _validateImageData(GltfImage image, GltfAsset gltf, _DiagnosticSink sink) {
     'Image data must match its declared MIME type.',
     jsonPath: '\$.images[${image.index}]',
   );
-}
-
-Uint8List? _imageBytes(GltfImage image, GltfAsset gltf, _DiagnosticSink sink) {
-  if (image.data != null) return image.data;
-  final bufferView = image.bufferView;
-  if (bufferView == null) return null;
-  final view = gltf.bufferViews.elementAtOrNull(bufferView);
-  final source = _bufferBytes(gltf, view?.buffer);
-  final length = view?.byteLength;
-  if (view == null || source == null || length == null) return null;
-  final start = view.byteOffset;
-  final end = start + length;
-  if (start < 0 || length < 0 || end > source.length) return null;
-  return Uint8List.sublistView(source, start, end);
 }
 
 bool _hasPngSignature(Uint8List bytes) {

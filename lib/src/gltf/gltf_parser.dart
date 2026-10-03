@@ -487,26 +487,10 @@ GltfImage _parseImage(
     mimeType: _string(raw['mimeType']),
     data:
         _decodeImageBytes(uri, index, sink, uriResolver, uriResolverFailures) ??
-        _imageBufferViewBytes(bufferView, buffers, bufferViews),
+        _bufferViewBytes(buffers, bufferViews, bufferView),
     extensions: _object(raw['extensions']),
     extras: raw['extras'],
   );
-}
-
-Uint8List? _imageBufferViewBytes(
-  int? bufferViewIndex,
-  List<GltfBuffer> buffers,
-  List<GltfBufferView> bufferViews,
-) {
-  if (bufferViewIndex == null) return null;
-  final view = bufferViews.elementAtOrNull(bufferViewIndex);
-  final bytes = buffers.elementAtOrNull(view?.buffer ?? -1)?.data;
-  final length = view?.byteLength;
-  if (view == null || bytes == null || length == null) return null;
-  final start = view.byteOffset;
-  final end = start + length;
-  if (start < 0 || length < 0 || end > bytes.length) return null;
-  return Uint8List.sublistView(bytes, start, end);
 }
 
 Uint8List? _decodeImageBytes(

@@ -345,7 +345,7 @@ PBR/emissive fallback values. Morph writes are staged until `commitFrame`,
 composed from immutable base vertices, and uploaded once per changed primitive
 through one reusable buffer. `binding.supportsVisibleMorphTargets` is true only
 when every declared morph-bearing mesh was attached successfully. This path is
-deliberately pinned to Flutter Scene 0.19.0 because reusable skinned vertex
+deliberately pinned to Flutter Scene 0.23.0 because reusable skinned vertex
 buffers and corrected material bindings still depend on internal renderer
 seams. MToon
 materials report unlit/PBR fallback diagnostics through
@@ -355,8 +355,9 @@ capability diagnostic and retain their imported neutral geometry. The adapter
 also reports explicit capability diagnostics for unsupported texture-coordinate
 sets and legacy transparent depth-write. Corrected unlit and PBR `MASK`
 materials apply the same alpha coverage in color, depth and shadow passes;
-custom imports without depth-mask support retain a capability warning. Flutter Scene 0.19 builds texture mip chains, so authored mipmapped
-minification filters no longer produce an unsupported-sampler warning.
+custom imports without depth-mask support retain a capability warning.
+Flutter Scene builds texture mip chains, so authored mipmapped minification
+filters do not produce an unsupported-sampler warning.
 
 Pure Dart smoke example: run `dart run bin/runtime_console.dart [avatar.vrm]`
 from `example/runtime_console`. With a path, the example reports permissive

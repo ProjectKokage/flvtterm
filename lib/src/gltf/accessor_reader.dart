@@ -255,6 +255,27 @@ Uint8List? _bufferBytes(GltfAsset gltf, int? bufferIndex) {
   return gltf.buffers.elementAtOrNull(bufferIndex)?._data;
 }
 
+/// The bytes a bufferView covers, as a view of its buffer's bytes. Returns
+/// null when the index, the view's buffer or the view's range is invalid.
+Uint8List? _bufferViewBytes(
+  List<GltfBuffer> buffers,
+  List<GltfBufferView> bufferViews,
+  int? bufferViewIndex,
+) {
+  if (bufferViewIndex == null) return null;
+  final view = bufferViews.elementAtOrNull(bufferViewIndex);
+  final bufferIndex = view?.buffer;
+  final bytes = bufferIndex == null
+      ? null
+      : buffers.elementAtOrNull(bufferIndex)?._data;
+  final length = view?.byteLength;
+  if (view == null || bytes == null || length == null) return null;
+  final start = view.byteOffset;
+  final end = start + length;
+  if (start < 0 || length < 0 || end > bytes.length) return null;
+  return Uint8List.sublistView(bytes, start, end);
+}
+
 int? _componentByteSize(int? componentType) {
   return switch (componentType) {
     5120 || 5121 => 1,
