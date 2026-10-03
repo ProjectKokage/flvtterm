@@ -264,6 +264,43 @@ void gltfBufferTests() {
     expect(animation.gltf.binaryChunk, [1, 2, 3, 4]);
   });
 
+  test('parsed JSON is frozen once and shared, not copied per reader', () {
+    final asset = GltfAsset.parse(
+      bytes: _glb({
+        'asset': {'version': '2.0'},
+        'extensions': {
+          'VENDOR_root': {
+            'values': [1, 2, 3],
+          },
+        },
+        'buffers': [
+          {
+            'byteLength': 4,
+            'extensions': {
+              'VENDOR_buffer': {'kept': true},
+            },
+          },
+        ],
+      }, binaryChunk: Uint8List(4)),
+      validation: VrmValidationMode.permissive,
+    );
+    final rootExtensions = asset.json['extensions']! as Map<String, Object?>;
+    final rawBuffer =
+        (asset.json['buffers']! as List<Object?>).single!
+            as Map<String, Object?>;
+
+    expect(identical(asset.extensions, rootExtensions), isTrue);
+    expect(
+      identical(asset.buffers.single.extensions, rawBuffer['extensions']),
+      isTrue,
+    );
+    expect(() => rootExtensions['VENDOR_other'] = 1, throwsUnsupportedError);
+    expect(
+      () => (asset.buffers.single.extensions['VENDOR_buffer']! as Map)['x'] = 1,
+      throwsUnsupportedError,
+    );
+  });
+
   test('does not expose GLB BIN padding as buffer data', () {
     final data = Uint8List.fromList([1, 2, 3]);
     final result = GltfAsset.tryParse(

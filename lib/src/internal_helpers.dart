@@ -5,18 +5,29 @@ Map<String, Object?> _object(Object? value) {
   return _immutableJsonValue(value) as Map<String, Object?>;
 }
 
+/// The maps and lists [_immutableJsonValue] produced. They are deeply
+/// unmodifiable already, so freezing one again returns it unchanged instead
+/// of copying its whole subtree.
+final _frozenJson = Expando<bool>();
+
 Object? _immutableJsonValue(Object? value) {
   if (value is Map) {
-    return Map<String, Object?>.unmodifiable({
+    if (_frozenJson[value] ?? false) return value;
+    final frozen = Map<String, Object?>.unmodifiable({
       for (final entry in value.entries)
         if (entry.key is String)
           entry.key as String: _immutableJsonValue(entry.value),
     });
+    _frozenJson[frozen] = true;
+    return frozen;
   }
   if (value is List) {
-    return List<Object?>.unmodifiable([
+    if (_frozenJson[value] ?? false) return value;
+    final frozen = List<Object?>.unmodifiable([
       for (final item in value) _immutableJsonValue(item),
     ]);
+    _frozenJson[frozen] = true;
+    return frozen;
   }
   return value;
 }
