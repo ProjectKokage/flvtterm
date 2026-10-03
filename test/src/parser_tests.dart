@@ -1303,7 +1303,7 @@ void parserTests() {
     final bytes = Uint8List.fromList(
       utf8.encode(
         jsonEncode({
-          'asset': {'version': '2.0', 'copyright': [], 'generator': 1},
+          'asset': {'version': '2.0', 'copyright': <Object?>[], 'generator': 1},
         }),
       ),
     );
@@ -1330,7 +1330,7 @@ void parserTests() {
         jsonEncode({
           'asset': {'version': '2.0'},
           'nodes': 'bad',
-          'materials': [],
+          'materials': <Object?>[],
           'buffers': [1],
         }),
       ),
@@ -1893,7 +1893,7 @@ void parserTests() {
           'asset': {'version': '2.0'},
           'animations': [
             <String, Object?>{},
-            {'channels': [], 'samplers': []},
+            {'channels': <Object?>[], 'samplers': <Object?>[]},
             {'channels': 'bad', 'samplers': 'bad'},
           ],
         }),
@@ -2066,7 +2066,7 @@ void parserTests() {
           'asset': {'version': '2.0'},
           'meshes': [
             <String, Object?>{},
-            {'primitives': []},
+            {'primitives': <Object?>[]},
             {'primitives': 'bad'},
           ],
         }),

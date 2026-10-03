@@ -134,13 +134,13 @@ final class FlutterSceneResolvedImport {
         );
       }
       for (final key in ['buffers', 'bufferViews']) {
-        for (final item in (decoded[key] as List? ?? const [])) {
-          (item['extensions'] as Map?)?.remove(_meshoptExtension);
+        for (final item in _jsonObjects(decoded[key])) {
+          _jsonObject(item['extensions'])?.remove(_meshoptExtension);
         }
       }
-      for (final mesh in (decoded['meshes'] as List? ?? const [])) {
-        for (final primitive in (mesh['primitives'] as List? ?? const [])) {
-          (primitive['extensions'] as Map?)?.remove(_dracoExtension);
+      for (final mesh in _jsonObjects(decoded['meshes'])) {
+        for (final primitive in _jsonObjects(mesh['primitives'])) {
+          _jsonObject(primitive['extensions'])?.remove(_dracoExtension);
         }
       }
       decoded['extensionsUsed'] = gltf.extensionsUsed
@@ -191,3 +191,11 @@ String _uniqueBufferUri(Set<String> reserved) {
     suffix++;
   }
 }
+
+/// The decoded JSON objects of an array, or none when the member is absent.
+Iterable<Map<Object?, Object?>> _jsonObjects(Object? value) =>
+    (value as List<Object?>? ?? const <Object?>[])
+        .cast<Map<Object?, Object?>>();
+
+Map<Object?, Object?>? _jsonObject(Object? value) =>
+    value as Map<Object?, Object?>?;

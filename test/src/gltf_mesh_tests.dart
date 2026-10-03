@@ -35,7 +35,7 @@ void gltfMeshTests() {
       'meshes': [
         {
           'primitives': [
-            {'attributes': <String, Object?>{}, 'targets': []},
+            {'attributes': <String, Object?>{}, 'targets': <Object?>[]},
             {'attributes': <String, Object?>{}, 'targets': 'bad'},
           ],
         },

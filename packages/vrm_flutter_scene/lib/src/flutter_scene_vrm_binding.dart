@@ -714,9 +714,13 @@ final class _FlutterSceneMaterialBinding
     }
     var unsupported = false;
     for (final sceneMaterial in _materials) {
+      // Flutter Scene's PBR and unlit materials and this package's corrected
+      // unlit material share no interface for these factors, so the color is
+      // set by name; a material without the member reports the warning below.
       final dynamic material = sceneMaterial;
       try {
         if (parameter == 'color') {
+          // ignore: avoid_dynamic_calls
           material.baseColorFactor = vm.Vector4(
             value.x,
             value.y,
@@ -724,6 +728,7 @@ final class _FlutterSceneMaterialBinding
             value.w,
           );
         } else {
+          // ignore: avoid_dynamic_calls
           material.emissiveFactor = vm.Vector4(
             value.x,
             value.y,

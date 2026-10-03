@@ -12,7 +12,7 @@ Uri _packageRoot(String name) {
   final config = File('.dart_tool/package_config.json');
   final packages =
       (jsonDecode(config.readAsStringSync()) as Map)['packages'] as List;
-  final package = packages.cast<Map>().singleWhere(
+  final package = packages.cast<Map<dynamic, dynamic>>().singleWhere(
     (entry) => entry['name'] == name,
   );
   return Directory.fromUri(
@@ -46,7 +46,8 @@ void main() {
             reason: '${result.stdout}\n${result.stderr}',
           );
           final reflected = jsonDecode(reflection.readAsStringSync()) as Map;
-          final blocks = (reflected['struct_definitions'] as List).cast<Map>();
+          final blocks = (reflected['struct_definitions'] as List)
+              .cast<Map<dynamic, dynamic>>();
           final material = blocks.singleWhere(
             (block) => block['name'] == 'MaterialInfo',
           );
@@ -56,7 +57,8 @@ void main() {
           expect(material['byte_length'], 48);
           expect(texture['byte_length'], 32);
           final offsets = <String, int>{
-            for (final member in (material['members'] as List).cast<Map>())
+            for (final member
+                in (material['members'] as List).cast<Map<dynamic, dynamic>>())
               member['name'] as String: member['offset'] as int,
           };
           expect(offsets, {
