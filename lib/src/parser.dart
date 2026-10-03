@@ -5,10 +5,16 @@ final class _Parser {
     Uint8List bytes,
     VrmValidationMode mode, {
     GltfUriResolver? uriResolver,
+    bool adoptBytes = false,
   }) {
     final sink = _DiagnosticSink();
     final gltf = _looksLikeGlb(bytes)
-        ? _parseGlb(bytes, sink, uriResolver: uriResolver)
+        ? _parseGlb(
+            bytes,
+            sink,
+            uriResolver: uriResolver,
+            adoptBytes: adoptBytes,
+          )
         : _parseGltfJsonBytes(bytes, sink, uriResolver: uriResolver);
     if (gltf != null) {
       _validateRequiredExtensions(gltf, sink, _supportedGltfExtensions);
@@ -24,9 +30,15 @@ final class _Parser {
     Uint8List bytes,
     VrmValidationMode mode, {
     GltfUriResolver? uriResolver,
+    bool adoptBytes = false,
   }) {
     final sink = _DiagnosticSink();
-    final gltf = _parseGlb(bytes, sink, uriResolver: uriResolver);
+    final gltf = _parseGlb(
+      bytes,
+      sink,
+      uriResolver: uriResolver,
+      adoptBytes: adoptBytes,
+    );
     if (gltf == null) {
       return VrmParseResult(
         asset: null,
@@ -86,10 +98,16 @@ final class _Parser {
     Uint8List bytes,
     VrmValidationMode mode, {
     GltfUriResolver? uriResolver,
+    bool adoptBytes = false,
   }) {
     final sink = _DiagnosticSink();
     final gltf = _looksLikeGlb(bytes)
-        ? _parseGlb(bytes, sink, uriResolver: uriResolver)
+        ? _parseGlb(
+            bytes,
+            sink,
+            uriResolver: uriResolver,
+            adoptBytes: adoptBytes,
+          )
         : _parseGltfJsonBytes(bytes, sink, uriResolver: uriResolver);
     if (gltf == null) {
       return VrmParseResult(
@@ -200,6 +218,7 @@ GltfAsset? _parseGlb(
   Uint8List bytes,
   _DiagnosticSink sink, {
   GltfUriResolver? uriResolver,
+  bool adoptBytes = false,
 }) {
   if (bytes.length < 12) {
     sink.error('glb.tooShort', 'GLB header must be at least 12 bytes.');
@@ -297,6 +316,7 @@ GltfAsset? _parseGlb(
       binChunk,
       sink,
       uriResolver: uriResolver,
+      adoptBinaryChunk: adoptBytes,
     );
   } on FormatException catch (error) {
     sink.error('gltf.badUtf8', 'Could not decode glTF JSON: ${error.message}');
@@ -341,6 +361,7 @@ GltfAsset? _parseGltfJsonString(
   Uint8List? binaryChunk,
   _DiagnosticSink sink, {
   GltfUriResolver? uriResolver,
+  bool adoptBinaryChunk = false,
 }) {
   Object? decoded;
   try {
@@ -412,11 +433,13 @@ GltfAsset? _parseGltfJsonString(
     sink,
   );
 
-  // The one copy of the caller's BIN chunk. Buffer 0 and every embedded
-  // image are views of it, so the asset neither follows later changes to the
-  // caller's bytes nor keeps the chunk more than once.
+  // The asset's one BIN chunk: a copy of the caller's, or the caller's own
+  // bytes when it handed them over. Buffer 0 and every embedded image are
+  // views of it, so the asset never keeps the chunk more than once.
   final ownedBinaryChunk = binaryChunk == null
       ? null
+      : adoptBinaryChunk
+      ? binaryChunk.asUnmodifiableView()
       : Uint8List.fromList(binaryChunk).asUnmodifiableView();
   final uriResolverFailures = <String, String>{};
   final buffers = _parseBuffers(

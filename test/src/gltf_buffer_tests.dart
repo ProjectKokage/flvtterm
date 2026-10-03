@@ -192,6 +192,78 @@ void gltfBufferTests() {
     expect(asset.images.single.data, png);
   });
 
+  test('adopted GLB bytes are kept as views instead of a copy', () {
+    const png = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+    final binary = Uint8List.fromList([1, 2, 3, 4, ...png]);
+    final source = _glb({
+      'asset': {'version': '2.0'},
+      'buffers': [
+        {'byteLength': binary.length},
+      ],
+      'bufferViews': [
+        {'buffer': 0, 'byteOffset': 4, 'byteLength': png.length},
+      ],
+      'images': [
+        {'bufferView': 0, 'mimeType': 'image/png'},
+      ],
+    }, binaryChunk: binary);
+    final binOffset = source.length - binary.length;
+
+    final asset = GltfAsset.parse(bytes: source, adoptBytes: true);
+    final chunk = asset.binaryChunk!;
+
+    // The chunk sits where the BIN payload is in the caller's bytes.
+    expect(chunk.offsetInBytes, source.offsetInBytes + binOffset);
+    expect(chunk, [1, 2, 3, 4, ...png]);
+    expect(asset.buffers.single.data!.offsetInBytes, chunk.offsetInBytes);
+    expect(asset.images.single.data!.offsetInBytes, chunk.offsetInBytes + 4);
+    expect(() => chunk[0] = 0, throwsUnsupportedError);
+    expect(() => asset.buffers.single.data![0] = 0, throwsUnsupportedError);
+    expect(() => asset.images.single.data![0] = 0, throwsUnsupportedError);
+
+    // Without adoption the chunk is a copy that starts its own memory.
+    final copied = GltfAsset.parse(bytes: source);
+    expect(copied.binaryChunk!.offsetInBytes, 0);
+  });
+
+  test('VRM and VRMA parsing adopt handed-over bytes', () {
+    final binary = Uint8List.fromList([1, 2, 3, 4]);
+    final vrmSource = _glb({
+      ..._minimalVrmJson(),
+      'buffers': [
+        {'byteLength': binary.length},
+      ],
+    }, binaryChunk: binary);
+    final vrmaSource = _glb({
+      ..._minimalVrmaJson(),
+      'buffers': [
+        {'byteLength': binary.length},
+      ],
+    }, binaryChunk: binary);
+
+    final model = VrmModel.tryParseGlb(
+      vrmSource,
+      validation: VrmValidationMode.permissive,
+      adoptBytes: true,
+    ).asset!;
+    final animation = VrmAnimationAsset.tryParse(
+      bytes: vrmaSource,
+      validation: VrmValidationMode.permissive,
+      adoptBytes: true,
+    ).asset!;
+
+    expect(
+      model.gltf.binaryChunk!.offsetInBytes,
+      vrmSource.length - binary.length,
+    );
+    expect(
+      animation.gltf.binaryChunk!.offsetInBytes,
+      vrmaSource.length - binary.length,
+    );
+    expect(model.gltf.binaryChunk, [1, 2, 3, 4]);
+    expect(animation.gltf.binaryChunk, [1, 2, 3, 4]);
+  });
+
   test('does not expose GLB BIN padding as buffer data', () {
     final data = Uint8List.fromList([1, 2, 3]);
     final result = GltfAsset.tryParse(

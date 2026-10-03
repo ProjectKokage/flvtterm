@@ -143,15 +143,22 @@ final class GltfAsset {
   final Map<(int, bool, bool), List<double>?> _animationAccessorCache = {};
 
   /// Parses a GLB or JSON glTF 2.0 asset.
+  ///
+  /// With [adoptBytes], the asset keeps views of [bytes] instead of copying
+  /// the GLB's BIN chunk. The caller hands the bytes over and must not change
+  /// them afterwards: a later change would reach the parsed asset without
+  /// validation. It has no effect on a JSON glTF, which has no BIN chunk.
   static GltfAsset parse({
     required Uint8List bytes,
     VrmValidationMode validation = VrmValidationMode.strict,
     GltfUriResolver? uriResolver,
+    bool adoptBytes = false,
   }) {
     final result = tryParse(
       bytes: bytes,
       validation: validation,
       uriResolver: uriResolver,
+      adoptBytes: adoptBytes,
     );
     final asset = result.asset;
     if (asset == null) {
@@ -162,11 +169,22 @@ final class GltfAsset {
 
   /// Parses a GLB or JSON glTF 2.0 asset without throwing for validation
   /// failures.
+  ///
+  /// With [adoptBytes], the asset keeps views of [bytes] instead of copying
+  /// the GLB's BIN chunk. The caller hands the bytes over and must not change
+  /// them afterwards: a later change would reach the parsed asset without
+  /// validation. It has no effect on a JSON glTF, which has no BIN chunk.
   static VrmParseResult<GltfAsset> tryParse({
     required Uint8List bytes,
     VrmValidationMode validation = VrmValidationMode.strict,
     GltfUriResolver? uriResolver,
-  }) => _Parser.parseGltf(bytes, validation, uriResolver: uriResolver);
+    bool adoptBytes = false,
+  }) => _Parser.parseGltf(
+    bytes,
+    validation,
+    uriResolver: uriResolver,
+    adoptBytes: adoptBytes,
+  );
 
   /// Reads numeric accessor component values.
   ///
