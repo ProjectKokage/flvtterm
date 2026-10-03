@@ -1,12 +1,17 @@
-part of '../flvtterm_test.dart';
+import 'dart:math' as math;
 
-void sampledMotionTests() {
+import 'package:flvtterm/flvtterm.dart';
+import 'package:test/test.dart';
+
+import 'src/test_fixtures.dart';
+
+void main() {
   group('sampled humanoid motion', () {
     test(
       'captures the current body for an uninterrupted sampled transition',
       () {
-        final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
-        final binding = _FakeBinding();
+        final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
+        final binding = FakeBinding();
         runtime.bind(binding);
         final layer = runtime.motion.addAdditiveLayer(
           VrmProgrammaticPose(
@@ -53,10 +58,10 @@ void sampledMotionTests() {
     );
 
     test('captures mirrored nonuniform TRS and rejects invalid transforms', () {
-      final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
+      final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
       const bones = {VrmHumanoidBone.head};
       expect(runtime.captureHumanoidPose(bones), isNull);
-      final binding = _FakeBinding();
+      final binding = FakeBinding();
       runtime.bind(binding);
       runtime.update(0);
       // Z rotation +90 degrees, scale (-2, 3, 4), translation (5, 6, 7).
@@ -105,7 +110,7 @@ void sampledMotionTests() {
         1,
       ]);
       expect(runtime.captureHumanoidPose(bones), isNull);
-      runtime.bind(_FakeBinding());
+      runtime.bind(FakeBinding());
       runtime.update(0);
       expect(runtime.captureHumanoidPose(bones), isNotNull);
       runtime.unbind();
@@ -113,8 +118,8 @@ void sampledMotionTests() {
     });
 
     test('isolates target and blended roots and never resamples a release', () {
-      final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
-      final binding = _FakeBinding();
+      final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
+      final binding = FakeBinding();
       runtime.bind(binding);
       runtime.motion.play(
         VrmProgrammaticPose(modelRootTranslation: const VrmVector3(2, 0, 0)),
@@ -159,18 +164,18 @@ void sampledMotionTests() {
       for (final rootBinding in [false, true]) {
         test('matches VRMA with legacy=$legacy rootBinding=$rootBinding', () {
           final model = VrmModel.parseGlb(
-            _glb(legacy ? _minimalVrm0Json() : _minimalVrmJson()),
+            glb(legacy ? minimalVrm0Json() : minimalVrmJson()),
           );
           final fixture = _sampledRetargetFixture();
           final clip = VrmRuntime(model);
           final sampled = VrmRuntime(model);
-          final clipBinding = _FakeBinding();
-          final sampledBinding = _FakeBinding();
+          final clipBinding = FakeBinding();
+          final sampledBinding = FakeBinding();
           clip.bind(
-            rootBinding ? clipBinding : _Vrm0FallbackBinding(clipBinding),
+            rootBinding ? clipBinding : Vrm0FallbackBinding(clipBinding),
           );
           sampled.bind(
-            rootBinding ? sampledBinding : _Vrm0FallbackBinding(sampledBinding),
+            rootBinding ? sampledBinding : Vrm0FallbackBinding(sampledBinding),
           );
           clip.motion.play(fixture.clip, speed: 0, hipsTranslationScale: 2);
           sampled.motion.play(
@@ -218,8 +223,8 @@ void sampledMotionTests() {
     }
 
     test('owns an exact duration, pause, seek, reverse and completion', () {
-      final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
-      runtime.bind(_FakeBinding());
+      final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
+      runtime.bind(FakeBinding());
       final times = <double>[];
       final source = _sampledHips(
         1,
@@ -251,8 +256,8 @@ void sampledMotionTests() {
     });
 
     test('crossfades, priority and stop release the sampled callback', () {
-      final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
-      final binding = _FakeBinding();
+      final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
+      final binding = FakeBinding();
       runtime.bind(binding);
       var sampledCalls = 0;
       runtime.motion.play(
@@ -264,7 +269,7 @@ void sampledMotionTests() {
       runtime.update(0);
       expect(binding.modelRootMotionTransform.storage[12], 4);
       runtime.motion.play(
-        _hipsTranslationVrma(2),
+        hipsTranslationVrma(2),
         speed: 0,
         startTimeSeconds: 1,
         priority: 5,
@@ -290,8 +295,8 @@ void sampledMotionTests() {
     });
 
     test('masks root motion and isolates additive command root movement', () {
-      final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
-      final binding = _FakeBinding();
+      final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
+      final binding = FakeBinding();
       runtime.bind(binding);
       runtime.motion.play(
         _sampledHips(9),
@@ -306,7 +311,7 @@ void sampledMotionTests() {
         speed: 0,
       );
       runtime.motion.addAdditiveLayer(
-        _hipsTranslationVrma(40),
+        hipsTranslationVrma(40),
         startTimeSeconds: 1,
         speed: 0,
       );
@@ -320,9 +325,9 @@ void sampledMotionTests() {
     });
 
     test('uses the injected retargeter and ignores reference animation', () {
-      final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
-      final binding = _FakeBinding();
-      final retargeter = _OffsetRetargeter();
+      final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
+      final binding = FakeBinding();
+      final retargeter = OffsetRetargeter();
       runtime.motion.vrmaRetargeter = retargeter;
       runtime.bind(binding);
       runtime.motion.play(_sampledHips(1), hipsTranslationScale: 3);
@@ -336,7 +341,7 @@ void sampledMotionTests() {
     test(
       'reference face bindings cannot take expression or gaze ownership',
       () {
-        final json = _minimalVrmJson(
+        final json = minimalVrmJson(
           expressions: {
             'preset': {
               'happy': <String, Object?>{},
@@ -347,9 +352,9 @@ void sampledMotionTests() {
         final vrm =
             (json['extensions']! as Map<String, Object?>)['VRMC_vrm']!
                 as Map<String, Object?>;
-        vrm['lookAt'] = _lookAtJson(type: 'expression');
-        final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
-        runtime.bind(_FakeBinding());
+        vrm['lookAt'] = lookAtJson(type: 'expression');
+        final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)));
+        runtime.bind(FakeBinding());
         runtime.expressions.setPreset(VrmExpressionPreset.happy, .2);
         final source = VrmSampledHumanoidMotion(
           restPose: _sampledRetargetFixture(faceAliases: true).rest,
@@ -408,11 +413,11 @@ void sampledMotionTests() {
         rotations.clear();
         expect(pose.rotations, hasLength(1));
         expect(() => pose.rotations.clear(), throwsUnsupportedError);
-        final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
-        runtime.bind(_FakeBinding());
+        final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
+        runtime.bind(FakeBinding());
         runtime.motion.play(
           VrmSampledHumanoidMotion(
-            restPose: _hipsTranslationVrma(1),
+            restPose: hipsTranslationVrma(1),
             duration: const Duration(seconds: 1),
             sample: (_) => pose,
           ),
@@ -428,7 +433,7 @@ VrmSampledHumanoidMotion _sampledHips(
   void Function(double)? sampleTime,
   Duration duration = const Duration(seconds: 10),
 }) => VrmSampledHumanoidMotion(
-  restPose: _hipsTranslationVrma(100),
+  restPose: hipsTranslationVrma(100),
   duration: duration,
   sample: (time) {
     sampleTime?.call(time);
@@ -505,11 +510,11 @@ VrmHumanoidSample _retargetSample(double time) => VrmHumanoidSample(
     },
   };
   final rest = VrmAnimationAsset.parse(
-    bytes: _glb(json),
+    bytes: glb(json),
     validation: VrmValidationMode.permissive,
   );
   final finalPose = _retargetSample(1);
-  final binary = _floats([
+  final binary = floats([
     0,
     1,
     0,
@@ -530,7 +535,7 @@ VrmHumanoidSample _retargetSample(double time) => VrmHumanoidSample(
     ],
   ]);
   json.addAll(
-    _animationStorageJson(
+    animationStorageJson(
       binary.length,
       [
         [0, 8],
@@ -565,7 +570,7 @@ VrmHumanoidSample _retargetSample(double time) => VrmHumanoidSample(
   return (
     rest: rest,
     clip: VrmAnimationAsset.parse(
-      bytes: _glb(json, binaryChunk: binary),
+      bytes: glb(json, binaryChunk: binary),
       validation: VrmValidationMode.permissive,
     ),
   );

@@ -1,6 +1,12 @@
-part of '../flvtterm_test.dart';
+import 'dart:convert';
+import 'dart:typed_data';
 
-void gltfSkinTests() {
+import 'package:flvtterm/flvtterm.dart';
+import 'package:test/test.dart';
+
+import 'src/test_fixtures.dart';
+
+void main() {
   test('reports skin skeleton outside the joint common root', () {
     final bytes = Uint8List.fromList(
       utf8.encode(
@@ -222,7 +228,7 @@ void gltfSkinTests() {
   test('warns for nonzero unused skin joint values', () {
     final binary = Uint8List(20);
     binary.setAll(0, [1, 0, 0, 0]);
-    binary.setAll(4, _floats([0.0, 1.0, 0.0, 0.0]));
+    binary.setAll(4, floats([0.0, 1.0, 0.0, 0.0]));
     final bytes = Uint8List.fromList(
       utf8.encode(
         jsonEncode({
@@ -296,9 +302,9 @@ void gltfSkinTests() {
   test('reports duplicate non-zero joint weights for one vertex', () {
     final binary = Uint8List(40);
     binary.setAll(0, [0, 1, 0, 0]);
-    binary.setAll(4, _floats([0.5, 0.5, 0.0, 0.0]));
+    binary.setAll(4, floats([0.5, 0.5, 0.0, 0.0]));
     binary.setAll(20, [1, 0, 0, 0]);
-    binary.setAll(24, _floats([0.25, 0.0, 0.0, 0.0]));
+    binary.setAll(24, floats([0.25, 0.0, 0.0, 0.0]));
     final bytes = Uint8List.fromList(
       utf8.encode(
         jsonEncode({

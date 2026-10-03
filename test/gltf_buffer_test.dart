@@ -1,6 +1,12 @@
-part of '../flvtterm_test.dart';
+import 'dart:convert';
+import 'dart:typed_data';
 
-void gltfBufferTests() {
+import 'package:flvtterm/flvtterm.dart';
+import 'package:test/test.dart';
+
+import 'src/test_fixtures.dart';
+
+void main() {
   test('reads raw bufferView bytes from data URI buffers', () {
     final data = Uint8List.fromList([1, 2, 3, 4, 5, 6]);
     final asset = GltfAsset.parse(
@@ -63,7 +69,7 @@ void gltfBufferTests() {
   test('reads raw bufferView bytes from GLB BIN chunks', () {
     final data = Uint8List.fromList([10, 11, 12, 13, 14, 15, 16, 17]);
     final asset = GltfAsset.parse(
-      bytes: _glb({
+      bytes: glb({
         'asset': {'version': '2.0'},
         'buffers': [
           {'byteLength': data.length},
@@ -89,7 +95,7 @@ void gltfBufferTests() {
       0x0a,
     ]);
     final asset = GltfAsset.parse(
-      bytes: _glb({
+      bytes: glb({
         'asset': {'version': '2.0'},
         'buffers': [
           {'byteLength': pngBytes.length},
@@ -117,7 +123,7 @@ void gltfBufferTests() {
   test('parsed bytes do not follow later changes to the caller bytes', () {
     const png = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
     final binary = Uint8List.fromList([1, 2, 3, 4, ...png]);
-    final source = _glb({
+    final source = glb({
       'asset': {'version': '2.0'},
       'buffers': [
         {'byteLength': binary.length},
@@ -170,7 +176,7 @@ void gltfBufferTests() {
     const png = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
     final binary = Uint8List.fromList([1, 2, 3, 4, ...png]);
     final asset = GltfAsset.parse(
-      bytes: _glb({
+      bytes: glb({
         'asset': {'version': '2.0'},
         'buffers': [
           {'byteLength': binary.length},
@@ -195,7 +201,7 @@ void gltfBufferTests() {
   test('adopted GLB bytes are kept as views instead of a copy', () {
     const png = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
     final binary = Uint8List.fromList([1, 2, 3, 4, ...png]);
-    final source = _glb({
+    final source = glb({
       'asset': {'version': '2.0'},
       'buffers': [
         {'byteLength': binary.length},
@@ -228,14 +234,14 @@ void gltfBufferTests() {
 
   test('VRM and VRMA parsing adopt handed-over bytes', () {
     final binary = Uint8List.fromList([1, 2, 3, 4]);
-    final vrmSource = _glb({
-      ..._minimalVrmJson(),
+    final vrmSource = glb({
+      ...minimalVrmJson(),
       'buffers': [
         {'byteLength': binary.length},
       ],
     }, binaryChunk: binary);
-    final vrmaSource = _glb({
-      ..._minimalVrmaJson(),
+    final vrmaSource = glb({
+      ...minimalVrmaJson(),
       'buffers': [
         {'byteLength': binary.length},
       ],
@@ -266,7 +272,7 @@ void gltfBufferTests() {
 
   test('parsed JSON is frozen once and shared, not copied per reader', () {
     final asset = GltfAsset.parse(
-      bytes: _glb({
+      bytes: glb({
         'asset': {'version': '2.0'},
         'extensions': {
           'VENDOR_root': {
@@ -304,7 +310,7 @@ void gltfBufferTests() {
   test('does not expose GLB BIN padding as buffer data', () {
     final data = Uint8List.fromList([1, 2, 3]);
     final result = GltfAsset.tryParse(
-      bytes: _glb({
+      bytes: glb({
         'asset': {'version': '2.0'},
         'buffers': [
           {'byteLength': data.length},
@@ -339,7 +345,7 @@ void gltfBufferTests() {
         {'byteLength': 1, 'uri': 'data:application/octet-stream;base64,AA=='},
       ],
     };
-    final bytes = _glb(json, binaryChunk: Uint8List(1));
+    final bytes = glb(json, binaryChunk: Uint8List(1));
 
     final strict = GltfAsset.tryParse(bytes: bytes);
     final permissive = GltfAsset.tryParse(
@@ -364,7 +370,7 @@ void gltfBufferTests() {
     };
 
     final result = GltfAsset.tryParse(
-      bytes: _glb(json, binaryChunk: Uint8List(8)),
+      bytes: glb(json, binaryChunk: Uint8List(8)),
       validation: VrmValidationMode.permissive,
     );
 
@@ -389,7 +395,7 @@ void gltfBufferTests() {
     final binary = Uint8List.fromList([1, 2, 3, 4, 5, 9, 0, 0]);
 
     final result = GltfAsset.tryParse(
-      bytes: _glb(json, binaryChunk: binary),
+      bytes: glb(json, binaryChunk: binary),
       validation: VrmValidationMode.permissive,
     );
 

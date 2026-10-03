@@ -1,9 +1,12 @@
-part of '../flvtterm_test.dart';
+import 'package:flvtterm/flvtterm.dart';
+import 'package:test/test.dart';
 
-void materialTests() {
+import 'src/test_fixtures.dart';
+
+void main() {
   test('parses MToon material metadata and validates extension fields', () {
     final json =
-        _minimalVrmJson(
+        minimalVrmJson(
             materials: [
               {
                 'pbrMetallicRoughness': {
@@ -108,7 +111,7 @@ void materialTests() {
     (json['extensionsUsed']! as List<Object?>).add('VENDOR_pbr');
     (json['extensionsUsed']! as List<Object?>).add('VENDOR_mtoon');
 
-    final model = VrmModel.parseGlb(_glb(json));
+    final model = VrmModel.parseGlb(glb(json));
     final material = model.gltf.materials.first;
     final mtoon = model.gltf.materials.first.mtoon!;
     final defaultMToon = model.gltf.materials[1].mtoon!;
@@ -249,7 +252,7 @@ void materialTests() {
   });
 
   test('does not enable malformed material extensions', () {
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       materials: [
         {
           'extensions': {
@@ -267,7 +270,7 @@ void materialTests() {
     (json['extensionsUsed']! as List<Object?>).add('VRMC_materials_mtoon');
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -286,7 +289,7 @@ void materialTests() {
 
   test('reports invalid MToon metadata in permissive mode', () {
     final json =
-        _minimalVrmJson(
+        minimalVrmJson(
             materials: [
               {
                 'pbrMetallicRoughness': {
@@ -395,7 +398,7 @@ void materialTests() {
           ];
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -686,7 +689,7 @@ void materialTests() {
   });
 
   test('reports missing MToon specVersion', () {
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       materials: [
         {
           'extensions': {'VRMC_materials_mtoon': <String, Object?>{}},
@@ -696,7 +699,7 @@ void materialTests() {
     (json['extensionsUsed']! as List<Object?>).add('VRMC_materials_mtoon');
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -712,7 +715,7 @@ void materialTests() {
   });
 
   test('reports MToon texture info without index', () {
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       materials: [
         {
           'extensions': {
@@ -728,7 +731,7 @@ void materialTests() {
     (json['extensionsUsed']! as List<Object?>).add('VRMC_materials_mtoon');
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -745,7 +748,7 @@ void materialTests() {
   });
 
   test('validates texture info fields when index is missing', () {
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       materials: [
         {
           'pbrMetallicRoughness': {
@@ -778,7 +781,7 @@ void materialTests() {
     (json['extensionsUsed']! as List<Object?>).add('VRMC_materials_mtoon');
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -849,7 +852,7 @@ void materialTests() {
       };
     }
 
-    final json = _minimalVrmJson(
+    final json = minimalVrmJson(
       materials: [
         material('OPAQUE', 1),
         material('MASK', -1),
@@ -864,7 +867,7 @@ void materialTests() {
     (json['extensionsUsed']! as List<Object?>).add('VRMC_materials_mtoon');
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
     final invalidOffsets = result.validation.errors

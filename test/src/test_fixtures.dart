@@ -1,6 +1,10 @@
-part of '../flvtterm_test.dart';
+import 'dart:convert';
+import 'dart:math' as math;
+import 'dart:typed_data';
 
-Uint8List _glb(Map<String, Object?> json, {Uint8List? binaryChunk}) {
+import 'package:flvtterm/flvtterm.dart';
+
+Uint8List glb(Map<String, Object?> json, {Uint8List? binaryChunk}) {
   final jsonBytes = Uint8List.fromList(utf8.encode(jsonEncode(json)));
   final paddedJsonLength = (jsonBytes.length + 3) & ~3;
   final paddedBinLength = binaryChunk == null
@@ -35,7 +39,7 @@ Uint8List _glb(Map<String, Object?> json, {Uint8List? binaryChunk}) {
   return bytes;
 }
 
-Uint8List _glbChunks(List<MapEntry<int, Uint8List>> chunks) {
+Uint8List glbChunks(List<MapEntry<int, Uint8List>> chunks) {
   final paddedChunks = chunks.map((chunk) {
     final paddedLength = (chunk.value.length + 3) & ~3;
     final bytes = Uint8List(paddedLength);
@@ -65,7 +69,7 @@ Uint8List _glbChunks(List<MapEntry<int, Uint8List>> chunks) {
   return bytes;
 }
 
-Uint8List _floats(List<double> values) {
+Uint8List floats(List<double> values) {
   final bytes = Uint8List(values.length * 4);
   final data = ByteData.sublistView(bytes);
   for (var i = 0; i < values.length; i++) {
@@ -74,7 +78,7 @@ Uint8List _floats(List<double> values) {
   return bytes;
 }
 
-Map<String, Object?> _animationStorageJson(
+Map<String, Object?> animationStorageJson(
   int byteLength,
   List<List<int>> bufferViewRanges, {
   List<String> accessorTypes = const ['SCALAR', 'VEC3', 'VEC3'],
@@ -125,7 +129,7 @@ int _testComponentCount(String type) {
 
 double mathCosDegrees(double degrees) => math.cos(degrees * math.pi / 180);
 
-VrmMatrix4 _testTrs({
+VrmMatrix4 testTrs({
   List<double> translation = const [0.0, 0.0, 0.0],
   List<double> rotation = const [0.0, 0.0, 0.0, 1.0],
   List<double> scale = const [1.0, 1.0, 1.0],
@@ -166,7 +170,7 @@ VrmMatrix4 _testTrs({
   ]);
 }
 
-Map<String, Object?> _lookAtJson({
+Map<String, Object?> lookAtJson({
   required String type,
   double horizontalInnerOutput = 1,
   double horizontalOuterOutput = 1,
@@ -187,7 +191,7 @@ Map<String, Object?> _lookAtJson({
   };
 }
 
-Map<String, Object?> _minimalVrmJson({
+Map<String, Object?> minimalVrmJson({
   List<Object?> meshes = const [],
   List<Object?> materials = const [],
   Map<int, int> nodeMesh = const {},
@@ -217,7 +221,7 @@ Map<String, Object?> _minimalVrmJson({
         },
         'humanoid': {
           'humanBones': {
-            for (final entry in _boneNodes.entries)
+            for (final entry in boneNodes.entries)
               entry.key.specName: {'node': entry.value},
           },
         },
@@ -228,8 +232,8 @@ Map<String, Object?> _minimalVrmJson({
   };
 }
 
-Map<String, Object?> _minimalVrmaJson() {
-  final json = _minimalVrmJson();
+Map<String, Object?> minimalVrmaJson() {
+  final json = minimalVrmJson();
   final nodes = [
     ...(json['nodes']! as List<Object?>),
     {'name': 'sourceLeftEye'},
@@ -266,7 +270,7 @@ Map<String, Object?> _minimalVrmaJson() {
         'specVersion': '1.0',
         'humanoid': {
           'humanBones': {
-            for (final entry in _boneNodes.entries)
+            for (final entry in boneNodes.entries)
               entry.key.specName: {'node': entry.value},
             'leftEye': {'node': 15},
           },
@@ -306,7 +310,7 @@ const _nodeChildren = <List<int>>[
   [],
 ];
 
-const _boneNodes = <VrmHumanoidBone, int>{
+const boneNodes = <VrmHumanoidBone, int>{
   VrmHumanoidBone.hips: 0,
   VrmHumanoidBone.spine: 1,
   VrmHumanoidBone.head: 2,
@@ -324,10 +328,10 @@ const _boneNodes = <VrmHumanoidBone, int>{
   VrmHumanoidBone.rightHand: 14,
 };
 
-final class _FakeBinding implements VrmModelRootBinding {
+final class FakeBinding implements VrmModelRootBinding {
   final nodes = <int, _FakeNode>{};
   final meshes = <int, _FakeMesh>{};
-  final materials = <int, _FakeMaterial>{};
+  final materials = <int, FakeMaterial>{};
   var began = 0;
   var committed = 0;
   var nodeLookups = 0;
@@ -350,7 +354,7 @@ final class _FakeBinding implements VrmModelRootBinding {
   @override
   VrmMaterialBinding materialByGltfIndex(int materialIndex) {
     materialLookups++;
-    return materials.putIfAbsent(materialIndex, _FakeMaterial.new);
+    return materials.putIfAbsent(materialIndex, FakeMaterial.new);
   }
 
   @override
@@ -396,7 +400,7 @@ final class _FakeMesh implements VrmMeshBinding {
   }
 }
 
-final class _FakeMaterial implements VrmPerTextureMaterialBinding {
+final class FakeMaterial implements VrmPerTextureMaterialBinding {
   final colors = <String, VrmVector4>{};
   final textureTransforms =
       <VrmMaterialTextureSlot, ({VrmVector2 scale, VrmVector2 offset})>{};
@@ -428,3 +432,275 @@ final class _FakeMaterial implements VrmPerTextureMaterialBinding {
     this.offset = offset;
   }
 }
+
+final class OrderBinding implements VrmSceneBinding {
+  final events = <String>[];
+  final _nodes = <int, _OrderNode>{};
+  final _meshes = <int, _OrderMesh>{};
+
+  @override
+  void beginFrame() {
+    events.add('begin');
+  }
+
+  @override
+  void commitFrame() {
+    events.add('commit');
+  }
+
+  @override
+  VrmMaterialBinding materialByGltfIndex(int materialIndex) => FakeMaterial();
+
+  @override
+  VrmMeshBinding? meshByNodeIndex(int nodeIndex) =>
+      _meshes.putIfAbsent(nodeIndex, () => _OrderMesh(nodeIndex, events));
+
+  @override
+  VrmNodeBinding nodeByGltfIndex(int nodeIndex) =>
+      _nodes.putIfAbsent(nodeIndex, () => _OrderNode(nodeIndex, events));
+}
+
+final class Vrm0FallbackBinding implements VrmSceneBinding {
+  const Vrm0FallbackBinding(this.delegate);
+
+  final FakeBinding delegate;
+
+  @override
+  void beginFrame() => delegate.beginFrame();
+
+  @override
+  void commitFrame() => delegate.commitFrame();
+
+  @override
+  VrmMaterialBinding materialByGltfIndex(int materialIndex) =>
+      delegate.materialByGltfIndex(materialIndex);
+
+  @override
+  VrmMeshBinding? meshByNodeIndex(int nodeIndex) =>
+      delegate.meshByNodeIndex(nodeIndex);
+
+  @override
+  VrmNodeBinding nodeByGltfIndex(int nodeIndex) =>
+      delegate.nodeByGltfIndex(nodeIndex);
+}
+
+Map<String, Object?> minimalVrm0Json({
+  List<Object?> meshes = const [],
+  List<Object?> materials = const [],
+  Map<int, int> nodeMesh = const {},
+  Map<String, Object?>? firstPerson,
+  Map<String, Object?>? blendShapeMaster,
+  Map<String, Object?>? secondaryAnimation,
+  List<Object?>? materialProperties,
+}) {
+  final nodes = _nodes(nodeMesh);
+  nodes[1]['children'] = [15];
+  nodes.add({
+    'name': 'chest',
+    'children': [16, 9, 12],
+  });
+  nodes.add({
+    'name': 'neck',
+    'children': [2],
+  });
+  final humanBones = <Object?>[
+    for (final entry in boneNodes.entries)
+      <String, Object?>{'bone': entry.key.specName, 'node': entry.value},
+    <String, Object?>{'bone': 'chest', 'node': 15},
+    <String, Object?>{'bone': 'neck', 'node': 16},
+  ];
+
+  return {
+    'asset': {'version': '2.0', 'generator': 'UniVRM'},
+    'extensionsUsed': <Object?>['VRM'],
+    'extensionsRequired': <Object?>['VRM'],
+    'scene': 0,
+    'scenes': [
+      {
+        'nodes': [0],
+      },
+    ],
+    'nodes': nodes,
+    if (meshes.isNotEmpty) 'meshes': meshes,
+    if (materials.isNotEmpty) 'materials': materials,
+    'extensions': {
+      'VRM': {
+        'exporterVersion': 'UniVRM-0.99.4',
+        'specVersion': '0.0',
+        'meta': {
+          'title': 'Legacy Avatar',
+          'version': '1.2.3',
+          'author': 'Legacy Author',
+          'contactInformation': 'author@example.com',
+          'reference': 'https://example.com/avatar',
+          'texture': -1,
+          'allowedUserName': 'Everyone',
+          'violentUssageName': 'Disallow',
+          'sexualUssageName': 'Disallow',
+          'commercialUssageName': 'Allow',
+          'otherPermissionUrl': 'https://example.com/permissions',
+          'licenseName': 'CC_BY',
+          'otherLicenseUrl': 'https://example.com/license',
+        },
+        'humanoid': {
+          'humanBones': humanBones,
+          'armStretch': 0.05,
+          'legStretch': 0.05,
+          'upperArmTwist': 0.5,
+          'lowerArmTwist': 0.5,
+          'upperLegTwist': 0.5,
+          'lowerLegTwist': 0.5,
+          'feetSpacing': 0.0,
+          'hasTranslationDoF': false,
+        },
+        'firstPerson':
+            firstPerson ??
+            {
+              'firstPersonBone': 2,
+              'firstPersonBoneOffset': {'x': 0.0, 'y': 0.06, 'z': 0.0},
+              'meshAnnotations': <Object?>[],
+              'lookAtTypeName': 'Bone',
+              'lookAtHorizontalInner': vrm0DegreeMap(),
+              'lookAtHorizontalOuter': vrm0DegreeMap(),
+              'lookAtVerticalDown': vrm0DegreeMap(),
+              'lookAtVerticalUp': vrm0DegreeMap(),
+            },
+        'blendShapeMaster':
+            blendShapeMaster ?? {'blendShapeGroups': <Object?>[]},
+        'secondaryAnimation':
+            secondaryAnimation ??
+            {'boneGroups': <Object?>[], 'colliderGroups': <Object?>[]},
+        'materialProperties': materialProperties ?? <Object?>[],
+      },
+    },
+  };
+}
+
+VrmAnimationAsset hipsTranslationVrma(double x, {double? secondX}) {
+  final binary = floats([
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    0.0,
+    x,
+    0.0,
+    0.0,
+    if (secondX != null) ...[0.0, 0.0, 0.0, secondX, 0.0, 0.0],
+  ]);
+  final json =
+      <String, Object?>{
+        'asset': {'version': '2.0'},
+        'extensionsUsed': ['VRMC_vrm_animation'],
+        'nodes': [
+          {'name': 'sourceHips'},
+        ],
+      }..addAll(
+        animationStorageJson(binary.length, [
+          [0, 8],
+          [8, 24],
+          if (secondX != null) [32, 24],
+        ]),
+      );
+  json['animations'] = [
+    for (final output in [1, if (secondX != null) 2])
+      {
+        'channels': [
+          {
+            'sampler': 0,
+            'target': {'node': 0, 'path': 'translation'},
+          },
+        ],
+        'samplers': [
+          {'input': 0, 'output': output},
+        ],
+      },
+  ];
+  json['extensions'] = {
+    'VRMC_vrm_animation': {
+      'specVersion': '1.0',
+      'humanoid': {
+        'humanBones': {
+          'hips': {'node': 0},
+        },
+      },
+    },
+  };
+  return VrmAnimationAsset.parse(
+    bytes: glb(json, binaryChunk: binary),
+    validation: VrmValidationMode.permissive,
+  );
+}
+
+final class OffsetRetargeter implements VrmHumanoidRetargeter {
+  VrmHumanoidBone? bone;
+  double? hipsTranslationScale;
+
+  @override
+  VrmRetargetedBonePose retargetBone({
+    required VrmHumanoidBone bone,
+    required GltfNodePose sourcePose,
+    required GltfNode sourceRestNode,
+    required List<double> sourceRestWorldRotation,
+    required GltfNode destinationRestNode,
+    required List<double> destinationRestWorldRotation,
+    required double hipsTranslationScale,
+  }) {
+    this.bone = bone;
+    this.hipsTranslationScale = hipsTranslationScale;
+    return VrmRetargetedBonePose(
+      nodePose: GltfNodePose(translation: [4.0, 5.0, 6.0]),
+      modelRootPose: GltfNodePose(translation: [7.0, 8.0, 9.0]),
+    );
+  }
+}
+
+final class _OrderNode implements VrmNodeBinding {
+  _OrderNode(this.index, this.events);
+
+  final int index;
+  final List<String> events;
+  VrmMatrix4 _localTransform = VrmMatrix4.identity();
+
+  @override
+  String? get debugName => 'node$index';
+
+  @override
+  VrmMatrix4 get localTransform => _localTransform;
+
+  @override
+  set localTransform(VrmMatrix4 value) {
+    events.add('node:$index');
+    _localTransform = value;
+  }
+
+  @override
+  VrmMatrix4 get worldTransform => _localTransform;
+}
+
+final class _OrderMesh implements VrmMeshBinding {
+  _OrderMesh(this.nodeIndex, this.events);
+
+  final int nodeIndex;
+  final List<String> events;
+
+  @override
+  void setMorphWeight({
+    required int primitiveIndex,
+    required int morphIndex,
+    required double weight,
+  }) {
+    events.add('morph:$nodeIndex:$primitiveIndex:$morphIndex:$weight');
+  }
+
+  @override
+  void setVisible(bool visible) {
+    events.add('visible:$nodeIndex:$visible');
+  }
+}
+
+Map<String, Object?> vrm0DegreeMap({
+  List<double> curve = const [0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0],
+  double xRange = 90.0,
+  double yRange = 1.0,
+}) => {'curve': curve, 'xRange': xRange, 'yRange': yRange};

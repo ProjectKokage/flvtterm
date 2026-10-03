@@ -1,6 +1,11 @@
-part of '../flvtterm_test.dart';
+import 'dart:convert';
+import 'dart:math' as math;
+import 'dart:typed_data';
 
-void gltfCameraTests() {
+import 'package:flvtterm/flvtterm.dart';
+import 'package:test/test.dart';
+
+void main() {
   test('parses glTF cameras and node camera references', () {
     final bytes = Uint8List.fromList(
       utf8.encode(

@@ -1,6 +1,12 @@
-part of '../flvtterm_test.dart';
+import 'dart:convert';
+import 'dart:typed_data';
 
-void gltfMeshTests() {
+import 'package:flvtterm/flvtterm.dart';
+import 'package:test/test.dart';
+
+import 'src/test_fixtures.dart';
+
+void main() {
   test('reports primitives without attributes', () {
     final json = {
       'asset': {'version': '2.0'},
@@ -214,7 +220,7 @@ void gltfMeshTests() {
   });
 
   test('reports tangent accessors with invalid handedness values', () {
-    final tangent = _floats([0.0, 0.0, 1.0, 0.5]);
+    final tangent = floats([0.0, 0.0, 1.0, 0.5]);
     final json = {
       'asset': {'version': '2.0'},
       'buffers': [
@@ -261,7 +267,7 @@ void gltfMeshTests() {
   });
 
   test('reports COLOR_0 accessors outside the clamped range', () {
-    final binary = _floats([
+    final binary = floats([
       0.0, 0.0, 0.0, // POSITION
       1.2, 0.0, 0.0, 1.0, // COLOR_0
     ]);
@@ -322,7 +328,7 @@ void gltfMeshTests() {
   test('reports invalid skin weight values', () {
     final binary = Uint8List(20);
     binary.setAll(0, [100, 100, 0, 0]);
-    binary.setAll(4, _floats([-0.1, 1.0, 0.0, 0.0]));
+    binary.setAll(4, floats([-0.1, 1.0, 0.0, 0.0]));
     final json = {
       'asset': {'version': '2.0'},
       'buffers': [
@@ -389,7 +395,7 @@ void gltfMeshTests() {
 
   test('warns for float skin weights that do not sum to one', () {
     final binary = Uint8List(20);
-    binary.setAll(4, _floats([0.25, 0.25, 0.0, 0.0]));
+    binary.setAll(4, floats([0.25, 0.25, 0.0, 0.0]));
     final json = {
       'asset': {'version': '2.0'},
       'buffers': [

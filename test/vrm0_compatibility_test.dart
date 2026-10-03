@@ -1,11 +1,16 @@
-part of '../flvtterm_test.dart';
+import 'dart:math' as math;
 
-void vrm0CompatibilityTests() {
+import 'package:flvtterm/flvtterm.dart';
+import 'package:test/test.dart';
+
+import 'src/test_fixtures.dart';
+
+void main() {
   group('VRM 0.x compatibility', () {
     test(
       'detects legacy VRM automatically and preserves immutable typed data',
       () {
-        final model = VrmModel.parseGlb(_glb(_minimalVrm0Json()));
+        final model = VrmModel.parseGlb(glb(minimalVrm0Json()));
         final legacy = model.vrm0!;
 
         expect(model.sourceVersion, VrmSourceVersion.vrm0);
@@ -38,7 +43,7 @@ void vrm0CompatibilityTests() {
           throwsUnsupportedError,
         );
 
-        final binding = _FakeBinding();
+        final binding = FakeBinding();
         (VrmRuntime(model)..bind(binding)).update(0);
         expect(
           binding.modelRootMotionTransform,
@@ -48,9 +53,9 @@ void vrm0CompatibilityTests() {
     );
 
     test('applies the legacy orientation through fallback scene roots', () {
-      final model = VrmModel.parseGlb(_glb(_minimalVrm0Json()));
-      final delegate = _FakeBinding();
-      final binding = _Vrm0FallbackBinding(delegate);
+      final model = VrmModel.parseGlb(glb(minimalVrm0Json()));
+      final delegate = FakeBinding();
+      final binding = Vrm0FallbackBinding(delegate);
 
       (VrmRuntime(model)..bind(binding)).update(0);
 
@@ -58,7 +63,7 @@ void vrm0CompatibilityTests() {
     });
 
     test('fallback world transforms match a real model-root binding', () {
-      final json = _minimalVrm0Json();
+      final json = minimalVrm0Json();
       (json['extensionsUsed']! as List<Object?>).add('VRMC_node_constraint');
       final nodes = json['nodes']! as List<Map<String, Object?>>;
       nodes[3]['translation'] = [1.0, 0.5, 0.75];
@@ -71,8 +76,8 @@ void vrm0CompatibilityTests() {
           },
         },
       };
-      final model = VrmModel.parseGlb(_glb(json));
-      final external = _testTrs(
+      final model = VrmModel.parseGlb(glb(json));
+      final external = testTrs(
         rotation: [math.sin(math.pi / 8), 0.0, 0.0, math.cos(math.pi / 8)],
         scale: const [2.0, 1.0, 0.5],
       );
@@ -91,14 +96,14 @@ void vrm0CompatibilityTests() {
     });
 
     test('normalizes accepted non-canonical permission casing', () {
-      final json = _minimalVrm0Json();
+      final json = minimalVrm0Json();
       final meta = _vrm0Root(json)['meta']! as Map<String, Object?>
         ..['allowedUserName'] = 'everyone'
         ..['violentUssageName'] = 'allow'
         ..['sexualUssageName'] = 'allow'
         ..['commercialUssageName'] = 'allow';
 
-      final result = VrmModel.tryParseGlb(_glb(json));
+      final result = VrmModel.tryParseGlb(glb(json));
       final normalized = result.asset!.vrm.meta;
 
       expect(meta, isNotEmpty);
@@ -117,9 +122,9 @@ void vrm0CompatibilityTests() {
     });
 
     test('accepts VRM as a required glTF extension', () {
-      final json = _minimalVrm0Json();
+      final json = minimalVrm0Json();
 
-      final result = VrmModel.tryParseGlb(_glb(json));
+      final result = VrmModel.tryParseGlb(glb(json));
 
       expect(json['extensionsRequired'], ['VRM']);
       expect(result.asset, isNotNull);
@@ -131,9 +136,9 @@ void vrm0CompatibilityTests() {
     });
 
     test('missing legacy specVersion is strict-only fatal', () {
-      final json = _minimalVrm0Json();
+      final json = minimalVrm0Json();
       _vrm0Root(json).remove('specVersion');
-      final bytes = _glb(json);
+      final bytes = glb(json);
 
       final strict = VrmModel.tryParseGlb(bytes);
       final permissive = VrmModel.tryParseGlb(
@@ -164,11 +169,11 @@ void vrm0CompatibilityTests() {
     });
 
     test('rejects unsupported legacy specVersion values safely', () {
-      final json = _minimalVrm0Json();
+      final json = minimalVrm0Json();
       _vrm0Root(json)['specVersion'] = '0.1';
 
       final result = VrmModel.tryParseGlb(
-        _glb(json),
+        glb(json),
         validation: VrmValidationMode.permissive,
       );
 
@@ -184,14 +189,14 @@ void vrm0CompatibilityTests() {
     });
 
     test('rejects ambiguous VRM 0.x and VRM 1.0 root extensions', () {
-      final json = _minimalVrm0Json();
-      final modern = _minimalVrmJson();
+      final json = minimalVrm0Json();
+      final modern = minimalVrmJson();
       final modernRoot =
           (modern['extensions']! as Map<String, Object?>)['VRMC_vrm']!;
       (json['extensionsUsed']! as List<Object?>).add('VRMC_vrm');
       (json['extensionsRequired']! as List<Object?>).add('VRMC_vrm');
       (json['extensions']! as Map<String, Object?>)['VRMC_vrm'] = modernRoot;
-      final bytes = _glb(json);
+      final bytes = glb(json);
 
       final strict = VrmModel.tryParseGlb(bytes);
       final permissive = VrmModel.tryParseGlb(
@@ -219,7 +224,7 @@ void vrm0CompatibilityTests() {
     });
 
     test('requires legacy chest and neck and remaps legacy thumb bones', () {
-      final missingJson = _minimalVrm0Json();
+      final missingJson = minimalVrm0Json();
       final missingBones = _vrm0HumanBones(missingJson);
       missingBones.removeWhere((entry) {
         final bone = (entry as Map<String, Object?>)['bone'];
@@ -227,7 +232,7 @@ void vrm0CompatibilityTests() {
       });
 
       final missing = VrmModel.tryParseGlb(
-        _glb(missingJson),
+        glb(missingJson),
         validation: VrmValidationMode.permissive,
       );
 
@@ -250,9 +255,9 @@ void vrm0CompatibilityTests() {
             .map((diagnostic) => diagnostic.jsonPath),
         everyElement(r'$.extensions.VRM.humanoid.humanBones'),
       );
-      expect(VrmModel.tryParseGlb(_glb(missingJson)).asset, isNull);
+      expect(VrmModel.tryParseGlb(glb(missingJson)).asset, isNull);
 
-      final thumbsJson = _minimalVrm0Json();
+      final thumbsJson = minimalVrm0Json();
       final nodes = thumbsJson['nodes']! as List<Map<String, Object?>>;
       final thumbNodes = <String, int>{};
       for (final name in const [
@@ -285,7 +290,7 @@ void vrm0CompatibilityTests() {
           <String, Object?>{'bone': entry.key, 'node': entry.value},
       ]);
 
-      final thumbs = VrmModel.parseGlb(_glb(thumbsJson));
+      final thumbs = VrmModel.parseGlb(glb(thumbsJson));
 
       expect(
         thumbs.vrm.humanoid.nodeFor(VrmHumanoidBone.leftThumbMetacarpal),
@@ -320,7 +325,7 @@ void vrm0CompatibilityTests() {
     });
 
     test('validates legacy humanoid normalization and assignments', () {
-      final json = _minimalVrm0Json();
+      final json = minimalVrm0Json();
       final nodes = json['nodes']! as List<Map<String, Object?>>;
       final halfSqrt = math.sqrt(0.5);
       nodes[1]['scale'] = [-1.0, 1.0, 1.0];
@@ -333,7 +338,7 @@ void vrm0CompatibilityTests() {
       ]);
 
       final result = VrmModel.tryParseGlb(
-        _glb(json),
+        glb(json),
         validation: VrmValidationMode.permissive,
       );
 
@@ -364,7 +369,7 @@ void vrm0CompatibilityTests() {
     test(
       'normalizes blend-shape presets, mesh binds, weights, and materials',
       () {
-        final json = _minimalVrm0Json(
+        final json = minimalVrm0Json(
           nodeMesh: const {6: 0, 8: 0},
           meshes: [
             {
@@ -410,7 +415,7 @@ void vrm0CompatibilityTests() {
           },
           materialProperties: [_vrm0MaterialProperty(name: 'Face')],
         );
-        final model = VrmModel.parseGlb(_glb(json));
+        final model = VrmModel.parseGlb(glb(json));
         final expression =
             model.vrm.expressions.preset[VrmExpressionPreset.happy]!;
 
@@ -452,7 +457,7 @@ void vrm0CompatibilityTests() {
           100.0,
         );
 
-        final binding = _FakeBinding();
+        final binding = FakeBinding();
         final runtime = VrmRuntime(model)..bind(binding);
         runtime.emotion.set(VrmEmotion.happy, 0.5);
         runtime.update(0);
@@ -476,7 +481,7 @@ void vrm0CompatibilityTests() {
     test(
       'keeps presets when a legacy custom name normalizes to the same ID',
       () {
-        final json = _minimalVrm0Json(
+        final json = minimalVrm0Json(
           nodeMesh: const {6: 0},
           meshes: [
             {
@@ -508,7 +513,7 @@ void vrm0CompatibilityTests() {
           },
         );
 
-        final result = VrmModel.tryParseGlb(_glb(json));
+        final result = VrmModel.tryParseGlb(glb(json));
         final expressions = result.asset!.vrm.expressions;
 
         expect(
@@ -528,7 +533,7 @@ void vrm0CompatibilityTests() {
     );
 
     test('promotes the well-known Surprised custom clip to the preset', () {
-      final json = _minimalVrm0Json(
+      final json = minimalVrm0Json(
         nodeMesh: const {6: 0},
         meshes: [
           {
@@ -560,7 +565,7 @@ void vrm0CompatibilityTests() {
         },
       );
 
-      final result = VrmModel.tryParseGlb(_glb(json));
+      final result = VrmModel.tryParseGlb(glb(json));
       final expressions = result.asset!.vrm.expressions;
 
       final surprised = expressions.preset[VrmExpressionPreset.surprised]!;
@@ -575,7 +580,7 @@ void vrm0CompatibilityTests() {
     });
 
     test('keeps a declared surprised preset over the custom clip', () {
-      final json = _minimalVrm0Json(
+      final json = minimalVrm0Json(
         nodeMesh: const {6: 0},
         meshes: [
           {
@@ -607,7 +612,7 @@ void vrm0CompatibilityTests() {
         },
       );
 
-      final result = VrmModel.tryParseGlb(_glb(json));
+      final result = VrmModel.tryParseGlb(glb(json));
       final expressions = result.asset!.vrm.expressions;
 
       expect(
@@ -626,7 +631,7 @@ void vrm0CompatibilityTests() {
     });
 
     test('does not promote Surprised without the unknown preset marker', () {
-      final json = _minimalVrm0Json(
+      final json = minimalVrm0Json(
         nodeMesh: const {6: 0},
         meshes: [
           {
@@ -658,7 +663,7 @@ void vrm0CompatibilityTests() {
       );
 
       final result = VrmModel.tryParseGlb(
-        _glb(json),
+        glb(json),
         validation: VrmValidationMode.permissive,
       );
       final expressions = result.asset!.vrm.expressions;
@@ -679,7 +684,7 @@ void vrm0CompatibilityTests() {
     });
 
     test('reports invalid legacy expression and spring references', () {
-      final json = _minimalVrm0Json(
+      final json = minimalVrm0Json(
         nodeMesh: const {6: 0},
         meshes: [
           {
@@ -718,7 +723,7 @@ void vrm0CompatibilityTests() {
       );
 
       final result = VrmModel.tryParseGlb(
-        _glb(json),
+        glb(json),
         validation: VrmValidationMode.permissive,
       );
 
@@ -759,7 +764,7 @@ void vrm0CompatibilityTests() {
     });
 
     test('preserves an arbitrary first-person anchor and maps mesh flags', () {
-      final json = _minimalVrm0Json(
+      final json = minimalVrm0Json(
         nodeMesh: const {6: 0, 8: 0},
         meshes: [
           {
@@ -775,14 +780,14 @@ void vrm0CompatibilityTests() {
             {'mesh': 0, 'firstPersonFlag': 'FirstPersonOnly'},
           ],
           'lookAtTypeName': 'Bone',
-          'lookAtHorizontalInner': _vrm0DegreeMap(),
-          'lookAtHorizontalOuter': _vrm0DegreeMap(),
-          'lookAtVerticalDown': _vrm0DegreeMap(),
-          'lookAtVerticalUp': _vrm0DegreeMap(),
+          'lookAtHorizontalInner': vrm0DegreeMap(),
+          'lookAtHorizontalOuter': vrm0DegreeMap(),
+          'lookAtVerticalDown': vrm0DegreeMap(),
+          'lookAtVerticalUp': vrm0DegreeMap(),
         },
       );
 
-      final model = VrmModel.parseGlb(_glb(json));
+      final model = VrmModel.parseGlb(glb(json));
       final firstPerson = model.vrm.firstPerson;
 
       expect(model.vrm0!.firstPerson!.firstPersonBone, 7);
@@ -815,7 +820,7 @@ void vrm0CompatibilityTests() {
     });
 
     test('adapts the legacy -Z gaze convention and nonlinear LookAt curve', () {
-      final json = _minimalVrm0Json(
+      final json = minimalVrm0Json(
         nodeMesh: const {6: 0},
         meshes: [
           {
@@ -832,12 +837,12 @@ void vrm0CompatibilityTests() {
           'firstPersonBoneOffset': {'x': 0.0, 'y': 0.0, 'z': 0.0},
           'meshAnnotations': <Object?>[],
           'lookAtTypeName': 'BlendShape',
-          'lookAtHorizontalInner': _vrm0DegreeMap(),
-          'lookAtHorizontalOuter': _vrm0DegreeMap(
+          'lookAtHorizontalInner': vrm0DegreeMap(),
+          'lookAtHorizontalOuter': vrm0DegreeMap(
             curve: const [0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0],
           ),
-          'lookAtVerticalDown': _vrm0DegreeMap(),
-          'lookAtVerticalUp': _vrm0DegreeMap(),
+          'lookAtVerticalDown': vrm0DegreeMap(),
+          'lookAtVerticalUp': vrm0DegreeMap(),
         },
         blendShapeMaster: {
           'blendShapeGroups': [
@@ -853,8 +858,8 @@ void vrm0CompatibilityTests() {
           ],
         },
       );
-      final model = VrmModel.parseGlb(_glb(json));
-      final binding = _FakeBinding();
+      final model = VrmModel.parseGlb(glb(json));
+      final binding = FakeBinding();
       final runtime = VrmRuntime(model)..bind(binding);
 
       // The public runtime convention faces +Z. Internally this target becomes
@@ -879,7 +884,7 @@ void vrm0CompatibilityTests() {
     });
 
     test('accepts a single-key legacy LookAt curve as constant', () {
-      final json = _minimalVrm0Json(
+      final json = minimalVrm0Json(
         nodeMesh: const {6: 0},
         meshes: [
           {
@@ -896,13 +901,13 @@ void vrm0CompatibilityTests() {
           'firstPersonBoneOffset': {'x': 0.0, 'y': 0.0, 'z': 0.0},
           'meshAnnotations': <Object?>[],
           'lookAtTypeName': 'BlendShape',
-          'lookAtHorizontalInner': _vrm0DegreeMap(),
-          'lookAtHorizontalOuter': _vrm0DegreeMap(
+          'lookAtHorizontalInner': vrm0DegreeMap(),
+          'lookAtHorizontalOuter': vrm0DegreeMap(
             curve: const [0.5, 0.25, 0.0, 0.0],
             yRange: 2.0,
           ),
-          'lookAtVerticalDown': _vrm0DegreeMap(),
-          'lookAtVerticalUp': _vrm0DegreeMap(),
+          'lookAtVerticalDown': vrm0DegreeMap(),
+          'lookAtVerticalUp': vrm0DegreeMap(),
         },
         blendShapeMaster: {
           'blendShapeGroups': [
@@ -916,8 +921,8 @@ void vrm0CompatibilityTests() {
           ],
         },
       );
-      final result = VrmModel.tryParseGlb(_glb(json));
-      final binding = _FakeBinding();
+      final result = VrmModel.tryParseGlb(glb(json));
+      final binding = FakeBinding();
       final runtime = VrmRuntime(result.asset!)..bind(binding);
 
       runtime.lookAt.setYawPitch(yawDegrees: 45, pitchDegrees: 0);
@@ -937,15 +942,15 @@ void vrm0CompatibilityTests() {
     });
 
     test('preserves zero and signed legacy LookAt ranges', () {
-      final json = _minimalVrm0Json();
+      final json = minimalVrm0Json();
       final firstPerson =
           _vrm0Root(json)['firstPerson']! as Map<String, Object?>;
-      firstPerson['lookAtHorizontalOuter'] = _vrm0DegreeMap(
+      firstPerson['lookAtHorizontalOuter'] = vrm0DegreeMap(
         xRange: 0,
         yRange: -2,
       );
 
-      final model = VrmModel.parseGlb(_glb(json));
+      final model = VrmModel.parseGlb(glb(json));
       final range = model.vrm.lookAt!.rangeMapHorizontalOuter;
 
       expect(range.inputMaxValue, 0);
@@ -953,7 +958,7 @@ void vrm0CompatibilityTests() {
     });
 
     test('applies legacy bone LookAt in the source eye frame', () {
-      final json = _minimalVrm0Json();
+      final json = minimalVrm0Json();
       final nodes = json['nodes']! as List<Map<String, Object?>>;
       final leftEye = nodes.length;
       final rightEye = leftEye + 1;
@@ -969,8 +974,8 @@ void vrm0CompatibilityTests() {
           _vrm0Root(json)['firstPerson']! as Map<String, Object?>;
       (firstPerson['lookAtVerticalDown']! as Map<String, Object?>)['yRange'] =
           30.0;
-      final model = VrmModel.parseGlb(_glb(json));
-      final binding = _FakeBinding();
+      final model = VrmModel.parseGlb(glb(json));
+      final binding = FakeBinding();
       final runtime = VrmRuntime(model)..bind(binding);
 
       runtime.lookAt.setYawPitch(yawDegrees: 0, pitchDegrees: 90);
@@ -986,7 +991,7 @@ void vrm0CompatibilityTests() {
     });
 
     test('normalizes legacy secondary animation and runs the 7 cm leaf', () {
-      final json = _minimalVrm0Json();
+      final json = minimalVrm0Json();
       final nodes = json['nodes']! as List<Map<String, Object?>>;
       final springRoot = nodes.length;
       final springLeaf = springRoot + 1;
@@ -1030,7 +1035,7 @@ void vrm0CompatibilityTests() {
         ],
       };
 
-      final model = VrmModel.parseGlb(_glb(json));
+      final model = VrmModel.parseGlb(glb(json));
       final springBone = model.springBone!;
       final spring = springBone.springs.single;
 
@@ -1056,7 +1061,7 @@ void vrm0CompatibilityTests() {
       expect(spring.center, isNull);
       expect(spring.legacyTerminalLength, closeTo(0.07, 0.0000001));
 
-      final binding = _FakeBinding();
+      final binding = FakeBinding();
       final runtime = VrmRuntime(model)..bind(binding);
       runtime.update(1.0);
 
@@ -1070,12 +1075,12 @@ void vrm0CompatibilityTests() {
       // leaf proves that VRM 0.x's synthetic 7 cm terminal was simulated.
       expect(
         binding.nodes[springLeaf]!.localTransform,
-        isNot(_testTrs(translation: const [0.0, 1.0, 0.0])),
+        isNot(testTrs(translation: const [0.0, 1.0, 0.0])),
       );
     });
 
     test('preserves spring branches and reports overlapping roots', () {
-      final json = _minimalVrm0Json();
+      final json = minimalVrm0Json();
       final nodes = json['nodes']! as List<Map<String, Object?>>;
       final springRoot = nodes.length;
       final firstChild = springRoot + 1;
@@ -1101,7 +1106,7 @@ void vrm0CompatibilityTests() {
       };
 
       final result = VrmModel.tryParseGlb(
-        _glb(json),
+        glb(json),
         validation: VrmValidationMode.permissive,
       );
 
@@ -1123,7 +1128,7 @@ void vrm0CompatibilityTests() {
     });
 
     test('animates every branch in a legacy spring subtree', () {
-      final json = _minimalVrm0Json();
+      final json = minimalVrm0Json();
       final nodes = json['nodes']! as List<Map<String, Object?>>;
       final springRoot = nodes.length;
       final firstChild = springRoot + 1;
@@ -1159,8 +1164,8 @@ void vrm0CompatibilityTests() {
         ],
       };
 
-      final model = VrmModel.parseGlb(_glb(json));
-      final binding = _FakeBinding();
+      final model = VrmModel.parseGlb(glb(json));
+      final binding = FakeBinding();
       (VrmRuntime(model)..bind(binding)).update(1);
 
       expect(
@@ -1169,16 +1174,16 @@ void vrm0CompatibilityTests() {
       );
       expect(
         binding.nodes[firstChild]!.localTransform,
-        isNot(_testTrs(translation: const [0.0, 1.0, 0.0])),
+        isNot(testTrs(translation: const [0.0, 1.0, 0.0])),
       );
       expect(
         binding.nodes[secondChild]!.localTransform,
-        isNot(_testTrs(translation: const [1.0, 0.0, 0.0])),
+        isNot(testTrs(translation: const [1.0, 0.0, 0.0])),
       );
     });
 
     test('runs legacy springs with an arbitrary sibling center', () {
-      final json = _minimalVrm0Json();
+      final json = minimalVrm0Json();
       final nodes = json['nodes']! as List<Map<String, Object?>>;
       final center = nodes.length;
       final springRoot = center + 1;
@@ -1216,19 +1221,19 @@ void vrm0CompatibilityTests() {
         ],
       };
 
-      final model = VrmModel.parseGlb(_glb(json));
-      final binding = _FakeBinding();
+      final model = VrmModel.parseGlb(glb(json));
+      final binding = FakeBinding();
       (VrmRuntime(model)..bind(binding)).update(1);
 
       expect(model.springBone!.springs.single.center, center);
       expect(
         binding.nodes[springRoot]!.localTransform,
-        isNot(_testTrs(translation: const [0.0, 1.0, 0.0])),
+        isNot(testTrs(translation: const [0.0, 1.0, 0.0])),
       );
     });
 
     test('scales legacy spring collisions through outer world placement', () {
-      final json = _minimalVrm0Json();
+      final json = minimalVrm0Json();
       final nodes = json['nodes']! as List<Map<String, Object?>>;
       final springRoot = nodes.length;
       final springLeaf = springRoot + 1;
@@ -1273,8 +1278,8 @@ void vrm0CompatibilityTests() {
         ],
       };
 
-      final model = VrmModel.parseGlb(_glb(json));
-      final externalTransform = _testTrs(
+      final model = VrmModel.parseGlb(glb(json));
+      final externalTransform = testTrs(
         rotation: [0.0, 0.0, math.sqrt1_2, math.sqrt1_2],
         scale: const [2.0, 2.0, 2.0],
       );
@@ -1323,7 +1328,7 @@ void vrm0CompatibilityTests() {
         return [0.0, math.sin(radians), 0.0, math.cos(radians)];
       }
 
-      final modelJson = _minimalVrm0Json();
+      final modelJson = minimalVrm0Json();
       final nodes = modelJson['nodes']! as List<Map<String, Object?>>;
       final intermediary = nodes.length;
       nodes[16]['children'] = [intermediary];
@@ -1332,7 +1337,7 @@ void vrm0CompatibilityTests() {
         'rotation': xRotation(90),
         'children': [2],
       });
-      final binary = _floats([0.0, 1.0, ...yRotation(0), ...yRotation(90)]);
+      final binary = floats([0.0, 1.0, ...yRotation(0), ...yRotation(90)]);
       final vrmaJson =
           <String, Object?>{
             'asset': {'version': '2.0'},
@@ -1341,7 +1346,7 @@ void vrm0CompatibilityTests() {
               {'name': 'sourceHead'},
             ],
           }..addAll(
-            _animationStorageJson(
+            animationStorageJson(
               binary.length,
               const [
                 [0, 8],
@@ -1374,11 +1379,11 @@ void vrm0CompatibilityTests() {
         },
       };
 
-      final model = VrmModel.parseGlb(_glb(modelJson));
-      final binding = _FakeBinding();
+      final model = VrmModel.parseGlb(glb(modelJson));
+      final binding = FakeBinding();
       final runtime = VrmRuntime(model)..bind(binding);
       final vrma = VrmAnimationAsset.tryParse(
-        bytes: _glb(vrmaJson, binaryChunk: binary),
+        bytes: glb(vrmaJson, binaryChunk: binary),
         validation: VrmValidationMode.permissive,
       ).asset!;
 
@@ -1401,7 +1406,7 @@ void vrm0CompatibilityTests() {
         'targetValue': target,
       };
 
-      final json = _minimalVrm0Json(
+      final json = minimalVrm0Json(
         materials: [
           {'name': 'Face'},
         ],
@@ -1440,7 +1445,7 @@ void vrm0CompatibilityTests() {
           ],
         },
       );
-      final model = VrmModel.parseGlb(_glb(json));
+      final model = VrmModel.parseGlb(glb(json));
 
       final cases = <String, (VrmVector2, VrmVector2)>{
         'uvS': (const VrmVector2(4, 3), const VrmVector2(0.5, -2.5)),
@@ -1448,7 +1453,7 @@ void vrm0CompatibilityTests() {
         'uvBoth': (const VrmVector2(4, 5), const VrmVector2(0.5, -4.25)),
       };
       for (final entry in cases.entries) {
-        final binding = _FakeBinding();
+        final binding = FakeBinding();
         final runtime = VrmRuntime(model)..bind(binding);
         runtime.expressions.setCustom(entry.key, 1);
         runtime.update(0);
@@ -1474,7 +1479,7 @@ void vrm0CompatibilityTests() {
           keywordMap: const {'_ALPHATEST_ON': true},
           tagMap: const {'RenderType': 'TransparentCutout'},
         );
-        final json = _minimalVrm0Json(
+        final json = minimalVrm0Json(
           materials: [
             {
               'name': 'Face',
@@ -1504,7 +1509,7 @@ void vrm0CompatibilityTests() {
         );
         json['textures'] = [<String, Object?>{}];
 
-        final model = VrmModel.parseGlb(_glb(json));
+        final model = VrmModel.parseGlb(glb(json));
         final legacy = model.vrm0!.materialProperties.single;
 
         expect(legacy.name, 'Face');
@@ -1537,7 +1542,7 @@ void vrm0CompatibilityTests() {
         expect(warning.jsonPath, r'$.extensions.VRM.materialProperties[0]');
         expect(warning.gltfMaterialIndex, 0);
 
-        final binding = _FakeBinding();
+        final binding = FakeBinding();
         final runtime = VrmRuntime(model)..bind(binding);
         runtime.expressions.setCustom('matcapshift', 0.5);
         runtime.update(0);
@@ -1559,7 +1564,7 @@ void vrm0CompatibilityTests() {
     );
 
     test('keeps legacy unlit transparent depth write distinct from MToon', () {
-      final json = _minimalVrm0Json(
+      final json = minimalVrm0Json(
         materials: [
           {'name': 'HairTip', 'alphaMode': 'BLEND'},
         ],
@@ -1571,7 +1576,7 @@ void vrm0CompatibilityTests() {
         ],
       );
 
-      final model = VrmModel.parseGlb(_glb(json));
+      final model = VrmModel.parseGlb(glb(json));
 
       expect(
         model.preferredRenderModeForMaterial(0),
@@ -1597,13 +1602,13 @@ void vrm0CompatibilityTests() {
     });
 
     test('keeps source indices after malformed legacy array entries', () {
-      final json = _minimalVrm0Json();
+      final json = minimalVrm0Json();
       final bones = _vrm0HumanBones(json);
       bones.insert(0, 42);
       (bones[1]! as Map<String, Object?>).remove('node');
 
       final result = VrmModel.tryParseGlb(
-        _glb(json),
+        glb(json),
         validation: VrmValidationMode.permissive,
       );
 
@@ -1628,7 +1633,7 @@ void vrm0CompatibilityTests() {
     });
 
     test('reports malformed legacy containers without crashing', () {
-      final json = _minimalVrm0Json();
+      final json = minimalVrm0Json();
       final legacy = _vrm0Root(json)
         ..['meta'] = <Object?>[]
         ..['humanoid'] = 'bad'
@@ -1636,7 +1641,7 @@ void vrm0CompatibilityTests() {
         ..['blendShapeMaster'] = false
         ..['secondaryAnimation'] = 'bad'
         ..['materialProperties'] = <String, Object?>{};
-      final bytes = _glb(json);
+      final bytes = glb(json);
 
       final permissive = VrmModel.tryParseGlb(
         bytes,
@@ -1668,30 +1673,6 @@ void vrm0CompatibilityTests() {
   });
 }
 
-final class _Vrm0FallbackBinding implements VrmSceneBinding {
-  const _Vrm0FallbackBinding(this.delegate);
-
-  final _FakeBinding delegate;
-
-  @override
-  void beginFrame() => delegate.beginFrame();
-
-  @override
-  void commitFrame() => delegate.commitFrame();
-
-  @override
-  VrmMaterialBinding materialByGltfIndex(int materialIndex) =>
-      delegate.materialByGltfIndex(materialIndex);
-
-  @override
-  VrmMeshBinding? meshByNodeIndex(int nodeIndex) =>
-      delegate.meshByNodeIndex(nodeIndex);
-
-  @override
-  VrmNodeBinding nodeByGltfIndex(int nodeIndex) =>
-      delegate.nodeByGltfIndex(nodeIndex);
-}
-
 final class _ComputedFallbackBinding implements VrmSceneBinding {
   _ComputedFallbackBinding(VrmModel model, VrmMatrix4 external)
     : state = _ComputedBindingState(model, external, applyModelRoot: false);
@@ -1706,7 +1687,7 @@ final class _ComputedFallbackBinding implements VrmSceneBinding {
 
   @override
   VrmMaterialBinding materialByGltfIndex(int materialIndex) =>
-      state.materials.putIfAbsent(materialIndex, _FakeMaterial.new);
+      state.materials.putIfAbsent(materialIndex, FakeMaterial.new);
 
   @override
   VrmMeshBinding? meshByNodeIndex(int nodeIndex) => null;
@@ -1742,7 +1723,7 @@ final class _ComputedModelRootBinding
 
   @override
   VrmMaterialBinding materialByGltfIndex(int materialIndex) =>
-      state.materials.putIfAbsent(materialIndex, _FakeMaterial.new);
+      state.materials.putIfAbsent(materialIndex, FakeMaterial.new);
 
   @override
   VrmMeshBinding? meshByNodeIndex(int nodeIndex) => null;
@@ -1771,7 +1752,7 @@ final class _ComputedBindingState {
   final bool applyModelRoot;
   final Map<int, int> parents;
   late final Map<int, _ComputedNodeBinding> nodes;
-  final Map<int, _FakeMaterial> materials = {};
+  final Map<int, FakeMaterial> materials = {};
   VrmMatrix4 modelRoot = VrmMatrix4.identity();
 
   VrmMatrix4 worldTransform(int nodeIndex) {
@@ -1822,98 +1803,6 @@ VrmMatrix4 _vrm0TestMultiply(VrmMatrix4 left, VrmMatrix4 right) {
   ]);
 }
 
-Map<String, Object?> _minimalVrm0Json({
-  List<Object?> meshes = const [],
-  List<Object?> materials = const [],
-  Map<int, int> nodeMesh = const {},
-  Map<String, Object?>? firstPerson,
-  Map<String, Object?>? blendShapeMaster,
-  Map<String, Object?>? secondaryAnimation,
-  List<Object?>? materialProperties,
-}) {
-  final nodes = _nodes(nodeMesh);
-  nodes[1]['children'] = [15];
-  nodes.add({
-    'name': 'chest',
-    'children': [16, 9, 12],
-  });
-  nodes.add({
-    'name': 'neck',
-    'children': [2],
-  });
-  final humanBones = <Object?>[
-    for (final entry in _boneNodes.entries)
-      <String, Object?>{'bone': entry.key.specName, 'node': entry.value},
-    <String, Object?>{'bone': 'chest', 'node': 15},
-    <String, Object?>{'bone': 'neck', 'node': 16},
-  ];
-
-  return {
-    'asset': {'version': '2.0', 'generator': 'UniVRM'},
-    'extensionsUsed': <Object?>['VRM'],
-    'extensionsRequired': <Object?>['VRM'],
-    'scene': 0,
-    'scenes': [
-      {
-        'nodes': [0],
-      },
-    ],
-    'nodes': nodes,
-    if (meshes.isNotEmpty) 'meshes': meshes,
-    if (materials.isNotEmpty) 'materials': materials,
-    'extensions': {
-      'VRM': {
-        'exporterVersion': 'UniVRM-0.99.4',
-        'specVersion': '0.0',
-        'meta': {
-          'title': 'Legacy Avatar',
-          'version': '1.2.3',
-          'author': 'Legacy Author',
-          'contactInformation': 'author@example.com',
-          'reference': 'https://example.com/avatar',
-          'texture': -1,
-          'allowedUserName': 'Everyone',
-          'violentUssageName': 'Disallow',
-          'sexualUssageName': 'Disallow',
-          'commercialUssageName': 'Allow',
-          'otherPermissionUrl': 'https://example.com/permissions',
-          'licenseName': 'CC_BY',
-          'otherLicenseUrl': 'https://example.com/license',
-        },
-        'humanoid': {
-          'humanBones': humanBones,
-          'armStretch': 0.05,
-          'legStretch': 0.05,
-          'upperArmTwist': 0.5,
-          'lowerArmTwist': 0.5,
-          'upperLegTwist': 0.5,
-          'lowerLegTwist': 0.5,
-          'feetSpacing': 0.0,
-          'hasTranslationDoF': false,
-        },
-        'firstPerson':
-            firstPerson ??
-            {
-              'firstPersonBone': 2,
-              'firstPersonBoneOffset': {'x': 0.0, 'y': 0.06, 'z': 0.0},
-              'meshAnnotations': <Object?>[],
-              'lookAtTypeName': 'Bone',
-              'lookAtHorizontalInner': _vrm0DegreeMap(),
-              'lookAtHorizontalOuter': _vrm0DegreeMap(),
-              'lookAtVerticalDown': _vrm0DegreeMap(),
-              'lookAtVerticalUp': _vrm0DegreeMap(),
-            },
-        'blendShapeMaster':
-            blendShapeMaster ?? {'blendShapeGroups': <Object?>[]},
-        'secondaryAnimation':
-            secondaryAnimation ??
-            {'boneGroups': <Object?>[], 'colliderGroups': <Object?>[]},
-        'materialProperties': materialProperties ?? <Object?>[],
-      },
-    },
-  };
-}
-
 Map<String, Object?> _vrm0Root(Map<String, Object?> json) =>
     (json['extensions']! as Map<String, Object?>)['VRM']!
         as Map<String, Object?>;
@@ -1921,12 +1810,6 @@ Map<String, Object?> _vrm0Root(Map<String, Object?> json) =>
 List<Object?> _vrm0HumanBones(Map<String, Object?> json) =>
     (_vrm0Root(json)['humanoid']! as Map<String, Object?>)['humanBones']!
         as List<Object?>;
-
-Map<String, Object?> _vrm0DegreeMap({
-  List<double> curve = const [0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-  double xRange = 90.0,
-  double yRange = 1.0,
-}) => {'curve': curve, 'xRange': xRange, 'yRange': yRange};
 
 Map<String, Object?> _vrm0MaterialProperty({
   required String name,

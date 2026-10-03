@@ -1,10 +1,17 @@
-part of '../flvtterm_test.dart';
+import 'dart:convert';
+import 'dart:math' as math;
+import 'dart:typed_data';
 
-void vrmaMotionTests() {
+import 'package:flvtterm/flvtterm.dart';
+import 'package:test/test.dart';
+
+import 'src/test_fixtures.dart';
+
+void main() {
   test('runtime motion reports VRMA without glTF animations clearly', () {
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
     final vrma = VrmAnimationAsset.parse(
-      bytes: _glb({
+      bytes: glb({
         'asset': {'version': '2.0'},
         'extensionsUsed': ['VRMC_vrm_animation'],
         'extensions': {
@@ -26,9 +33,9 @@ void vrmaMotionTests() {
   });
 
   test('runtime selects VRMA animations and defaults to first', () {
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
-    final binding = _FakeBinding();
-    final vrma = _hipsTranslationVrma(2.0, secondX: 4.0);
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
+    final binding = FakeBinding();
+    final vrma = hipsTranslationVrma(2.0, secondX: 4.0);
 
     expect(vrma.gltf.animations, hasLength(2));
     expect(vrma.defaultAnimationIndex, 0);
@@ -44,7 +51,7 @@ void vrmaMotionTests() {
   });
 
   test('runtime motion plays VRMA humanoid and expression animation', () {
-    final modelJson = _minimalVrmJson(
+    final modelJson = minimalVrmJson(
       meshes: [
         {
           'primitives': [
@@ -66,7 +73,7 @@ void vrmaMotionTests() {
         },
       },
     );
-    final vrmaBinary = _floats([
+    final vrmaBinary = floats([
       0.0,
       1.0,
       0.0,
@@ -92,7 +99,7 @@ void vrmaMotionTests() {
             ],
           }
           ..addAll(
-            _animationStorageJson(vrmaBinary.length, [
+            animationStorageJson(vrmaBinary.length, [
               [0, 8],
               [8, 24],
               [32, 24],
@@ -131,10 +138,10 @@ void vrmaMotionTests() {
               },
             },
           };
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(modelJson)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(modelJson)));
+    final binding = FakeBinding();
     final vrma = VrmAnimationAsset.tryParse(
-      bytes: _glb(vrmaJson, binaryChunk: vrmaBinary),
+      bytes: glb(vrmaJson, binaryChunk: vrmaBinary),
       validation: VrmValidationMode.permissive,
     );
 
@@ -156,11 +163,11 @@ void vrmaMotionTests() {
   });
 
   test('runtime motion crossfades VRMA root motion to programmatic pose', () {
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
-    runtime.motion.playVrmAnimation(_hipsTranslationVrma(2.0));
+    runtime.motion.playVrmAnimation(hipsTranslationVrma(2.0));
     runtime.update(1.0);
     expect(binding.modelRootMotionTransform.storage[12], closeTo(2.0, 0.0001));
 
@@ -177,7 +184,7 @@ void vrmaMotionTests() {
   });
 
   test('runtime motion crossfades VRMA root motion to generic glTF', () {
-    final binary = _floats([0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+    final binary = floats([0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
     final json =
         <String, Object?>{
           'asset': {'version': '2.0'},
@@ -185,7 +192,7 @@ void vrmaMotionTests() {
             {'name': 'targetHips'},
           ],
         }..addAll(
-          _animationStorageJson(binary.length, [
+          animationStorageJson(binary.length, [
             [0, 8],
             [8, 24],
           ]),
@@ -203,12 +210,12 @@ void vrmaMotionTests() {
         ],
       },
     ];
-    final generic = GltfAsset.parse(bytes: _glb(json, binaryChunk: binary));
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
-    final binding = _FakeBinding();
+    final generic = GltfAsset.parse(bytes: glb(json, binaryChunk: binary));
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
-    runtime.motion.playVrmAnimation(_hipsTranslationVrma(2.0));
+    runtime.motion.playVrmAnimation(hipsTranslationVrma(2.0));
     runtime.update(1.0);
 
     runtime.motion.play(generic, fadeIn: const Duration(seconds: 1));
@@ -221,7 +228,7 @@ void vrmaMotionTests() {
   });
 
   test('runtime motion composes root fallback after crossfaded node pose', () {
-    final modelJson = _minimalVrmJson();
+    final modelJson = minimalVrmJson();
     (modelJson['nodes']! as List<Map<String, Object?>>).add({
       'name': 'modelRoot',
       'children': [0],
@@ -230,11 +237,11 @@ void vrmaMotionTests() {
         as Map<String, Object?>)['nodes'] = [
       15,
     ];
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(modelJson)));
-    final binding = _OrderBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(modelJson)));
+    final binding = OrderBinding();
 
     runtime.bind(binding);
-    runtime.motion.playVrmAnimation(_hipsTranslationVrma(2.0));
+    runtime.motion.playVrmAnimation(hipsTranslationVrma(2.0));
     runtime.update(1.0);
     expect(binding.nodeByGltfIndex(15).localTransform.storage[12], 2.0);
 
@@ -254,11 +261,11 @@ void vrmaMotionTests() {
   test(
     'runtime motion preserves root motion when crossfade is interrupted',
     () {
-      final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
-      final binding = _FakeBinding();
+      final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
+      final binding = FakeBinding();
 
       runtime.bind(binding);
-      runtime.motion.playVrmAnimation(_hipsTranslationVrma(2.0));
+      runtime.motion.playVrmAnimation(hipsTranslationVrma(2.0));
       runtime.update(1.0);
       runtime.motion.playProgrammaticPose(
         VrmProgrammaticPose(),
@@ -268,7 +275,7 @@ void vrmaMotionTests() {
       expect(binding.modelRootMotionTransform.storage[12], 1.0);
 
       runtime.motion.playVrmAnimation(
-        _hipsTranslationVrma(4.0),
+        hipsTranslationVrma(4.0),
         fadeIn: const Duration(seconds: 2),
       );
       runtime.update(0.0);
@@ -280,14 +287,14 @@ void vrmaMotionTests() {
   );
 
   test('runtime motion fades the current VRMA root crossfade to rest', () {
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
-    runtime.motion.playVrmAnimation(_hipsTranslationVrma(2.0));
+    runtime.motion.playVrmAnimation(hipsTranslationVrma(2.0));
     runtime.update(1.0);
     runtime.motion.playVrmAnimation(
-      _hipsTranslationVrma(4.0),
+      hipsTranslationVrma(4.0),
       fadeIn: const Duration(seconds: 2),
     );
     runtime.update(1.0);
@@ -300,7 +307,7 @@ void vrmaMotionTests() {
   });
 
   test('runtime motion drives multiple VRMA expressions from one node', () {
-    final modelJson = _minimalVrmJson(
+    final modelJson = minimalVrmJson(
       meshes: [
         {
           'primitives': [
@@ -327,7 +334,7 @@ void vrmaMotionTests() {
         },
       },
     );
-    final vrmaBinary = _floats([0.0, 1.0, 0.2, 0.0, 0.0, 0.8, 0.0, 0.0]);
+    final vrmaBinary = floats([0.0, 1.0, 0.2, 0.0, 0.0, 0.8, 0.0, 0.0]);
     final vrmaJson =
         <String, Object?>{
             'asset': {'version': '2.0'},
@@ -337,7 +344,7 @@ void vrmaMotionTests() {
             ],
           }
           ..addAll(
-            _animationStorageJson(vrmaBinary.length, [
+            animationStorageJson(vrmaBinary.length, [
               [0, 8],
               [8, 24],
             ]),
@@ -366,10 +373,10 @@ void vrmaMotionTests() {
               },
             },
           };
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(modelJson)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(modelJson)));
+    final binding = FakeBinding();
     final vrma = VrmAnimationAsset.parse(
-      bytes: _glb(vrmaJson, binaryChunk: vrmaBinary),
+      bytes: glb(vrmaJson, binaryChunk: vrmaBinary),
     );
 
     runtime.bind(binding);
@@ -386,10 +393,10 @@ void vrmaMotionTests() {
       return [0.0, math.sin(radians), 0.0, math.cos(radians)];
     }
 
-    final modelJson = _minimalVrmJson();
+    final modelJson = minimalVrmJson();
     (modelJson['nodes']! as List<Map<String, Object?>>)[0]['rotation'] =
         yRotation(45);
-    final vrmaBinary = _floats([0.0, 1.0, ...yRotation(90), ...yRotation(180)]);
+    final vrmaBinary = floats([0.0, 1.0, ...yRotation(90), ...yRotation(180)]);
     final vrmaJson =
         <String, Object?>{
             'asset': {'version': '2.0'},
@@ -399,7 +406,7 @@ void vrmaMotionTests() {
             ],
           }
           ..addAll(
-            _animationStorageJson(
+            animationStorageJson(
               vrmaBinary.length,
               [
                 [0, 8],
@@ -431,13 +438,13 @@ void vrmaMotionTests() {
               },
             },
           };
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(modelJson)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(modelJson)));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.motion.playVrmAnimation(
       VrmAnimationAsset.tryParse(
-        bytes: _glb(vrmaJson, binaryChunk: vrmaBinary),
+        bytes: glb(vrmaJson, binaryChunk: vrmaBinary),
         validation: VrmValidationMode.permissive,
       ).asset!,
     );
@@ -460,7 +467,7 @@ void vrmaMotionTests() {
       return [0.0, math.sin(radians), 0.0, math.cos(radians)];
     }
 
-    final modelJson = _minimalVrmJson();
+    final modelJson = minimalVrmJson();
     final modelNodes = modelJson['nodes']! as List<Map<String, Object?>>;
     modelNodes.add({
       'name': 'destinationParent',
@@ -472,7 +479,7 @@ void vrmaMotionTests() {
       modelNodes.length - 1,
     ];
 
-    final vrmaBinary = _floats([0.0, 1.0, ...xRotation(0), ...xRotation(90)]);
+    final vrmaBinary = floats([0.0, 1.0, ...xRotation(0), ...xRotation(90)]);
     final vrmaJson =
         <String, Object?>{
             'asset': {'version': '2.0'},
@@ -487,7 +494,7 @@ void vrmaMotionTests() {
             ],
           }
           ..addAll(
-            _animationStorageJson(
+            animationStorageJson(
               vrmaBinary.length,
               [
                 [0, 8],
@@ -519,18 +526,18 @@ void vrmaMotionTests() {
               },
             },
           };
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(modelJson)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(modelJson)));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     final vrma = VrmAnimationAsset.tryParse(
-      bytes: _glb(vrmaJson, binaryChunk: vrmaBinary),
+      bytes: glb(vrmaJson, binaryChunk: vrmaBinary),
       validation: VrmValidationMode.permissive,
     ).asset!;
     runtime.motion.playVrmAnimation(vrma);
     runtime.update(1);
 
-    final expected = _testTrs(rotation: xRotation(-90)).storage;
+    final expected = testTrs(rotation: xRotation(-90)).storage;
     void expectExpectedRotation() {
       final actual = binding.nodes[0]!.localTransform.storage;
       for (var index = 0; index < actual.length; index++) {
@@ -558,7 +565,7 @@ void vrmaMotionTests() {
       return [0.0, math.sin(radians), 0.0, math.cos(radians)];
     }
 
-    final vrmaBinary = _floats([
+    final vrmaBinary = floats([
       0.0,
       1.0,
       ...yRotation(0),
@@ -583,7 +590,7 @@ void vrmaMotionTests() {
             ],
           }
           ..addAll(
-            _animationStorageJson(
+            animationStorageJson(
               vrmaBinary.length,
               [
                 [0, 8],
@@ -623,18 +630,18 @@ void vrmaMotionTests() {
               },
             },
           };
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     final vrma = VrmAnimationAsset.tryParse(
-      bytes: _glb(vrmaJson, binaryChunk: vrmaBinary),
+      bytes: glb(vrmaJson, binaryChunk: vrmaBinary),
       validation: VrmValidationMode.permissive,
     ).asset!;
     runtime.motion.playVrmAnimation(vrma);
     runtime.update(1);
 
-    final expected = _testTrs(rotation: const [0.5, 0.5, -0.5, 0.5]).storage;
+    final expected = testTrs(rotation: const [0.5, 0.5, -0.5, 0.5]).storage;
     void expectExpectedRotation() {
       final actual = binding.nodes[2]!.localTransform.storage;
       for (var index = 0; index < actual.length; index++) {
@@ -652,13 +659,13 @@ void vrmaMotionTests() {
   });
 
   test('runtime motion retargets VRMA hips translation from rest poses', () {
-    final modelJson = _minimalVrmJson();
+    final modelJson = minimalVrmJson();
     (modelJson['nodes']! as List<Map<String, Object?>>)[0]['translation'] = [
       0.0,
       10.0,
       0.0,
     ];
-    final vrmaBinary = _floats([0.0, 1.0, 0.0, 2.0, 0.0, 0.0, 6.0, 0.0]);
+    final vrmaBinary = floats([0.0, 1.0, 0.0, 2.0, 0.0, 0.0, 6.0, 0.0]);
     final vrmaJson =
         <String, Object?>{
             'asset': {'version': '2.0'},
@@ -671,7 +678,7 @@ void vrmaMotionTests() {
             ],
           }
           ..addAll(
-            _animationStorageJson(vrmaBinary.length, [
+            animationStorageJson(vrmaBinary.length, [
               [0, 8],
               [8, 24],
             ]),
@@ -699,10 +706,10 @@ void vrmaMotionTests() {
               },
             },
           };
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(modelJson)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(modelJson)));
+    final binding = FakeBinding();
     final vrma = VrmAnimationAsset.parse(
-      bytes: _glb(vrmaJson, binaryChunk: vrmaBinary),
+      bytes: glb(vrmaJson, binaryChunk: vrmaBinary),
       validation: VrmValidationMode.permissive,
     );
 
@@ -718,7 +725,7 @@ void vrmaMotionTests() {
 
   test('runtime motion rotates hips translation through its source parent', () {
     const halfSqrt = 0.7071067811865476;
-    final vrmaBinary = _floats([0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0]);
+    final vrmaBinary = floats([0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0]);
     final vrmaJson =
         <String, Object?>{
             'asset': {'version': '2.0'},
@@ -737,7 +744,7 @@ void vrmaMotionTests() {
             ],
           }
           ..addAll(
-            _animationStorageJson(vrmaBinary.length, [
+            animationStorageJson(vrmaBinary.length, [
               [0, 8],
               [8, 24],
             ]),
@@ -765,13 +772,13 @@ void vrmaMotionTests() {
               },
             },
           };
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
+    final binding = FakeBinding();
     final destinationHipsRest = List<double>.of(
       runtime.model.gltf.nodes[0].restTransform.storage,
     );
     final vrma = VrmAnimationAsset.parse(
-      bytes: _glb(vrmaJson, binaryChunk: vrmaBinary),
+      bytes: glb(vrmaJson, binaryChunk: vrmaBinary),
       validation: VrmValidationMode.permissive,
     );
 
@@ -790,7 +797,7 @@ void vrmaMotionTests() {
   });
 
   test('runtime motion masks VRMA hips root motion', () {
-    final vrmaBinary = _floats([0.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0]);
+    final vrmaBinary = floats([0.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0]);
     final vrmaJson =
         <String, Object?>{
             'asset': {'version': '2.0'},
@@ -800,7 +807,7 @@ void vrmaMotionTests() {
             ],
           }
           ..addAll(
-            _animationStorageJson(vrmaBinary.length, [
+            animationStorageJson(vrmaBinary.length, [
               [0, 8],
               [8, 24],
             ]),
@@ -828,10 +835,10 @@ void vrmaMotionTests() {
               },
             },
           };
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
+    final binding = FakeBinding();
     final vrma = VrmAnimationAsset.parse(
-      bytes: _glb(vrmaJson, binaryChunk: vrmaBinary),
+      bytes: glb(vrmaJson, binaryChunk: vrmaBinary),
       validation: VrmValidationMode.permissive,
     );
 
@@ -844,7 +851,7 @@ void vrmaMotionTests() {
   });
 
   test('runtime motion can use a custom VRMA humanoid retargeter', () {
-    final vrmaBinary = _floats([0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
+    final vrmaBinary = floats([0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
     final vrmaJson =
         <String, Object?>{
             'asset': {'version': '2.0'},
@@ -854,7 +861,7 @@ void vrmaMotionTests() {
             ],
           }
           ..addAll(
-            _animationStorageJson(vrmaBinary.length, [
+            animationStorageJson(vrmaBinary.length, [
               [0, 8],
               [8, 24],
             ]),
@@ -882,11 +889,11 @@ void vrmaMotionTests() {
               },
             },
           };
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
-    final binding = _FakeBinding();
-    final retargeter = _OffsetRetargeter();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
+    final binding = FakeBinding();
+    final retargeter = OffsetRetargeter();
     final vrma = VrmAnimationAsset.parse(
-      bytes: _glb(vrmaJson, binaryChunk: vrmaBinary),
+      bytes: glb(vrmaJson, binaryChunk: vrmaBinary),
       validation: VrmValidationMode.permissive,
     );
 
@@ -902,7 +909,7 @@ void vrmaMotionTests() {
   });
 
   test('runtime motion plays VRMA JSON animation from data URI buffer', () {
-    final vrmaBinary = _floats([0.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0]);
+    final vrmaBinary = floats([0.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0]);
     final vrmaJson =
         <String, Object?>{
             'asset': {'version': '2.0'},
@@ -912,7 +919,7 @@ void vrmaMotionTests() {
             ],
           }
           ..addAll(
-            _animationStorageJson(vrmaBinary.length, [
+            animationStorageJson(vrmaBinary.length, [
               [0, 8],
               [8, 24],
             ]),
@@ -943,8 +950,8 @@ void vrmaMotionTests() {
     ((vrmaJson['buffers']! as List<Object?>).single
             as Map<String, Object?>)['uri'] =
         'data:application/octet-stream;base64,${base64.encode(vrmaBinary)}';
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(_minimalVrmJson())));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
+    final binding = FakeBinding();
     final vrma = VrmAnimationAsset.tryParse(
       bytes: Uint8List.fromList(utf8.encode(jsonEncode(vrmaJson))),
       validation: VrmValidationMode.permissive,
@@ -961,7 +968,7 @@ void vrmaMotionTests() {
   test(
     'runtime motion falls back to scene root nodes for VRMA root motion',
     () {
-      final modelJson = _minimalVrmJson();
+      final modelJson = minimalVrmJson();
       (modelJson['nodes']! as List<Map<String, Object?>>).add({
         'name': 'modelRoot',
         'children': [0],
@@ -970,7 +977,7 @@ void vrmaMotionTests() {
           as Map<String, Object?>)['nodes'] = [
         15,
       ];
-      final vrmaBinary = _floats([0.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0]);
+      final vrmaBinary = floats([0.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0]);
       final vrmaJson =
           <String, Object?>{
               'asset': {'version': '2.0'},
@@ -980,7 +987,7 @@ void vrmaMotionTests() {
               ],
             }
             ..addAll(
-              _animationStorageJson(vrmaBinary.length, [
+              animationStorageJson(vrmaBinary.length, [
                 [0, 8],
                 [8, 24],
               ]),
@@ -1008,13 +1015,13 @@ void vrmaMotionTests() {
                 },
               },
             };
-      final runtime = VrmRuntime(VrmModel.parseGlb(_glb(modelJson)));
-      final binding = _OrderBinding();
+      final runtime = VrmRuntime(VrmModel.parseGlb(glb(modelJson)));
+      final binding = OrderBinding();
 
       runtime.bind(binding);
       runtime.motion.playVrmAnimation(
         VrmAnimationAsset.parse(
-          bytes: _glb(vrmaJson, binaryChunk: vrmaBinary),
+          bytes: glb(vrmaJson, binaryChunk: vrmaBinary),
           validation: VrmValidationMode.permissive,
         ),
       );
@@ -1026,7 +1033,7 @@ void vrmaMotionTests() {
   );
 
   test('runtime motion plays VRMA LookAt animation through expressions', () {
-    final modelJson = _minimalVrmJson(
+    final modelJson = minimalVrmJson(
       meshes: [
         {
           'primitives': [
@@ -1051,9 +1058,9 @@ void vrmaMotionTests() {
     final vrm =
         (modelJson['extensions']! as Map<String, Object?>)['VRMC_vrm']!
             as Map<String, Object?>;
-    vrm['lookAt'] = _lookAtJson(type: 'expression');
+    vrm['lookAt'] = lookAtJson(type: 'expression');
     final halfTurn = math.sin(math.pi / 4);
-    final vrmaBinary = _floats([
+    final vrmaBinary = floats([
       0.0,
       1.0,
       0.0,
@@ -1074,7 +1081,7 @@ void vrmaMotionTests() {
             ],
           }
           ..addAll(
-            _animationStorageJson(
+            animationStorageJson(
               vrmaBinary.length,
               [
                 [0, 8],
@@ -1102,10 +1109,10 @@ void vrmaMotionTests() {
               'lookAt': {'node': 0},
             },
           };
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(modelJson)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(modelJson)));
+    final binding = FakeBinding();
     final vrma = VrmAnimationAsset.parse(
-      bytes: _glb(vrmaJson, binaryChunk: vrmaBinary),
+      bytes: glb(vrmaJson, binaryChunk: vrmaBinary),
     );
 
     runtime.bind(binding);
@@ -1120,7 +1127,7 @@ void vrmaMotionTests() {
   });
 
   test('runtime motion converts VRMA LookAt pitch through expressions', () {
-    final modelJson = _minimalVrmJson(
+    final modelJson = minimalVrmJson(
       meshes: [
         {
           'primitives': [
@@ -1145,9 +1152,9 @@ void vrmaMotionTests() {
     final vrm =
         (modelJson['extensions']! as Map<String, Object?>)['VRMC_vrm']!
             as Map<String, Object?>;
-    vrm['lookAt'] = _lookAtJson(type: 'expression');
+    vrm['lookAt'] = lookAtJson(type: 'expression');
     final halfTurn = math.sin(math.pi / 4);
-    final vrmaBinary = _floats([
+    final vrmaBinary = floats([
       0.0,
       1.0,
       0.0,
@@ -1168,7 +1175,7 @@ void vrmaMotionTests() {
             ],
           }
           ..addAll(
-            _animationStorageJson(
+            animationStorageJson(
               vrmaBinary.length,
               [
                 [0, 8],
@@ -1196,10 +1203,10 @@ void vrmaMotionTests() {
               'lookAt': {'node': 0},
             },
           };
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(modelJson)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(modelJson)));
+    final binding = FakeBinding();
     final vrma = VrmAnimationAsset.parse(
-      bytes: _glb(vrmaJson, binaryChunk: vrmaBinary),
+      bytes: glb(vrmaJson, binaryChunk: vrmaBinary),
     );
 
     runtime.bind(binding);
@@ -1210,7 +1217,7 @@ void vrmaMotionTests() {
   });
 
   test('stopping VRMA playback clears motion expression inputs', () {
-    final modelJson = _minimalVrmJson(
+    final modelJson = minimalVrmJson(
       meshes: [
         {
           'primitives': [
@@ -1232,7 +1239,7 @@ void vrmaMotionTests() {
         },
       },
     );
-    final vrmaBinary = _floats([0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
+    final vrmaBinary = floats([0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
     final vrmaJson =
         <String, Object?>{
             'asset': {'version': '2.0'},
@@ -1242,7 +1249,7 @@ void vrmaMotionTests() {
             ],
           }
           ..addAll(
-            _animationStorageJson(
+            animationStorageJson(
               vrmaBinary.length,
               [
                 [0, 8],
@@ -1274,10 +1281,10 @@ void vrmaMotionTests() {
               },
             },
           };
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(modelJson)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(modelJson)));
+    final binding = FakeBinding();
     final vrma = VrmAnimationAsset.parse(
-      bytes: _glb(vrmaJson, binaryChunk: vrmaBinary),
+      bytes: glb(vrmaJson, binaryChunk: vrmaBinary),
     );
 
     runtime.bind(binding);
@@ -1291,7 +1298,7 @@ void vrmaMotionTests() {
   });
 
   test('runtime skips invalid VRMA look expression mapping', () {
-    final modelJson = _minimalVrmJson(
+    final modelJson = minimalVrmJson(
       meshes: [
         {
           'primitives': [
@@ -1313,7 +1320,7 @@ void vrmaMotionTests() {
         },
       },
     );
-    final vrmaBinary = _floats([0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
+    final vrmaBinary = floats([0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
     final vrmaJson =
         <String, Object?>{
             'asset': {'version': '2.0'},
@@ -1322,7 +1329,7 @@ void vrmaMotionTests() {
             ],
           }
           ..addAll(
-            _animationStorageJson(
+            animationStorageJson(
               vrmaBinary.length,
               [
                 [0, 8],
@@ -1355,11 +1362,11 @@ void vrmaMotionTests() {
             },
           };
     final vrma = VrmAnimationAsset.tryParse(
-      bytes: _glb(vrmaJson, binaryChunk: vrmaBinary),
+      bytes: glb(vrmaJson, binaryChunk: vrmaBinary),
       validation: VrmValidationMode.permissive,
     );
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(modelJson)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(modelJson)));
+    final binding = FakeBinding();
 
     expect(
       vrma.validation.errors.map((d) => d.code),
@@ -1379,7 +1386,7 @@ void vrmaMotionTests() {
   });
 
   test('runtime skips invalid VRMA eye humanoid mapping', () {
-    final modelJson = _minimalVrmJson();
+    final modelJson = minimalVrmJson();
     final nodes = modelJson['nodes']! as List<Map<String, Object?>>;
     nodes[2]['children'] = [15];
     nodes.add({'name': 'leftEye'});
@@ -1391,7 +1398,7 @@ void vrmaMotionTests() {
             as Map<String, Object?>;
     humanBones['leftEye'] = {'node': 15};
 
-    final vrmaBinary = _floats([
+    final vrmaBinary = floats([
       0.0, 1.0, // input times
       0.0, 0.0, 0.0, 1.0, // identity
       0.0, 0.0, 0.7071068, 0.7071068, // invalid eye rotation
@@ -1404,7 +1411,7 @@ void vrmaMotionTests() {
             ],
           }
           ..addAll(
-            _animationStorageJson(
+            animationStorageJson(
               vrmaBinary.length,
               [
                 [0, 8],
@@ -1437,11 +1444,11 @@ void vrmaMotionTests() {
             },
           };
     final vrma = VrmAnimationAsset.tryParse(
-      bytes: _glb(vrmaJson, binaryChunk: vrmaBinary),
+      bytes: glb(vrmaJson, binaryChunk: vrmaBinary),
       validation: VrmValidationMode.permissive,
     );
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(modelJson)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(modelJson)));
+    final binding = FakeBinding();
 
     expect(
       vrma.validation.errors.map((d) => d.code),
@@ -1468,7 +1475,7 @@ void vrmaMotionTests() {
   });
 
   test('parses VRMA JSON and validates humanoid animation restrictions', () {
-    final json = _minimalVrmaJson();
+    final json = minimalVrmaJson();
     final result = VrmAnimationAsset.tryParse(
       bytes: Uint8List.fromList(utf8.encode(jsonEncode(json))),
       validation: VrmValidationMode.permissive,
@@ -1493,7 +1500,7 @@ void vrmaMotionTests() {
   });
 
   test('warns for VRMA humanoid rest-pose scale', () {
-    final source = _minimalVrmJson();
+    final source = minimalVrmJson();
     final nodes = [
       for (final node in source['nodes']! as List<Object?>)
         Map<String, Object?>.from(node! as Map),
@@ -1508,7 +1515,7 @@ void vrmaMotionTests() {
           'specVersion': '1.0',
           'humanoid': {
             'humanBones': {
-              for (final entry in _boneNodes.entries)
+              for (final entry in boneNodes.entries)
                 entry.key.specName: {'node': entry.value},
             },
           },
@@ -1530,7 +1537,7 @@ void vrmaMotionTests() {
   });
 
   test('warns for reflected VRMA humanoid rest-pose matrix', () {
-    final source = _minimalVrmJson();
+    final source = minimalVrmJson();
     final nodes = [
       for (final node in source['nodes']! as List<Object?>)
         Map<String, Object?>.from(node! as Map),
@@ -1562,7 +1569,7 @@ void vrmaMotionTests() {
           'specVersion': '1.0',
           'humanoid': {
             'humanBones': {
-              for (final entry in _boneNodes.entries)
+              for (final entry in boneNodes.entries)
                 entry.key.specName: {'node': entry.value},
             },
           },
@@ -1960,7 +1967,7 @@ void vrmaMotionTests() {
   });
 
   test('warns for VRMA expression weights outside range', () {
-    final binary = _floats([0.0, 1.2, 0.0, 0.0]);
+    final binary = floats([0.0, 1.2, 0.0, 0.0]);
     final json =
         <String, Object?>{
             'asset': {'version': '2.0'},
@@ -1970,7 +1977,7 @@ void vrmaMotionTests() {
             ],
           }
           ..addAll(
-            _animationStorageJson(binary.length, [
+            animationStorageJson(binary.length, [
               [0, 4],
               [4, 12],
             ]),
@@ -2000,7 +2007,7 @@ void vrmaMotionTests() {
           };
 
     final result = VrmAnimationAsset.tryParse(
-      bytes: _glb(json, binaryChunk: binary),
+      bytes: glb(json, binaryChunk: binary),
     );
 
     expect(result.asset, isNotNull);
@@ -2135,83 +2142,4 @@ void vrmaMotionTests() {
       contains('vrm.missingRequiredHumanoidBone'),
     );
   });
-}
-
-VrmAnimationAsset _hipsTranslationVrma(double x, {double? secondX}) {
-  final binary = _floats([
-    0.0,
-    1.0,
-    0.0,
-    0.0,
-    0.0,
-    x,
-    0.0,
-    0.0,
-    if (secondX != null) ...[0.0, 0.0, 0.0, secondX, 0.0, 0.0],
-  ]);
-  final json =
-      <String, Object?>{
-        'asset': {'version': '2.0'},
-        'extensionsUsed': ['VRMC_vrm_animation'],
-        'nodes': [
-          {'name': 'sourceHips'},
-        ],
-      }..addAll(
-        _animationStorageJson(binary.length, [
-          [0, 8],
-          [8, 24],
-          if (secondX != null) [32, 24],
-        ]),
-      );
-  json['animations'] = [
-    for (final output in [1, if (secondX != null) 2])
-      {
-        'channels': [
-          {
-            'sampler': 0,
-            'target': {'node': 0, 'path': 'translation'},
-          },
-        ],
-        'samplers': [
-          {'input': 0, 'output': output},
-        ],
-      },
-  ];
-  json['extensions'] = {
-    'VRMC_vrm_animation': {
-      'specVersion': '1.0',
-      'humanoid': {
-        'humanBones': {
-          'hips': {'node': 0},
-        },
-      },
-    },
-  };
-  return VrmAnimationAsset.parse(
-    bytes: _glb(json, binaryChunk: binary),
-    validation: VrmValidationMode.permissive,
-  );
-}
-
-final class _OffsetRetargeter implements VrmHumanoidRetargeter {
-  VrmHumanoidBone? bone;
-  double? hipsTranslationScale;
-
-  @override
-  VrmRetargetedBonePose retargetBone({
-    required VrmHumanoidBone bone,
-    required GltfNodePose sourcePose,
-    required GltfNode sourceRestNode,
-    required List<double> sourceRestWorldRotation,
-    required GltfNode destinationRestNode,
-    required List<double> destinationRestWorldRotation,
-    required double hipsTranslationScale,
-  }) {
-    this.bone = bone;
-    this.hipsTranslationScale = hipsTranslationScale;
-    return VrmRetargetedBonePose(
-      nodePose: GltfNodePose(translation: [4.0, 5.0, 6.0]),
-      modelRootPose: GltfNodePose(translation: [7.0, 8.0, 9.0]),
-    );
-  }
 }

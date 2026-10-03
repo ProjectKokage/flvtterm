@@ -1,8 +1,13 @@
-part of '../flvtterm_test.dart';
+import 'dart:math' as math;
 
-void springBoneTests() {
+import 'package:flvtterm/flvtterm.dart';
+import 'package:test/test.dart';
+
+import 'src/test_fixtures.dart';
+
+void main() {
   test('parses SpringBone metadata from the root extension', () {
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..['extensionsUsed'] = ['VRMC_vrm', 'VRMC_springBone'];
     (json['extensions']! as Map<String, Object?>)['VRMC_springBone'] = {
       'specVersion': '1.0',
@@ -56,7 +61,7 @@ void springBoneTests() {
       ],
     };
 
-    final model = VrmModel.parseGlb(_glb(json));
+    final model = VrmModel.parseGlb(glb(json));
     final springBone = model.springBone!;
 
     expect(springBone.specVersion, '1.0');
@@ -106,7 +111,7 @@ void springBoneTests() {
   });
 
   test('reports invalid SpringBone metadata in permissive mode', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     (json['extensions']! as Map<String, Object?>)['VRMC_springBone'] = {
       'specVersion': '0.9',
       'colliders': [
@@ -169,7 +174,7 @@ void springBoneTests() {
     };
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -270,13 +275,13 @@ void springBoneTests() {
   });
 
   test('reports missing SpringBone specVersion', () {
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..['extensionsUsed'] = ['VRMC_vrm', 'VRMC_springBone'];
     json['extensions'] = Map<String, Object?>.from(json['extensions']! as Map)
       ..['VRMC_springBone'] = <String, Object?>{};
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -293,12 +298,12 @@ void springBoneTests() {
 
   test('reports malformed SpringBone root extension object', () {
     for (final value in ['bad', null]) {
-      final json = _minimalVrmJson();
+      final json = minimalVrmJson();
       json['extensions'] = Map<String, Object?>.from(json['extensions']! as Map)
         ..['VRMC_springBone'] = value;
 
       final result = VrmModel.tryParseGlb(
-        _glb(json),
+        glb(json),
         validation: VrmValidationMode.permissive,
       );
 
@@ -311,7 +316,7 @@ void springBoneTests() {
   });
 
   test('reports malformed SpringBone root collection arrays', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     (json['extensions']! as Map<String, Object?>)['VRMC_springBone'] = {
       'specVersion': '1.0',
       'colliders': 'bad',
@@ -320,7 +325,7 @@ void springBoneTests() {
     };
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -336,7 +341,7 @@ void springBoneTests() {
   });
 
   test('reports empty declared SpringBone root collection arrays', () {
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..['extensionsUsed'] = ['VRMC_vrm', 'VRMC_springBone'];
     (json['extensions']! as Map<String, Object?>)['VRMC_springBone'] = {
       'specVersion': '1.0',
@@ -344,7 +349,7 @@ void springBoneTests() {
       'colliderGroups': <Object?>[],
       'springs': <Object?>[],
     };
-    final bytes = _glb(json);
+    final bytes = glb(json);
 
     final permissive = VrmModel.tryParseGlb(
       bytes,
@@ -373,7 +378,7 @@ void springBoneTests() {
   });
 
   test('reports malformed SpringBone collection item objects', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     (json['extensions']! as Map<String, Object?>)['VRMC_springBone'] = {
       'specVersion': '1.0',
       'colliders': [null],
@@ -387,7 +392,7 @@ void springBoneTests() {
     };
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -404,7 +409,7 @@ void springBoneTests() {
   });
 
   test('reports malformed SpringBone optional names', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     (json['extensions']! as Map<String, Object?>)['VRMC_springBone'] = {
       'specVersion': '1.0',
       'colliders': [
@@ -432,7 +437,7 @@ void springBoneTests() {
     };
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -454,7 +459,7 @@ void springBoneTests() {
   });
 
   test('reports malformed SpringBone collider shape objects', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     (json['extensions']! as Map<String, Object?>)['VRMC_springBone'] = {
       'specVersion': '1.0',
       'colliders': [
@@ -467,7 +472,7 @@ void springBoneTests() {
     };
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -482,7 +487,7 @@ void springBoneTests() {
   });
 
   test('reports malformed SpringBone spring arrays', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     (json['extensions']! as Map<String, Object?>)['VRMC_springBone'] = {
       'specVersion': '1.0',
       'springs': [
@@ -491,7 +496,7 @@ void springBoneTests() {
     };
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -506,7 +511,7 @@ void springBoneTests() {
   });
 
   test('reports malformed SpringBone scalar numeric fields', () {
-    final json = _minimalVrmJson();
+    final json = minimalVrmJson();
     (json['extensions']! as Map<String, Object?>)['VRMC_springBone'] = {
       'specVersion': '1.0',
       'colliders': [
@@ -533,7 +538,7 @@ void springBoneTests() {
     };
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -548,7 +553,7 @@ void springBoneTests() {
   });
 
   test('runtime SpringBone applies deterministic joint rotation', () {
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..['extensionsUsed'] = ['VRMC_vrm', 'VRMC_springBone'];
     final nodes = json['nodes']! as List<Map<String, Object?>>;
     nodes[1]['translation'] = [0.0, 0.0, 0.0];
@@ -570,8 +575,8 @@ void springBoneTests() {
         },
       ],
     };
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.update(1.0);
@@ -601,7 +606,7 @@ void springBoneTests() {
   test(
     'runtime SpringBone preserves animated identity translation and scale',
     () {
-      final json = _minimalVrmJson()
+      final json = minimalVrmJson()
         ..['extensionsUsed'] = ['VRMC_vrm', 'VRMC_springBone'];
       final nodes = json['nodes']! as List<Map<String, Object?>>;
       nodes[1]
@@ -624,8 +629,8 @@ void springBoneTests() {
           },
         ],
       };
-      final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
-      final binding = _FakeBinding();
+      final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)));
+      final binding = FakeBinding();
 
       runtime.bind(binding);
       runtime.motion.playProgrammaticPose(
@@ -652,7 +657,7 @@ void springBoneTests() {
 
   test('runtime SpringBone evaluates separate chains root to descendant', () {
     VrmRuntime runtime({required bool childFirst}) {
-      final json = _minimalVrmJson()
+      final json = minimalVrmJson()
         ..['extensionsUsed'] = ['VRMC_vrm', 'VRMC_springBone'];
       final nodes = json['nodes']! as List<Map<String, Object?>>;
       nodes[1]['translation'] = [0.0, 0.0, 0.0];
@@ -683,13 +688,13 @@ void springBoneTests() {
             ? [childSpring, parentSpring]
             : [parentSpring, childSpring],
       };
-      return VrmRuntime(VrmModel.parseGlb(_glb(json)));
+      return VrmRuntime(VrmModel.parseGlb(glb(json)));
     }
 
     final ordered = runtime(childFirst: false);
     final reversed = runtime(childFirst: true);
-    final orderedBinding = _FakeBinding();
-    final reversedBinding = _FakeBinding();
+    final orderedBinding = FakeBinding();
+    final reversedBinding = FakeBinding();
     ordered.bind(orderedBinding);
     reversed.bind(reversedBinding);
 
@@ -709,7 +714,7 @@ void springBoneTests() {
   });
 
   test('runtime SpringBone stiffness follows animated parent rotation', () {
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..['extensionsUsed'] = ['VRMC_vrm', 'VRMC_springBone'];
     final nodes = json['nodes']! as List<Map<String, Object?>>;
     nodes[1]['translation'] = [0.0, 0.0, 0.0];
@@ -730,8 +735,8 @@ void springBoneTests() {
         },
       ],
     };
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.update(0.0);
@@ -752,7 +757,7 @@ void springBoneTests() {
   });
 
   test('runtime SpringBone solves output rotation in joint local space', () {
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..['extensionsUsed'] = ['VRMC_vrm', 'VRMC_springBone'];
     final nodes = json['nodes']! as List<Map<String, Object?>>;
     nodes[1]
@@ -776,8 +781,8 @@ void springBoneTests() {
         },
       ],
     };
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.update(1.0);
@@ -795,7 +800,7 @@ void springBoneTests() {
   });
 
   test('SpringBone caches node bindings and resets when binding changes', () {
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..['extensionsUsed'] = ['VRMC_vrm', 'VRMC_springBone'];
     final nodes = json['nodes']! as List<Map<String, Object?>>;
     nodes[1]['translation'] = [0.0, 0.0, 0.0];
@@ -817,9 +822,9 @@ void springBoneTests() {
         },
       ],
     };
-    final controller = VrmSpringBoneController(VrmModel.parseGlb(_glb(json)));
-    final firstBinding = _FakeBinding();
-    final secondBinding = _FakeBinding();
+    final controller = VrmSpringBoneController(VrmModel.parseGlb(glb(json)));
+    final firstBinding = FakeBinding();
+    final secondBinding = FakeBinding();
 
     controller.applyTo(firstBinding, 1.0);
     final initializedLookups = firstBinding.nodeLookups;
@@ -834,7 +839,7 @@ void springBoneTests() {
   });
 
   test('runtime SpringBone can reset after teleport', () {
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..['extensionsUsed'] = ['VRMC_vrm', 'VRMC_springBone'];
     final nodes = json['nodes']! as List<Map<String, Object?>>;
     nodes[1]['translation'] = [0.0, 0.0, 0.0];
@@ -856,8 +861,8 @@ void springBoneTests() {
         },
       ],
     };
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.update(1.0);
@@ -871,7 +876,7 @@ void springBoneTests() {
   });
 
   test('runtime skips unsupported SpringBone spec versions', () {
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..['extensionsUsed'] = ['VRMC_vrm', 'VRMC_springBone'];
     final nodes = json['nodes']! as List<Map<String, Object?>>;
     nodes[1]['translation'] = [0.0, 0.0, 0.0];
@@ -894,11 +899,11 @@ void springBoneTests() {
       ],
     };
     final model = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     ).asset!;
     final runtime = VrmRuntime(model);
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.update(1.0);
@@ -908,7 +913,7 @@ void springBoneTests() {
   });
 
   test('runtime skips invalid SpringBone joint order', () {
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..['extensionsUsed'] = ['VRMC_vrm', 'VRMC_springBone'];
     final nodes = json['nodes']! as List<Map<String, Object?>>;
     nodes[1]['translation'] = [0.0, 0.0, 0.0];
@@ -931,11 +936,11 @@ void springBoneTests() {
       ],
     };
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
     final runtime = VrmRuntime(result.asset!);
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.update(1.0);
@@ -949,7 +954,7 @@ void springBoneTests() {
   });
 
   test('runtime skips invalid SpringBone center', () {
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..['extensionsUsed'] = ['VRMC_vrm', 'VRMC_springBone'];
     final nodes = json['nodes']! as List<Map<String, Object?>>;
     nodes[1]['translation'] = [0.0, 0.0, 0.0];
@@ -973,11 +978,11 @@ void springBoneTests() {
       ],
     };
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
     final runtime = VrmRuntime(result.asset!);
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.update(1.0);
@@ -991,7 +996,7 @@ void springBoneTests() {
   });
 
   test('runtime skips SpringBone center used by another chain', () {
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..['extensionsUsed'] = ['VRMC_vrm', 'VRMC_springBone'];
     final nodes = json['nodes']! as List<Map<String, Object?>>;
     nodes[3]['translation'] = [0.0, 0.0, 0.0];
@@ -1022,11 +1027,11 @@ void springBoneTests() {
       ],
     };
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
     final runtime = VrmRuntime(result.asset!);
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.update(1.0);
@@ -1040,7 +1045,7 @@ void springBoneTests() {
   });
 
   test('runtime skips invalid SpringBone joint parameters', () {
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..['extensionsUsed'] = ['VRMC_vrm', 'VRMC_springBone'];
     final nodes = json['nodes']! as List<Map<String, Object?>>;
     nodes[1]['translation'] = [0.0, 0.0, 0.0];
@@ -1064,11 +1069,11 @@ void springBoneTests() {
       ],
     };
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
     final runtime = VrmRuntime(result.asset!);
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.update(1.0);
@@ -1085,7 +1090,7 @@ void springBoneTests() {
   });
 
   test('runtime skips duplicate SpringBone joints', () {
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..['extensionsUsed'] = ['VRMC_vrm', 'VRMC_springBone'];
     final nodes = json['nodes']! as List<Map<String, Object?>>;
     nodes[1]['translation'] = [0.0, 0.0, 0.0];
@@ -1120,11 +1125,11 @@ void springBoneTests() {
       ],
     };
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
     final runtime = VrmRuntime(result.asset!);
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.update(1.0);
@@ -1138,7 +1143,7 @@ void springBoneTests() {
   });
 
   test('runtime SpringBone preserves matrix-form rest rotation', () {
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..['extensionsUsed'] = ['VRMC_vrm', 'VRMC_springBone'];
     final nodes = json['nodes']! as List<Map<String, Object?>>;
     nodes[1]
@@ -1180,8 +1185,8 @@ void springBoneTests() {
         },
       ],
     };
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.update(0);
@@ -1193,7 +1198,7 @@ void springBoneTests() {
   });
 
   test('fixed-step SpringBone preserves pose and drops backlog', () {
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..['extensionsUsed'] = ['VRMC_vrm', 'VRMC_springBone'];
     final nodes = json['nodes']! as List<Map<String, Object?>>;
     nodes[1]['translation'] = [0.0, 0.0, 0.0];
@@ -1215,8 +1220,8 @@ void springBoneTests() {
         },
       ],
     };
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.springBones.fixedTimeStepSeconds = 0.5;
@@ -1251,7 +1256,7 @@ void springBoneTests() {
   });
 
   test('runtime SpringBone fixed timestep ignores non-finite delta', () {
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..['extensionsUsed'] = ['VRMC_vrm', 'VRMC_springBone'];
     final nodes = json['nodes']! as List<Map<String, Object?>>;
     nodes[1]['translation'] = [0.0, 0.0, 0.0];
@@ -1273,8 +1278,8 @@ void springBoneTests() {
         },
       ],
     };
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.springBones.fixedTimeStepSeconds = 0.5;
@@ -1285,7 +1290,7 @@ void springBoneTests() {
   });
 
   test('runtime SpringBone evaluates inertia relative to center node', () {
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..['extensionsUsed'] = ['VRMC_vrm', 'VRMC_springBone'];
     final nodes = json['nodes']! as List<Map<String, Object?>>;
     nodes[1]['translation'] = [0.0, 0.0, 0.0];
@@ -1307,8 +1312,8 @@ void springBoneTests() {
         },
       ],
     };
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.motion.play(
@@ -1328,7 +1333,7 @@ void springBoneTests() {
   test(
     'runtime SpringBone evaluates world gravity in rotated center space',
     () {
-      final json = _minimalVrmJson()
+      final json = minimalVrmJson()
         ..['extensionsUsed'] = ['VRMC_vrm', 'VRMC_springBone'];
       final nodes = json['nodes']! as List<Map<String, Object?>>;
       nodes[1]['translation'] = [0.0, 0.0, 0.0];
@@ -1351,8 +1356,8 @@ void springBoneTests() {
           },
         ],
       };
-      final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
-      final binding = _FakeBinding();
+      final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)));
+      final binding = FakeBinding();
 
       runtime.bind(binding);
       runtime.update(0.0);
@@ -1374,7 +1379,7 @@ void springBoneTests() {
   );
 
   test('SpringBone accounts for model-root translation', () {
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..['extensionsUsed'] = ['VRMC_vrm', 'VRMC_springBone'];
     final nodes = json['nodes']! as List<Map<String, Object?>>;
     nodes[1]['translation'] = [0.0, 0.0, 0.0];
@@ -1395,11 +1400,11 @@ void springBoneTests() {
         },
       ],
     };
-    final controller = VrmSpringBoneController(VrmModel.parseGlb(_glb(json)));
-    final binding = _FakeBinding();
+    final controller = VrmSpringBoneController(VrmModel.parseGlb(glb(json)));
+    final binding = FakeBinding();
 
     controller.applyTo(binding, 0.0);
-    binding.modelRootMotionTransform = _testTrs(
+    binding.modelRootMotionTransform = testTrs(
       translation: const [1.0, 0.0, 0.0],
     );
     controller.applyTo(binding, 0.0);
@@ -1412,7 +1417,7 @@ void springBoneTests() {
   });
 
   test('SpringBone evaluates gravity through model-root center rotation', () {
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..['extensionsUsed'] = ['VRMC_vrm', 'VRMC_springBone'];
     final nodes = json['nodes']! as List<Map<String, Object?>>;
     nodes[1]['translation'] = [0.0, 0.0, 0.0];
@@ -1435,11 +1440,11 @@ void springBoneTests() {
         },
       ],
     };
-    final controller = VrmSpringBoneController(VrmModel.parseGlb(_glb(json)));
-    final binding = _FakeBinding();
+    final controller = VrmSpringBoneController(VrmModel.parseGlb(glb(json)));
+    final binding = FakeBinding();
 
     controller.applyTo(binding, 0.0);
-    binding.modelRootMotionTransform = _testTrs(
+    binding.modelRootMotionTransform = testTrs(
       rotation: [0.0, 0.0, math.sqrt1_2, math.sqrt1_2],
     );
     controller.applyTo(binding, 1.0);
@@ -1452,7 +1457,7 @@ void springBoneTests() {
   });
 
   test('runtime SpringBone sphere and capsule colliders push tail out', () {
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..['extensionsUsed'] = ['VRMC_vrm', 'VRMC_springBone'];
     final nodes = json['nodes']! as List<Map<String, Object?>>;
     nodes[1]['translation'] = [0.0, 0.0, 0.0];
@@ -1505,8 +1510,8 @@ void springBoneTests() {
         },
       ],
     };
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.update(0.0);
@@ -1515,7 +1520,7 @@ void springBoneTests() {
   });
 
   test('runtime SpringBone transforms collider local offsets', () {
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..['extensionsUsed'] = ['VRMC_vrm', 'VRMC_springBone'];
     final nodes = json['nodes']! as List<Map<String, Object?>>;
     nodes[1]['translation'] = [0.0, 0.0, 0.0];
@@ -1558,8 +1563,8 @@ void springBoneTests() {
         },
       ],
     };
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.update(0.0);
@@ -1568,7 +1573,7 @@ void springBoneTests() {
   });
 
   test('runtime SpringBone follows animated collider ancestors', () {
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..['extensionsUsed'] = ['VRMC_vrm', 'VRMC_springBone'];
     final nodes = json['nodes']! as List<Map<String, Object?>>;
     nodes[1]['translation'] = [0.0, 0.0, 0.0];
@@ -1612,8 +1617,8 @@ void springBoneTests() {
         },
       ],
     };
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)));
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.update(0.0);
@@ -1634,7 +1639,7 @@ void springBoneTests() {
   });
 
   test('runtime skips invalid SpringBone colliders', () {
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..['extensionsUsed'] = ['VRMC_vrm', 'VRMC_springBone'];
     final nodes = json['nodes']! as List<Map<String, Object?>>;
     nodes[1]['translation'] = [0.0, 0.0, 0.0];
@@ -1675,11 +1680,11 @@ void springBoneTests() {
       ],
     };
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
     final runtime = VrmRuntime(result.asset!);
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
 
     runtime.bind(binding);
     runtime.update(0.0);

@@ -1,8 +1,13 @@
-part of '../flvtterm_test.dart';
+import 'dart:typed_data';
 
-void gltfAnimationTests() {
+import 'package:flvtterm/flvtterm.dart';
+import 'package:test/test.dart';
+
+import 'src/test_fixtures.dart';
+
+void main() {
   test('reports animation targeting a matrix node', () {
-    final binary = _floats([
+    final binary = floats([
       0.0, 1.0, // input times
       0.0, 0.0, 0.0, // output translation 0
       1.0, 0.0, 0.0, // output translation 1
@@ -31,7 +36,7 @@ void gltfAnimationTests() {
           ],
         },
       ],
-      ..._animationStorageJson(binary.length, [
+      ...animationStorageJson(binary.length, [
         [0, 8],
         [8, 24],
       ]),
@@ -50,9 +55,9 @@ void gltfAnimationTests() {
       ],
     };
 
-    final strict = GltfAsset.tryParse(bytes: _glb(json, binaryChunk: binary));
+    final strict = GltfAsset.tryParse(bytes: glb(json, binaryChunk: binary));
     final permissive = GltfAsset.tryParse(
-      bytes: _glb(json, binaryChunk: binary),
+      bytes: glb(json, binaryChunk: binary),
       validation: VrmValidationMode.permissive,
     );
 
@@ -65,7 +70,7 @@ void gltfAnimationTests() {
   });
 
   test('evaluates glTF animation accessors from a GLB BIN chunk', () {
-    final binary = _floats([
+    final binary = floats([
       // accessor 0: input times
       0.0, 1.0, 2.0,
       // accessor 1: node 0 translations
@@ -77,9 +82,9 @@ void gltfAnimationTests() {
       3.0, 3.0, 3.0,
       5.0, 5.0, 5.0,
     ]);
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(binary.length, [
+        animationStorageJson(binary.length, [
           [0, 12],
           [12, 36],
           [48, 36],
@@ -129,7 +134,7 @@ void gltfAnimationTests() {
       'VENDOR_sampler',
     ]);
 
-    final model = VrmModel.parseGlb(_glb(json, binaryChunk: binary));
+    final model = VrmModel.parseGlb(glb(json, binaryChunk: binary));
     final animation = model.gltf.animations.single;
     final frame = GltfAnimationEvaluator(model.gltf).evaluate(0, 0.5);
     final exactFrame = GltfAnimationEvaluator(model.gltf).evaluate(0, 1.0);
@@ -171,7 +176,7 @@ void gltfAnimationTests() {
   });
 
   test('loops mixed-duration animation samplers at the clip boundary', () {
-    final binary = _floats([
+    final binary = floats([
       0.0, 1.0, // accessor 0: short input times
       0.0, 0.0, 0.0, // accessor 1: short translation frame 0
       10.0, 0.0, 0.0, // accessor 1: short translation frame 1
@@ -179,7 +184,7 @@ void gltfAnimationTests() {
       0.0, 0.0, 0.0, // accessor 3: long translation frame 0
       20.0, 0.0, 0.0, // accessor 3: long translation frame 1
     ]);
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..['buffers'] = [
         {'byteLength': binary.length},
       ]
@@ -227,7 +232,7 @@ void gltfAnimationTests() {
           ],
         },
       ];
-    final model = VrmModel.parseGlb(_glb(json, binaryChunk: binary));
+    final model = VrmModel.parseGlb(glb(json, binaryChunk: binary));
     final evaluator = GltfAnimationEvaluator(model.gltf);
 
     final beforeLoop = evaluator.evaluate(0, 1.5, loop: true);
@@ -240,7 +245,7 @@ void gltfAnimationTests() {
     expect(afterLoop.nodePoses[1]!.translation, [5.0, 0.0, 0.0]);
 
     final runtime = VrmRuntime(model);
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
     runtime.bind(binding);
     runtime.motion.playEmbeddedGltfAnimation(
       0,
@@ -268,7 +273,7 @@ void gltfAnimationTests() {
     data.setFloat32(12, 3.0, Endian.little);
     data.setFloat32(16, 0.0, Endian.little);
     data.setFloat32(20, 0.0, Endian.little);
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..['buffers'] = [
         {'byteLength': binary.length},
       ]
@@ -311,14 +316,14 @@ void gltfAnimationTests() {
         },
       ];
 
-    final model = VrmModel.parseGlb(_glb(json, binaryChunk: binary));
+    final model = VrmModel.parseGlb(glb(json, binaryChunk: binary));
     final frame = GltfAnimationEvaluator(model.gltf).evaluate(0, 0.5);
 
     expect(frame.nodePoses[0]!.translation, [1.5, 0.0, 0.0]);
   });
 
   test('evaluates glTF rotation slerp and cubic spline animation', () {
-    final binary = _floats([
+    final binary = floats([
       // accessor 0: input times
       0.0, 1.0,
       // accessor 1: node 0 rotations
@@ -332,9 +337,9 @@ void gltfAnimationTests() {
       2.0, 0.0, 0.0, // frame 1 value
       0.0, 0.0, 0.0, // frame 1 out tangent
     ]);
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(
+        animationStorageJson(
           binary.length,
           [
             [0, 8],
@@ -363,7 +368,7 @@ void gltfAnimationTests() {
         },
       ];
 
-    final model = VrmModel.parseGlb(_glb(json, binaryChunk: binary));
+    final model = VrmModel.parseGlb(glb(json, binaryChunk: binary));
     final frame = GltfAnimationEvaluator(model.gltf).evaluate(0, 0.5);
     final rotation = frame.nodePoses[0]!.rotation!;
 
@@ -375,7 +380,7 @@ void gltfAnimationTests() {
   });
 
   test('evaluates CUBICSPLINE animation tangents with keyframe duration', () {
-    final binary = _floats([
+    final binary = floats([
       // accessor 0: input times
       0.0, 2.0,
       // accessor 1: node 0 cubic translation frames
@@ -386,9 +391,9 @@ void gltfAnimationTests() {
       4.0, 0.0, 0.0, // frame 1 value
       0.0, 0.0, 0.0, // frame 1 out tangent
     ]);
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(
+        animationStorageJson(
           binary.length,
           [
             [0, 8],
@@ -422,17 +427,17 @@ void gltfAnimationTests() {
         },
       ];
 
-    final model = VrmModel.parseGlb(_glb(json, binaryChunk: binary));
+    final model = VrmModel.parseGlb(glb(json, binaryChunk: binary));
     final frame = GltfAnimationEvaluator(model.gltf).evaluate(0, 1.0);
 
     expect(frame.nodePoses[0]!.translation![0], closeTo(2.5, 0.0001));
   });
 
   test('reports CUBICSPLINE animation with one keyframe', () {
-    final binary = _floats([0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
-    final json = _minimalVrmJson()
+    final binary = floats([0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(binary.length, [
+        animationStorageJson(binary.length, [
           [0, 4],
           [4, 36],
         ]),
@@ -452,7 +457,7 @@ void gltfAnimationTests() {
       ];
 
     final result = VrmModel.tryParseGlb(
-      _glb(json, binaryChunk: binary),
+      glb(json, binaryChunk: binary),
       validation: VrmValidationMode.permissive,
     );
 
@@ -474,13 +479,13 @@ void gltfAnimationTests() {
   });
 
   test('reports weights animation without morph targets', () {
-    final binary = _floats([
+    final binary = floats([
       0.0, 1.0, // input times
       0.0, 1.0, // output weights
     ]);
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(
+        animationStorageJson(
           binary.length,
           [
             [0, 8],
@@ -504,7 +509,7 @@ void gltfAnimationTests() {
       ];
 
     final result = VrmModel.tryParseGlb(
-      _glb(json, binaryChunk: binary),
+      glb(json, binaryChunk: binary),
       validation: VrmValidationMode.permissive,
     );
 
@@ -525,7 +530,7 @@ void gltfAnimationTests() {
       128, 64, // weights frame 1
     ]);
     final json =
-        _minimalVrmJson(
+        minimalVrmJson(
             meshes: [
               {
                 'primitives': [
@@ -589,7 +594,7 @@ void gltfAnimationTests() {
             },
           ];
 
-    final model = VrmModel.parseGlb(_glb(json, binaryChunk: binary));
+    final model = VrmModel.parseGlb(glb(json, binaryChunk: binary));
     final frame = GltfAnimationEvaluator(model.gltf).evaluate(0, 1.0);
     final rotation = frame.nodePoses[0]!.rotation!;
 
@@ -602,10 +607,10 @@ void gltfAnimationTests() {
   });
 
   test('reports non-unit glTF rotation animation keyframes', () {
-    final binary = _floats([0.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 1.0]);
-    final json = _minimalVrmJson()
+    final binary = floats([0.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 1.0]);
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(
+        animationStorageJson(
           binary.length,
           [
             [0, 8],
@@ -628,9 +633,9 @@ void gltfAnimationTests() {
         },
       ];
 
-    final strict = VrmModel.tryParseGlb(_glb(json, binaryChunk: binary));
+    final strict = VrmModel.tryParseGlb(glb(json, binaryChunk: binary));
     final permissive = VrmModel.tryParseGlb(
-      _glb(json, binaryChunk: binary),
+      glb(json, binaryChunk: binary),
       validation: VrmValidationMode.permissive,
     );
 
@@ -659,9 +664,9 @@ void gltfAnimationTests() {
     data.setFloat32(20, double.nan, Endian.little);
     data.setFloat32(24, 0.0, Endian.little);
     data.setFloat32(28, 0.0, Endian.little);
-    final json = _minimalVrmJson()
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(
+        animationStorageJson(
           binary.length,
           [
             [0, 8],
@@ -684,9 +689,9 @@ void gltfAnimationTests() {
         },
       ];
 
-    final strict = VrmModel.tryParseGlb(_glb(json, binaryChunk: binary));
+    final strict = VrmModel.tryParseGlb(glb(json, binaryChunk: binary));
     final permissive = VrmModel.tryParseGlb(
-      _glb(json, binaryChunk: binary),
+      glb(json, binaryChunk: binary),
       validation: VrmValidationMode.permissive,
     );
 
@@ -709,10 +714,10 @@ void gltfAnimationTests() {
   });
 
   test('normalizes exact glTF rotation animation keyframes', () {
-    final binary = _floats([0.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 2.0, 0.0]);
-    final json = _minimalVrmJson()
+    final binary = floats([0.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 2.0, 0.0]);
+    final json = minimalVrmJson()
       ..addAll(
-        _animationStorageJson(
+        animationStorageJson(
           binary.length,
           [
             [0, 8],
@@ -736,7 +741,7 @@ void gltfAnimationTests() {
       ];
 
     final model = VrmModel.tryParseGlb(
-      _glb(json, binaryChunk: binary),
+      glb(json, binaryChunk: binary),
       validation: VrmValidationMode.permissive,
     ).asset!;
     final evaluator = GltfAnimationEvaluator(model.gltf);

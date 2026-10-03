@@ -1,6 +1,12 @@
-part of '../flvtterm_test.dart';
+import 'dart:convert';
+import 'dart:typed_data';
 
-void gltfAccessorTests() {
+import 'package:flvtterm/flvtterm.dart';
+import 'package:test/test.dart';
+
+import 'src/test_fixtures.dart';
+
+void main() {
   test('reads accessor numbers with optional normalization', () {
     final bytes = Uint8List.fromList([0, 127, 255]);
     final asset = GltfAsset.parse(
@@ -168,7 +174,7 @@ void gltfAccessorTests() {
   });
 
   test('reports accessor min and max mismatches with buffer data', () {
-    final bytes = _floats([1.0, 2.0, 3.0]);
+    final bytes = floats([1.0, 2.0, 3.0]);
     final json = {
       'asset': {'version': '2.0'},
       'buffers': [

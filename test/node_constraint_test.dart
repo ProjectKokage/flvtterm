@@ -1,12 +1,17 @@
-part of '../flvtterm_test.dart';
+import 'dart:math' as math;
+
+import 'package:flvtterm/flvtterm.dart';
+import 'package:test/test.dart';
+
+import 'src/test_fixtures.dart';
 
 Map<String, Object?> _minimalConstraintVrmJson() {
-  final json = _minimalVrmJson();
+  final json = minimalVrmJson();
   (json['extensionsUsed']! as List<Object?>).add('VRMC_node_constraint');
   return json;
 }
 
-void nodeConstraintTests() {
+void main() {
   test('parses node constraint metadata from glTF nodes', () {
     final json = _minimalConstraintVrmJson();
     final nodes = json['nodes']! as List<Map<String, Object?>>;
@@ -21,7 +26,7 @@ void nodeConstraintTests() {
         },
       },
     };
-    final model = VrmModel.parseGlb(_glb(json));
+    final model = VrmModel.parseGlb(glb(json));
     final constraint = model.gltf.nodes[2].nodeConstraint!;
 
     expect(constraint.kind, VrmNodeConstraintKind.roll);
@@ -93,7 +98,7 @@ void nodeConstraintTests() {
     nodes[9]['extensions'] = {'VRMC_node_constraint': null};
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -192,7 +197,7 @@ void nodeConstraintTests() {
     nodes[2]['extensions'] = {'VRMC_node_constraint': <String, Object?>{}};
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -215,7 +220,7 @@ void nodeConstraintTests() {
     };
 
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
 
@@ -241,9 +246,9 @@ void nodeConstraintTests() {
         },
       },
     };
-    final model = VrmModel.parseGlb(_glb(json));
-    final binding = _FakeBinding();
-    binding.nodeByGltfIndex(1).localTransform = _testTrs(
+    final model = VrmModel.parseGlb(glb(json));
+    final binding = FakeBinding();
+    binding.nodeByGltfIndex(1).localTransform = testTrs(
       rotation: [0.0, 0.0, math.sin(math.pi / 4), math.cos(math.pi / 4)],
     );
 
@@ -272,9 +277,9 @@ void nodeConstraintTests() {
         },
       },
     };
-    final model = VrmModel.parseGlb(_glb(json));
-    final binding = _FakeBinding();
-    binding.nodeByGltfIndex(3).localTransform = _testTrs(
+    final model = VrmModel.parseGlb(glb(json));
+    final binding = FakeBinding();
+    binding.nodeByGltfIndex(3).localTransform = testTrs(
       rotation: [0.0, 0.0, math.sin(math.pi / 4), math.cos(math.pi / 4)],
     );
 
@@ -297,11 +302,11 @@ void nodeConstraintTests() {
       },
     };
     final model = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     ).asset!;
-    final binding = _FakeBinding();
-    binding.nodeByGltfIndex(1).localTransform = _testTrs(
+    final binding = FakeBinding();
+    binding.nodeByGltfIndex(1).localTransform = testTrs(
       rotation: [0.0, 0.0, math.sin(math.pi / 4), math.cos(math.pi / 4)],
     );
 
@@ -330,11 +335,11 @@ void nodeConstraintTests() {
       },
     };
     final result = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     );
-    final binding = _FakeBinding();
-    binding.nodeByGltfIndex(1).localTransform = _testTrs(
+    final binding = FakeBinding();
+    binding.nodeByGltfIndex(1).localTransform = testTrs(
       rotation: [0.0, 0.0, math.sin(math.pi / 4), math.cos(math.pi / 4)],
     );
 
@@ -378,10 +383,10 @@ void nodeConstraintTests() {
       },
     };
     final model = VrmModel.tryParseGlb(
-      _glb(json),
+      glb(json),
       validation: VrmValidationMode.permissive,
     ).asset!;
-    final binding = _FakeBinding();
+    final binding = FakeBinding();
     binding.nodeByGltfIndex(1);
     binding.nodeByGltfIndex(2);
     binding.nodeByGltfIndex(3);
@@ -413,16 +418,16 @@ void nodeConstraintTests() {
         },
       },
     };
-    final model = VrmModel.parseGlb(_glb(json));
-    final binding = _FakeBinding();
+    final model = VrmModel.parseGlb(glb(json));
+    final binding = FakeBinding();
     final quarterTurn = [
       0.0,
       0.0,
       math.sin(math.pi / 4),
       math.cos(math.pi / 4),
     ];
-    binding.nodeByGltfIndex(1).localTransform = _testTrs(rotation: quarterTurn);
-    binding.nodeByGltfIndex(2).localTransform = _testTrs(rotation: quarterTurn);
+    binding.nodeByGltfIndex(1).localTransform = testTrs(rotation: quarterTurn);
+    binding.nodeByGltfIndex(2).localTransform = testTrs(rotation: quarterTurn);
 
     VrmNodeConstraintController(model).applyTo(binding);
 
@@ -441,12 +446,12 @@ void nodeConstraintTests() {
         },
       },
     };
-    final runtime = VrmRuntime(VrmModel.parseGlb(_glb(json)));
-    final binding = _FakeBinding();
+    final runtime = VrmRuntime(VrmModel.parseGlb(glb(json)));
+    final binding = FakeBinding();
     binding.nodeByGltfIndex(1);
     binding.nodeByGltfIndex(2);
-    binding.nodes[1]!.worldTransform = _testTrs(translation: [0.0, 0.0, 1.0]);
-    binding.nodes[2]!.worldTransform = _testTrs();
+    binding.nodes[1]!.worldTransform = testTrs(translation: [0.0, 0.0, 1.0]);
+    binding.nodes[2]!.worldTransform = testTrs();
 
     runtime.bind(binding);
     runtime.update(0);
@@ -466,8 +471,8 @@ void nodeConstraintTests() {
         },
       },
     };
-    final model = VrmModel.parseGlb(_glb(json));
-    final binding = _FakeBinding();
+    final model = VrmModel.parseGlb(glb(json));
+    final binding = FakeBinding();
     final parentRotation = [
       0.0,
       math.sin(math.pi / 4),
@@ -477,9 +482,9 @@ void nodeConstraintTests() {
     binding.nodeByGltfIndex(1);
     binding.nodeByGltfIndex(2);
     binding.nodeByGltfIndex(3);
-    binding.nodes[1]!.worldTransform = _testTrs(rotation: parentRotation);
-    binding.nodes[2]!.worldTransform = _testTrs(rotation: parentRotation);
-    binding.nodes[3]!.worldTransform = _testTrs(translation: [1.0, 0.0, 0.0]);
+    binding.nodes[1]!.worldTransform = testTrs(rotation: parentRotation);
+    binding.nodes[2]!.worldTransform = testTrs(rotation: parentRotation);
+    binding.nodes[3]!.worldTransform = testTrs(translation: [1.0, 0.0, 0.0]);
 
     VrmNodeConstraintController(model).applyTo(binding);
 
@@ -498,9 +503,9 @@ void nodeConstraintTests() {
         },
       },
     };
-    final model = VrmModel.parseGlb(_glb(json));
-    final binding = _FakeBinding();
-    binding.nodeByGltfIndex(1).localTransform = _testTrs(
+    final model = VrmModel.parseGlb(glb(json));
+    final binding = FakeBinding();
+    binding.nodeByGltfIndex(1).localTransform = testTrs(
       rotation: [0.0, 0.0, math.sin(math.pi / 4), math.cos(math.pi / 4)],
     );
 
@@ -537,9 +542,9 @@ void nodeConstraintTests() {
             },
           },
         };
-      final model = VrmModel.parseGlb(_glb(json));
-      final binding = _FakeBinding();
-      binding.nodeByGltfIndex(1).localTransform = _testTrs(
+      final model = VrmModel.parseGlb(glb(json));
+      final binding = FakeBinding();
+      binding.nodeByGltfIndex(1).localTransform = testTrs(
         rotation: quarterTurnX,
       );
 
