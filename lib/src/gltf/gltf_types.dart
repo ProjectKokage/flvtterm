@@ -209,14 +209,6 @@ final class GltfAsset {
   ///
   /// Returns `null` when the bufferView index or backing buffer data is
   /// invalid.
-  Uint8List? readBufferViewBytes(int bufferViewIndex) {
-    final view = bufferViews.elementAtOrNull(bufferViewIndex);
-    final bytes = _bufferBytes(this, view?.buffer);
-    final byteLength = view?.byteLength;
-    if (view == null || bytes == null || byteLength == null) return null;
-    final start = view.byteOffset;
-    final end = start + byteLength;
-    if (start < 0 || byteLength < 0 || end > bytes.length) return null;
-    return Uint8List.sublistView(bytes, start, end);
-  }
+  Uint8List? readBufferViewBytes(int bufferViewIndex) =>
+      _bufferViewBytes(buffers, bufferViews, bufferViewIndex);
 }
