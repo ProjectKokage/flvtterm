@@ -1,14 +1,21 @@
-part of '../../flvtterm.dart';
+import 'package:meta/meta.dart';
 
-bool _constraintHasValidWeight(VrmNodeConstraint constraint) {
+import '../diagnostics.dart';
+import '../json_values.dart';
+import 'gltf_node_constraint_types.dart';
+import 'gltf_types.dart';
+
+@internal
+bool constraintHasValidWeight(VrmNodeConstraint constraint) {
   final parameters = _nodeConstraintParameters(constraint);
   return (!parameters.containsKey('weight') ||
-          _double(parameters['weight']) != null) &&
+          jsonDouble(parameters['weight']) != null) &&
       constraint.weight >= 0 &&
       constraint.weight <= 1;
 }
 
-void _validateNodeConstraints(GltfAsset gltf, _DiagnosticSink sink) {
+@internal
+void validateNodeConstraints(GltfAsset gltf, DiagnosticSink sink) {
   final constraints = <int, VrmNodeConstraint>{};
   for (final node in gltf.nodes) {
     final constraint = node.nodeConstraint;
@@ -19,14 +26,14 @@ void _validateNodeConstraints(GltfAsset gltf, _DiagnosticSink sink) {
       sink.error(
         'constraint.missingSpecVersion',
         'VRMC_node_constraint.specVersion is required.',
-        jsonPath: _nodeConstraintPath(node.index, '.specVersion'),
+        jsonPath: nodeConstraintPath(node.index, '.specVersion'),
         gltfNodeIndex: node.index,
       );
     } else if (constraint.specVersion != '1.0') {
       sink.error(
         'constraint.unsupportedSpecVersion',
         'VRMC_node_constraint.specVersion must be "1.0".',
-        jsonPath: _nodeConstraintPath(node.index, '.specVersion'),
+        jsonPath: nodeConstraintPath(node.index, '.specVersion'),
         gltfNodeIndex: node.index,
       );
     }
@@ -35,14 +42,14 @@ void _validateNodeConstraints(GltfAsset gltf, _DiagnosticSink sink) {
       sink.error(
         'constraint.missingConstraint',
         'VRMC_node_constraint.constraint is required.',
-        jsonPath: _nodeConstraintPath(node.index, '.constraint'),
+        jsonPath: nodeConstraintPath(node.index, '.constraint'),
         gltfNodeIndex: node.index,
       );
     } else if (constraint.declaredKindCount != 1) {
       sink.error(
         'constraint.invalidKindCount',
         'A node constraint must declare exactly one of roll, aim, or rotation.',
-        jsonPath: _nodeConstraintPath(node.index, '.constraint'),
+        jsonPath: nodeConstraintPath(node.index, '.constraint'),
         gltfNodeIndex: node.index,
       );
     }
@@ -66,7 +73,7 @@ void _validateNodeConstraints(GltfAsset gltf, _DiagnosticSink sink) {
       );
     }
     if (source != null) {
-      _validateIndex(
+      validateIndex(
         source,
         gltf.nodes.length,
         sink,
@@ -84,7 +91,7 @@ void _validateNodeConstraints(GltfAsset gltf, _DiagnosticSink sink) {
       }
     }
     if ((parameters.containsKey('weight') &&
-            _double(parameters['weight']) == null) ||
+            jsonDouble(parameters['weight']) == null) ||
         constraint.weight < 0 ||
         constraint.weight > 1) {
       sink.error(
@@ -124,7 +131,7 @@ void _validateNodeConstraints(GltfAsset gltf, _DiagnosticSink sink) {
           sink.error(
             'constraint.cycle',
             'Node constraints must not form cycles.',
-            jsonPath: _nodeConstraintPath(current, '.constraint'),
+            jsonPath: nodeConstraintPath(current, '.constraint'),
             gltfNodeIndex: current,
           );
         }
@@ -137,7 +144,8 @@ void _validateNodeConstraints(GltfAsset gltf, _DiagnosticSink sink) {
   }
 }
 
-String _nodeConstraintPath(int nodeIndex, String suffix) =>
+@internal
+String nodeConstraintPath(int nodeIndex, String suffix) =>
     '\$.nodes[$nodeIndex].extensions.VRMC_node_constraint$suffix';
 
 String _nodeConstraintParameterPath(
@@ -146,26 +154,27 @@ String _nodeConstraintParameterPath(
 ) {
   final kind = constraint.kind;
   final kindPath = kind == null ? '' : '.${kind.specName}';
-  return _nodeConstraintPath(
+  return nodeConstraintPath(
     constraint.destinationNode,
     '.constraint$kindPath$suffix',
   );
 }
 
 Map<String, Object?> _nodeConstraintParameters(VrmNodeConstraint constraint) {
-  final rawConstraint = _object(constraint.raw['constraint']);
+  final rawConstraint = jsonObject(constraint.raw['constraint']);
   return switch (constraint.kind) {
-    VrmNodeConstraintKind.roll => _object(rawConstraint['roll']),
-    VrmNodeConstraintKind.aim => _object(rawConstraint['aim']),
-    VrmNodeConstraintKind.rotation => _object(rawConstraint['rotation']),
+    VrmNodeConstraintKind.roll => jsonObject(rawConstraint['roll']),
+    VrmNodeConstraintKind.aim => jsonObject(rawConstraint['aim']),
+    VrmNodeConstraintKind.rotation => jsonObject(rawConstraint['rotation']),
     null => const <String, Object?>{},
   };
 }
 
-void _validateIndex(
+@internal
+void validateIndex(
   int index,
   int length,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String code,
   String jsonPath, {
   int? gltfNodeIndex,

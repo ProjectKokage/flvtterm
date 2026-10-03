@@ -1,8 +1,19 @@
-part of '../../flvtterm.dart';
+import 'package:meta/meta.dart';
+
+import '../json_values.dart';
+import '../math_types.dart';
+import '../runtime/motion_controller.dart';
+import '../safe_list_index.dart';
+import 'accessor_reader.dart';
+import 'animation_math.dart';
+import 'gltf_structure_validation.dart';
+import 'gltf_types.dart';
 
 /// Parsed glTF animation.
 final class GltfAnimation {
-  GltfAnimation._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  GltfAnimation.internal({
     required this.index,
     required this.name,
     required List<GltfAnimationChannel> channels,
@@ -11,8 +22,8 @@ final class GltfAnimation {
     required Object? extras,
   }) : channels = List.unmodifiable(channels),
        samplers = List.unmodifiable(samplers),
-       extensions = _immutableJsonValue(extensions) as Map<String, Object?>,
-       extras = _immutableJsonValue(extras);
+       extensions = immutableJsonValue(extensions) as Map<String, Object?>,
+       extras = immutableJsonValue(extras);
 
   /// glTF animation index.
   final int index;
@@ -35,7 +46,9 @@ final class GltfAnimation {
 
 /// Parsed glTF animation channel.
 final class GltfAnimationChannel {
-  GltfAnimationChannel._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  GltfAnimationChannel.internal({
     required this.sampler,
     required this.targetNode,
     required this.targetPath,
@@ -44,10 +57,10 @@ final class GltfAnimationChannel {
     required Map<String, Object?> extensions,
     required Object? extras,
   }) : targetExtensions =
-           _immutableJsonValue(targetExtensions) as Map<String, Object?>,
-       targetExtras = _immutableJsonValue(targetExtras),
-       extensions = _immutableJsonValue(extensions) as Map<String, Object?>,
-       extras = _immutableJsonValue(extras);
+           immutableJsonValue(targetExtensions) as Map<String, Object?>,
+       targetExtras = immutableJsonValue(targetExtras),
+       extensions = immutableJsonValue(extensions) as Map<String, Object?>,
+       extras = immutableJsonValue(extras);
 
   /// Referenced animation sampler index.
   final int? sampler;
@@ -73,14 +86,16 @@ final class GltfAnimationChannel {
 
 /// Parsed glTF animation sampler.
 final class GltfAnimationSampler {
-  GltfAnimationSampler._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  GltfAnimationSampler.internal({
     required this.input,
     required this.output,
     required this.interpolation,
     required Map<String, Object?> extensions,
     required Object? extras,
-  }) : extensions = _immutableJsonValue(extensions) as Map<String, Object?>,
-       extras = _immutableJsonValue(extras);
+  }) : extensions = immutableJsonValue(extensions) as Map<String, Object?>,
+       extras = immutableJsonValue(extras);
 
   /// Input accessor index.
   final int? input;
@@ -100,7 +115,9 @@ final class GltfAnimationSampler {
 
 /// Evaluated values for a glTF animation at one point in time.
 final class GltfAnimationFrame {
-  GltfAnimationFrame._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  GltfAnimationFrame.internal({
     required Map<int, GltfNodePose> nodePoses,
     required Map<int, List<double>> morphWeights,
   }) : nodePoses = Map.unmodifiable({
@@ -276,7 +293,7 @@ final class GltfAnimationEvaluator {
       }
     }
 
-    return GltfAnimationFrame._(
+    return GltfAnimationFrame.internal(
       nodePoses: Map.unmodifiable(poses),
       morphWeights: Map.unmodifiable(morphWeights),
     );
@@ -398,21 +415,21 @@ final class GltfAnimationEvaluator {
       );
     }
     if (interpolation == 'CUBICSPLINE') {
-      final value = _cubicSpline(
+      final value = cubicSpline(
         output,
         key,
         valueDimension,
         localT,
         endTime - startTime,
       );
-      return targetPath == 'rotation' ? _normalize(value) : value;
+      return targetPath == 'rotation' ? normalizeList(value) : value;
     }
 
-    final a = _samplerValue(output, key, valueDimension, interpolation);
-    final b = _samplerValue(output, key + 1, valueDimension, interpolation);
+    final a = samplerValue(output, key, valueDimension, interpolation);
+    final b = samplerValue(output, key + 1, valueDimension, interpolation);
     return targetPath == 'rotation'
-        ? _slerp(a, b, localT)
-        : _lerpList(a, b, localT);
+        ? slerp(a, b, localT)
+        : lerpList(a, b, localT);
   }
 
   List<double> _animationSamplerValue(
@@ -422,8 +439,8 @@ final class GltfAnimationEvaluator {
     String interpolation,
     String targetPath,
   ) {
-    final value = _samplerValue(output, key, valueDimension, interpolation);
-    return targetPath == 'rotation' ? _normalize(value) : value;
+    final value = samplerValue(output, key, valueDimension, interpolation);
+    return targetPath == 'rotation' ? normalizeList(value) : value;
   }
 
   bool _animationSamplerAccessorsAreRunnable(
@@ -446,7 +463,7 @@ final class GltfAnimationEvaluator {
     };
     return outputType != null &&
         output.type == outputType &&
-        _isValidAnimationOutputComponent(output, targetPath);
+        isValidAnimationOutputComponent(output, targetPath);
   }
 
   List<double>? _readSamplerTimes(GltfAnimationSampler sampler) {
@@ -462,7 +479,7 @@ final class GltfAnimationEvaluator {
     }
     final times = _readAccessorScalars(sampler.input!);
     if (times == null || times.isEmpty) return null;
-    if (times.first < 0 || !_isStrictlyIncreasing(times)) return null;
+    if (times.first < 0 || !isStrictlyIncreasing(times)) return null;
     return times;
   }
 
@@ -476,9 +493,9 @@ final class GltfAnimationEvaluator {
     bool applyNormalization = true,
   }) {
     final key = (accessorIndex, requireFloat, applyNormalization);
-    final cache = gltf._animationAccessorCache;
+    final cache = gltf.animationAccessorCache;
     if (cache.containsKey(key)) return cache[key];
-    final values = _readAccessorNumbers(
+    final values = readGltfAccessorNumbers(
       gltf,
       accessorIndex,
       requireFloat: requireFloat,

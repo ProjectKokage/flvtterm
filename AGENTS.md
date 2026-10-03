@@ -20,6 +20,10 @@ explain and obtain approval before expanding product scope.
 
 - The core stays pure Dart: no Flutter, `dart:ui`, Flutter Scene, Flutter GPU
   or platform APIs. Renderer objects stay behind core-owned binding interfaces.
+- `lib/flvtterm.dart` exports the public API by name and declares nothing.
+  Each file under `lib/src` is its own library; `part` files are not used. A
+  name another file needs but the package does not export is public and marked
+  `@internal`, so the analyzer rejects exporting it or using it from outside.
 - Flutter Scene imports are allowed in the optional adapter and its Flutter
   examples/integration tests. Keep renderer-specific behavior out of the core;
   coordinate adapter and renderer versions when their internals change.

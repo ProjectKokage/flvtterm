@@ -1,8 +1,12 @@
-part of '../../flvtterm.dart';
+import 'package:meta/meta.dart';
+
+import '../json_values.dart';
 
 /// Parsed glTF mesh.
 final class GltfMesh {
-  GltfMesh._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  GltfMesh.internal({
     required this.index,
     required this.name,
     required List<GltfMeshPrimitive> primitives,
@@ -11,8 +15,8 @@ final class GltfMesh {
     required Object? extras,
   }) : primitives = List.unmodifiable(primitives),
        weights = List.unmodifiable(weights),
-       extensions = _immutableJsonValue(extensions) as Map<String, Object?>,
-       extras = _immutableJsonValue(extras);
+       extensions = immutableJsonValue(extensions) as Map<String, Object?>,
+       extras = immutableJsonValue(extras);
 
   /// glTF mesh index.
   final int index;
@@ -35,7 +39,9 @@ final class GltfMesh {
 
 /// Parsed glTF mesh primitive.
 final class GltfMeshPrimitive {
-  GltfMeshPrimitive._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  GltfMeshPrimitive.internal({
     required this.mode,
     required this.material,
     required this.indices,
@@ -45,8 +51,8 @@ final class GltfMeshPrimitive {
     required Object? extras,
   }) : attributes = Map.unmodifiable(attributes),
        targets = List.unmodifiable(targets),
-       extensions = _immutableJsonValue(extensions) as Map<String, Object?>,
-       extras = _immutableJsonValue(extras);
+       extensions = immutableJsonValue(extensions) as Map<String, Object?>,
+       extras = immutableJsonValue(extras);
 
   /// Primitive drawing mode. Defaults to triangles (`4`).
   final int mode;

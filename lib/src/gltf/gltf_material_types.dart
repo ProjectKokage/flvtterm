@@ -1,4 +1,8 @@
-part of '../../flvtterm.dart';
+import 'package:meta/meta.dart';
+
+import '../diagnostics.dart';
+import '../json_values.dart';
+import '../math_types.dart';
 
 /// glTF alpha coverage mode.
 enum GltfAlphaMode {
@@ -44,7 +48,9 @@ enum GltfMaterialRenderMode {
 
 /// Parsed glTF material.
 final class GltfMaterial {
-  GltfMaterial._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  GltfMaterial.internal({
     required this.index,
     required this.name,
     required this.baseColorFactor,
@@ -67,13 +73,13 @@ final class GltfMaterial {
     required Map<String, Object?> extensions,
     required Object? extras,
   }) : pbrMetallicRoughnessExtensions =
-           _immutableJsonValue(pbrMetallicRoughnessExtensions)
+           immutableJsonValue(pbrMetallicRoughnessExtensions)
                as Map<String, Object?>,
-       pbrMetallicRoughnessExtras = _immutableJsonValue(
+       pbrMetallicRoughnessExtras = immutableJsonValue(
          pbrMetallicRoughnessExtras,
        ),
-       extensions = _immutableJsonValue(extensions) as Map<String, Object?>,
-       extras = _immutableJsonValue(extras);
+       extensions = immutableJsonValue(extensions) as Map<String, Object?>,
+       extras = immutableJsonValue(extras);
 
   /// glTF material index.
   final int index;
@@ -187,14 +193,16 @@ enum VrmMToonOutlineWidthMode {
 
 /// Texture reference used by VRM extension metadata.
 final class VrmTextureInfo {
-  VrmTextureInfo._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  VrmTextureInfo.internal({
     required this.index,
     required this.texCoord,
     required this.scale,
     required this.strength,
     required this.textureTransform,
     required Map<String, Object?> raw,
-  }) : raw = _immutableJsonValue(raw) as Map<String, Object?>;
+  }) : raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// glTF texture index.
   final int index;
@@ -217,13 +225,15 @@ final class VrmTextureInfo {
 
 /// Parsed `KHR_texture_transform` textureInfo extension.
 final class GltfTextureTransform {
-  GltfTextureTransform._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  GltfTextureTransform.internal({
     required this.offset,
     required this.rotation,
     required this.scale,
     required this.texCoord,
     required Map<String, Object?> raw,
-  }) : raw = _immutableJsonValue(raw) as Map<String, Object?>;
+  }) : raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// UV offset.
   final VrmVector2 offset;
@@ -243,7 +253,9 @@ final class GltfTextureTransform {
 
 /// Parsed `VRMC_materials_mtoon` material extension.
 final class VrmMToonMaterial {
-  VrmMToonMaterial._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  VrmMToonMaterial.internal({
     required this.specVersion,
     required this.transparentWithZWrite,
     required this.renderQueueOffsetNumber,
@@ -272,9 +284,9 @@ final class VrmMToonMaterial {
     required Map<String, Object?> extensions,
     required Object? extras,
     required Map<String, Object?> raw,
-  }) : extensions = _immutableJsonValue(extensions) as Map<String, Object?>,
-       extras = _immutableJsonValue(extras),
-       raw = _immutableJsonValue(raw) as Map<String, Object?>;
+  }) : extensions = immutableJsonValue(extensions) as Map<String, Object?>,
+       extras = immutableJsonValue(extras),
+       raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// VRMC_materials_mtoon spec version.
   final String? specVersion;

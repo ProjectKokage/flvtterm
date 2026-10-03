@@ -1,15 +1,21 @@
-part of '../../flvtterm.dart';
+import 'dart:math' as math;
 
-VrmVector3 _springVector(List<double> value) => VrmVector3(
+import 'package:meta/meta.dart';
+
+import '../gltf/gltf_scene_types.dart';
+import '../math_types.dart';
+import '../matrix_math.dart';
+import 'scene_binding.dart';
+
+@internal
+VrmVector3 springVector(List<double> value) => VrmVector3(
   value.isEmpty ? 0 : value[0],
   value.length < 2 ? 0 : value[1],
   value.length < 3 ? 0 : value[2],
 );
 
-double _springPathUniformScale(
-  _SpringNodePath path,
-  VrmMatrix4? rootTransform,
-) {
+@internal
+double springPathUniformScale(SpringNodePath path, VrmMatrix4? rootTransform) {
   var scale = rootTransform == null
       ? 1.0
       : _springMatrixUniformScale(rootTransform);
@@ -29,29 +35,31 @@ double _springMatrixUniformScale(VrmMatrix4 matrix) {
   return math.pow(determinant.abs(), 1 / 3).toDouble();
 }
 
-VrmVector3 _springRestPathPoint(_SpringNodePath path, VrmVector3 point) =>
+@internal
+VrmVector3 springRestPathPoint(SpringNodePath path, VrmVector3 point) =>
     _springTransformPoint(path, point, rest: true, reference: false);
 
-VrmVector3 _springInverseRestPathPoint(
-  _SpringNodePath path,
-  VrmVector3 point,
-) => _springInverseTransformPoint(path, point, rest: true, reference: false);
+@internal
+VrmVector3 springInverseRestPathPoint(SpringNodePath path, VrmVector3 point) =>
+    _springInverseTransformPoint(path, point, rest: true, reference: false);
 
-VrmMatrix4? _springRootTransform(VrmSceneBinding? binding) {
+@internal
+VrmMatrix4? springRootTransform(VrmSceneBinding? binding) {
   if (binding is VrmModelWorldBinding) {
     final transform = binding.modelWorldTransform;
-    return _isIdentityMatrix(transform) ? null : transform;
+    return isIdentityMatrix(transform) ? null : transform;
   }
   if (binding is! VrmModelRootBinding) return null;
   final transform = binding.modelRootMotionTransform;
-  return _isIdentityMatrix(transform) ? null : transform;
+  return isIdentityMatrix(transform) ? null : transform;
 }
 
 VrmVector3 _springModelToWorld(VrmMatrix4? rootTransform, VrmVector3 point) =>
-    rootTransform == null ? point : _transformPoint(rootTransform, point);
+    rootTransform == null ? point : transformPoint(rootTransform, point);
 
-VrmVector3 _springInitialTail(
-  _SpringNodePath? centerPath,
+@internal
+VrmVector3 springInitialTail(
+  SpringNodePath? centerPath,
   VrmMatrix4? rootTransform,
   VrmVector3 restModelTail,
 ) => centerPath == null
@@ -63,11 +71,12 @@ VrmVector3 _springInitialTail(
         reference: false,
       );
 
-void _springReferenceWorldPointInto(
-  _SpringNodePath path,
+@internal
+void springReferenceWorldPointInto(
+  SpringNodePath path,
   VrmVector3 point,
   VrmMatrix4? rootTransform,
-  _SpringVector3 out,
+  SpringVector3 out,
 ) {
   _springTransformPointInto(
     path,
@@ -81,11 +90,12 @@ void _springReferenceWorldPointInto(
   _springModelToWorldInto(rootTransform, out.x, out.y, out.z, out);
 }
 
-void _springPathWorldPointInto(
-  _SpringNodePath path,
+@internal
+void springPathWorldPointInto(
+  SpringNodePath path,
   VrmVector3 point,
   VrmMatrix4? rootTransform,
-  _SpringVector3 out,
+  SpringVector3 out,
 ) {
   _springTransformPointInto(
     path,
@@ -99,11 +109,12 @@ void _springPathWorldPointInto(
   _springModelToWorldInto(rootTransform, out.x, out.y, out.z, out);
 }
 
-void _springCenterToWorldInto(
-  _SpringNodePath? centerPath,
+@internal
+void springCenterToWorldInto(
+  SpringNodePath? centerPath,
   VrmMatrix4? rootTransform,
-  _SpringVector3 point,
-  _SpringVector3 out,
+  SpringVector3 point,
+  SpringVector3 out,
 ) {
   if (centerPath == null) {
     out.copyFrom(point);
@@ -121,11 +132,12 @@ void _springCenterToWorldInto(
   _springModelToWorldInto(rootTransform, out.x, out.y, out.z, out);
 }
 
-void _springWorldToCenterInto(
-  _SpringNodePath? centerPath,
+@internal
+void springWorldToCenterInto(
+  SpringNodePath? centerPath,
   VrmMatrix4? rootTransform,
-  _SpringVector3 point,
-  _SpringVector3 out,
+  SpringVector3 point,
+  SpringVector3 out,
 ) {
   if (centerPath == null) {
     out.copyFrom(point);
@@ -143,11 +155,12 @@ void _springWorldToCenterInto(
   );
 }
 
-void _springWorldToReferenceLocalInto(
-  _SpringNodePath path,
+@internal
+void springWorldToReferenceLocalInto(
+  SpringNodePath path,
   VrmMatrix4? rootTransform,
-  _SpringVector3 point,
-  _SpringVector3 out,
+  SpringVector3 point,
+  SpringVector3 out,
 ) {
   _springWorldToModelInto(rootTransform, point.x, point.y, point.z, out);
   _springInverseTransformPointInto(
@@ -162,13 +175,13 @@ void _springWorldToReferenceLocalInto(
 }
 
 void _springTransformPointInto(
-  _SpringNodePath path,
+  SpringNodePath path,
   double x,
   double y,
   double z, {
   required bool rest,
   required bool reference,
-  required _SpringVector3 out,
+  required SpringVector3 out,
 }) {
   for (var index = 0; index < path.nodes.length; index++) {
     final matrix = rest || (reference && index == 0)
@@ -186,13 +199,13 @@ void _springTransformPointInto(
 }
 
 void _springInverseTransformPointInto(
-  _SpringNodePath path,
+  SpringNodePath path,
   double x,
   double y,
   double z, {
   required bool rest,
   required bool reference,
-  required _SpringVector3 out,
+  required SpringVector3 out,
 }) {
   for (var index = path.nodes.length - 1; index >= 0; index--) {
     final matrix = rest || (reference && index == 0)
@@ -242,7 +255,7 @@ void _springModelToWorldInto(
   double x,
   double y,
   double z,
-  _SpringVector3 out,
+  SpringVector3 out,
 ) {
   if (rootTransform == null) {
     out.set(x, y, z);
@@ -261,7 +274,7 @@ void _springWorldToModelInto(
   double x,
   double y,
   double z,
-  _SpringVector3 out,
+  SpringVector3 out,
 ) {
   if (rootTransform == null) {
     out.set(x, y, z);
@@ -303,9 +316,10 @@ void _springWorldToModelInto(
   );
 }
 
-void _springConstrainTail(
-  _SpringVector3 head,
-  _SpringVector3 tail,
+@internal
+void springConstrainTail(
+  SpringVector3 head,
+  SpringVector3 tail,
   double length,
 ) {
   final x = tail.x - head.x;
@@ -320,9 +334,10 @@ void _springConstrainTail(
   tail.set(head.x + x * scale, head.y + y * scale, head.z + z * scale);
 }
 
-void _springPushOutOfSphere(
-  _SpringVector3 point,
-  _SpringVector3 center,
+@internal
+void springPushOutOfSphere(
+  SpringVector3 point,
+  SpringVector3 center,
   double radius,
 ) {
   final x = point.x - center.x;
@@ -338,10 +353,11 @@ void _springPushOutOfSphere(
   point.set(center.x + x * scale, center.y + y * scale, center.z + z * scale);
 }
 
-void _springPushOutOfCapsule(
-  _SpringVector3 point,
-  _SpringVector3 start,
-  _SpringVector3 end,
+@internal
+void springPushOutOfCapsule(
+  SpringVector3 point,
+  SpringVector3 start,
+  SpringVector3 end,
   double radius,
 ) {
   final segmentX = end.x - start.x;
@@ -350,7 +366,7 @@ void _springPushOutOfCapsule(
   final lengthSquared =
       segmentX * segmentX + segmentY * segmentY + segmentZ * segmentZ;
   if (lengthSquared == 0) {
-    _springPushOutOfSphere(point, start, radius);
+    springPushOutOfSphere(point, start, radius);
     return;
   }
   final pointX = point.x - start.x;
@@ -380,9 +396,10 @@ void _springPushOutOfCapsule(
   point.set(centerX + x * scale, centerY + y * scale, centerZ + z * scale);
 }
 
-void _springLocalRotation(
+@internal
+void springLocalRotation(
   VrmVector3 from,
-  _SpringVector3 to,
+  SpringVector3 to,
   List<double> initialRotation,
   List<double> out,
 ) {
@@ -451,7 +468,8 @@ void _springLocalRotation(
   out[3] = w;
 }
 
-VrmMatrix4 _springOutputTransform(VrmMatrix4 current, List<double> rotation) {
+@internal
+VrmMatrix4 springOutputTransform(VrmMatrix4 current, List<double> rotation) {
   final m = current.storage;
   final tx = m[12];
   final ty = m[13];
@@ -493,12 +511,12 @@ VrmMatrix4 _springOutputTransform(VrmMatrix4 current, List<double> rotation) {
 }
 
 VrmVector3 _springTransformPoint(
-  _SpringNodePath path,
+  SpringNodePath path,
   VrmVector3 point, {
   required bool rest,
   required bool reference,
 }) {
-  final result = _SpringVector3();
+  final result = SpringVector3();
   _springTransformPointInto(
     path,
     point.x,
@@ -512,12 +530,12 @@ VrmVector3 _springTransformPoint(
 }
 
 VrmVector3 _springInverseTransformPoint(
-  _SpringNodePath path,
+  SpringNodePath path,
   VrmVector3 point, {
   required bool rest,
   required bool reference,
 }) {
-  final result = _SpringVector3();
+  final result = SpringVector3();
   _springInverseTransformPointInto(
     path,
     point.x,
@@ -530,10 +548,11 @@ VrmVector3 _springInverseTransformPoint(
   return VrmVector3(result.x, result.y, result.z);
 }
 
-final class _SpringVector3 {
-  _SpringVector3() : x = 0, y = 0, z = 0;
+@internal
+final class SpringVector3 {
+  SpringVector3() : x = 0, y = 0, z = 0;
 
-  _SpringVector3.from(VrmVector3 value) : x = value.x, y = value.y, z = value.z;
+  SpringVector3.from(VrmVector3 value) : x = value.x, y = value.y, z = value.z;
 
   double x;
   double y;
@@ -545,15 +564,16 @@ final class _SpringVector3 {
     this.z = z;
   }
 
-  void copyFrom(_SpringVector3 other) {
+  void copyFrom(SpringVector3 other) {
     x = other.x;
     y = other.y;
     z = other.z;
   }
 }
 
-final class _SpringNodePath {
-  const _SpringNodePath(this.nodes, this.bindings);
+@internal
+final class SpringNodePath {
+  const SpringNodePath(this.nodes, this.bindings);
 
   final List<GltfNode> nodes;
   final List<VrmNodeBinding> bindings;

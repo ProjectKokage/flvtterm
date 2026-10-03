@@ -1,4 +1,19 @@
-part of '../../flvtterm.dart';
+import 'dart:math' as math;
+
+import 'package:meta/meta.dart';
+
+import '../math_types.dart';
+import '../matrix_math.dart';
+import '../safe_list_index.dart';
+import '../vrm/vrm_assets.dart';
+import '../vrm/vrm_enums.dart';
+import '../vrm/vrm_types.dart';
+import '../vrm0/vrm_coordinate_convention.dart';
+import 'constraint_math.dart';
+import 'expression_controller.dart';
+import 'look_at_math.dart';
+import 'runtime_transform_helpers.dart';
+import 'scene_binding.dart';
 
 /// Controls VRM LookAt output for expression or eye-bone models.
 final class VrmLookAtController {
@@ -14,7 +29,7 @@ final class VrmLookAtController {
   VrmVector3? _targetModel;
   VrmVector3? _targetWorld;
   VrmMatrix4? _modelWorldTransform;
-  _YawPitch? _motionYawPitch;
+  YawPitch? _motionYawPitch;
 
   /// Sets LookAt directly from yaw and pitch in degrees.
   void setYawPitch({required double yawDegrees, required double pitchDegrees}) {
@@ -55,7 +70,9 @@ final class VrmLookAtController {
     _pitchDegrees = 0;
   }
 
-  void _setMotionYawPitch(_YawPitch? yawPitch) {
+  /// Sets the gaze direction the playing motion asks for; null clears it.
+  @internal
+  void setMotionYawPitch(YawPitch? yawPitch) {
     _motionYawPitch = yawPitch;
   }
 
@@ -66,14 +83,14 @@ final class VrmLookAtController {
     final appTransform = _modelWorldTransform;
     if (appTransform == null) return rootMotion;
     if (rootMotion == null) return appTransform;
-    return _multiplyMatrices(appTransform, rootMotion);
+    return multiplyMatrices(appTransform, rootMotion);
   }
 
   /// Applies the current LookAt output.
   void applyTo(VrmSceneBinding binding, VrmExpressionController expressions) {
     final settings = model.vrm.lookAt;
     if (settings == null) {
-      expressions._setLookAtInputs(const {});
+      expressions.setLookAtInputs(const {});
       return;
     }
 
@@ -82,39 +99,36 @@ final class VrmLookAtController {
               ? _yawPitchForTarget(
                   binding,
                   settings,
-                  _runtimePointToSourceModel(
-                    model.sourceVersion,
-                    _targetModel!,
-                  ),
+                  runtimePointToSourceModel(model.sourceVersion, _targetModel!),
                 )
               : _targetWorld != null
               ? _yawPitchForTarget(
                   binding,
                   settings,
-                  _worldTargetToModel(
+                  worldTargetToModel(
                     _targetWorld!,
                     _effectiveModelWorldTransform(binding),
                   ),
                 )
-              : _YawPitch(_yawDegrees, _pitchDegrees))
+              : YawPitch(_yawDegrees, _pitchDegrees))
         : _motionYawPitch;
     if (yawPitch == null) {
-      expressions._setLookAtInputs(const {});
+      expressions.setLookAtInputs(const {});
       return;
     }
 
     switch (settings.type) {
       case VrmLookAtType.expression:
-        expressions._setLookAtInputs(
+        expressions.setLookAtInputs(
           _lookAtExpressionWeights(settings, yawPitch),
         );
       case VrmLookAtType.bone:
-        expressions._setLookAtInputs(const {});
+        expressions.setLookAtInputs(const {});
         _applyBoneLookAt(binding, settings, yawPitch);
     }
   }
 
-  _YawPitch _yawPitchForTarget(
+  YawPitch _yawPitchForTarget(
     VrmSceneBinding binding,
     VrmLookAt settings,
     VrmVector3 target,
@@ -129,13 +143,13 @@ final class VrmLookAtController {
                 settings.offsetFromHeadBone[2],
               )
         : _targetInLookAtSpace(binding, head, settings, target);
-    final runtimeLocal = _sourceDirectionToRuntime(model.sourceVersion, local);
+    final runtimeLocal = sourceDirectionToRuntime(model.sourceVersion, local);
     final yaw = math.atan2(runtimeLocal.x, runtimeLocal.z) * 180 / math.pi;
     final xz = math.sqrt(
       runtimeLocal.x * runtimeLocal.x + runtimeLocal.z * runtimeLocal.z,
     );
     final pitch = math.atan2(-runtimeLocal.y, xz) * 180 / math.pi;
-    return _YawPitch(yaw, pitch);
+    return YawPitch(yaw, pitch);
   }
 
   VrmVector3 _targetInLookAtSpace(
@@ -144,7 +158,7 @@ final class VrmLookAtController {
     VrmLookAt settings,
     VrmVector3 target,
   ) {
-    final headTransform = _modelTransformForNode(
+    final headTransform = modelTransformForNode(
       model.gltf,
       head,
       (node) => binding.nodeByGltfIndex(node.index).localTransform,
@@ -155,25 +169,25 @@ final class VrmLookAtController {
       settings.offsetFromHeadBone[1],
       settings.offsetFromHeadBone[2],
     );
-    final origin = _transformPoint(headTransform, offset);
-    final restTransform = _modelTransformForNode(
+    final origin = transformPoint(headTransform, offset);
+    final restTransform = modelTransformForNode(
       model.gltf,
       head,
       (node) => node.restTransform,
     );
-    final currentRotation = _matrixRotation(
+    final currentRotation = matrixRotation(
       headTransform,
       fallback: const [0, 0, 0, 1],
     );
     final restRotation = restTransform == null
         ? const [0.0, 0.0, 0.0, 1.0]
-        : _matrixRotation(restTransform, fallback: const [0, 0, 0, 1]);
-    final lookAtRotation = _quatMultiply(
+        : matrixRotation(restTransform, fallback: const [0, 0, 0, 1]);
+    final lookAtRotation = quatMultiply(
       currentRotation,
-      _quatInverse(restRotation),
+      quatInverse(restRotation),
     );
     final delta = target - origin;
-    final local = _rotateVector(_quatInverse(lookAtRotation), [
+    final local = rotateVector(quatInverse(lookAtRotation), [
       delta.x,
       delta.y,
       delta.z,
@@ -183,7 +197,7 @@ final class VrmLookAtController {
 
   Map<String, double> _lookAtExpressionWeights(
     VrmLookAt settings,
-    _YawPitch yawPitch,
+    YawPitch yawPitch,
   ) {
     final weights = <String, double>{
       'lookLeft': 0,
@@ -192,23 +206,23 @@ final class VrmLookAtController {
       'lookUp': 0,
     };
     if (yawPitch.yawDegrees > 0) {
-      weights['lookLeft'] = _rangeMap(
+      weights['lookLeft'] = rangeMap(
         yawPitch.yawDegrees.abs(),
         settings.rangeMapHorizontalOuter,
       );
     } else if (yawPitch.yawDegrees < 0) {
-      weights['lookRight'] = _rangeMap(
+      weights['lookRight'] = rangeMap(
         yawPitch.yawDegrees.abs(),
         settings.rangeMapHorizontalOuter,
       );
     }
     if (yawPitch.pitchDegrees > 0) {
-      weights['lookDown'] = _rangeMap(
+      weights['lookDown'] = rangeMap(
         yawPitch.pitchDegrees.abs(),
         settings.rangeMapVerticalDown,
       );
     } else if (yawPitch.pitchDegrees < 0) {
-      weights['lookUp'] = _rangeMap(
+      weights['lookUp'] = rangeMap(
         yawPitch.pitchDegrees.abs(),
         settings.rangeMapVerticalUp,
       );
@@ -219,7 +233,7 @@ final class VrmLookAtController {
   void _applyBoneLookAt(
     VrmSceneBinding binding,
     VrmLookAt settings,
-    _YawPitch yawPitch,
+    YawPitch yawPitch,
   ) {
     final leftEye = model.vrm.humanoid.nodeFor(VrmHumanoidBone.leftEye);
     final rightEye = model.vrm.humanoid.nodeFor(VrmHumanoidBone.rightEye);
@@ -257,18 +271,18 @@ final class VrmLookAtController {
   ) {
     final node = model.gltf.nodes.elementAtOrNull(nodeIndex);
     if (node == null) return;
-    final lookRotation = _runtimeRotationToSource(
+    final lookRotation = runtimeRotationToSource(
       model.sourceVersion,
-      _yawPitchQuaternion(yawDegrees, pitchDegrees),
+      yawPitchQuaternion(yawDegrees, pitchDegrees),
     );
     final current = binding.nodeByGltfIndex(nodeIndex).localTransform;
-    binding.nodeByGltfIndex(nodeIndex).localTransform = _trsMatrix(
-      _matrixTranslation(current),
-      _quatMultiply(
-        _matrixRotation(current, fallback: node.restRotation),
+    binding.nodeByGltfIndex(nodeIndex).localTransform = trsMatrix(
+      matrixTranslation(current),
+      quatMultiply(
+        matrixRotation(current, fallback: node.restRotation),
         lookRotation,
       ),
-      _matrixScale(current),
+      matrixScale(current),
     );
   }
 
@@ -277,17 +291,17 @@ final class VrmLookAtController {
     required VrmLookAtRangeMap positiveYawMap,
     required VrmLookAtRangeMap negativeYawMap,
   }) {
-    if (yawDegrees > 0) return _rangeMap(yawDegrees.abs(), positiveYawMap);
-    if (yawDegrees < 0) return -_rangeMap(yawDegrees.abs(), negativeYawMap);
+    if (yawDegrees > 0) return rangeMap(yawDegrees.abs(), positiveYawMap);
+    if (yawDegrees < 0) return -rangeMap(yawDegrees.abs(), negativeYawMap);
     return 0;
   }
 
   double _eyePitch(double pitchDegrees, VrmLookAt settings) {
     if (pitchDegrees > 0) {
-      return _rangeMap(pitchDegrees.abs(), settings.rangeMapVerticalDown);
+      return rangeMap(pitchDegrees.abs(), settings.rangeMapVerticalDown);
     }
     if (pitchDegrees < 0) {
-      return -_rangeMap(pitchDegrees.abs(), settings.rangeMapVerticalUp);
+      return -rangeMap(pitchDegrees.abs(), settings.rangeMapVerticalUp);
     }
     return 0;
   }

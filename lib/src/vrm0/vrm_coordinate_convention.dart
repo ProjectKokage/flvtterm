@@ -1,6 +1,11 @@
-part of '../../flvtterm.dart';
+import 'package:meta/meta.dart';
 
-VrmVector3 _runtimePointToSourceModel(
+import '../math_types.dart';
+import '../runtime/constraint_math.dart';
+import '../vrm/vrm_enums.dart';
+
+@internal
+VrmVector3 runtimePointToSourceModel(
   VrmSourceVersion version,
   VrmVector3 value,
 ) => switch (version) {
@@ -8,7 +13,8 @@ VrmVector3 _runtimePointToSourceModel(
   VrmSourceVersion.vrm1 => value,
 };
 
-VrmVector3 _sourceDirectionToRuntime(
+@internal
+VrmVector3 sourceDirectionToRuntime(
   VrmSourceVersion version,
   VrmVector3 value,
 ) => switch (version) {
@@ -16,11 +22,12 @@ VrmVector3 _sourceDirectionToRuntime(
   VrmSourceVersion.vrm1 => value,
 };
 
-List<double> _runtimeRotationToSource(
+@internal
+List<double> runtimeRotationToSource(
   VrmSourceVersion version,
   List<double> rotation,
 ) {
   if (version == VrmSourceVersion.vrm1) return rotation;
   const basis = <double>[0, 1, 0, 0];
-  return _quatMultiply(_quatMultiply(_quatInverse(basis), rotation), basis);
+  return quatMultiply(quatMultiply(quatInverse(basis), rotation), basis);
 }

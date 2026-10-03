@@ -1,8 +1,13 @@
-part of '../flvtterm.dart';
+import 'dart:typed_data';
 
-({int width, int height})? _imageDimensions(Uint8List bytes) {
-  if (_hasPngSignature(bytes)) return _pngDimensions(bytes);
-  if (_hasJpegSignature(bytes)) return _jpegDimensions(bytes);
+import 'package:meta/meta.dart';
+
+import 'gltf/gltf_texture_validation.dart';
+
+@internal
+({int width, int height})? imageDimensions(Uint8List bytes) {
+  if (hasPngSignature(bytes)) return _pngDimensions(bytes);
+  if (hasJpegSignature(bytes)) return _jpegDimensions(bytes);
   return null;
 }
 

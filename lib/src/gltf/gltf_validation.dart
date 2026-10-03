@@ -1,8 +1,24 @@
-part of '../../flvtterm.dart';
+import 'package:meta/meta.dart';
 
-void _validateRequiredExtensions(
+import '../diagnostics.dart';
+import '../json_values.dart';
+import '../safe_list_index.dart';
+import 'accessor_reader.dart';
+import 'gltf_accessor_validation.dart';
+import 'gltf_animation_validation.dart';
+import 'gltf_buffer_validation.dart';
+import 'gltf_camera_validation.dart';
+import 'gltf_material_validation.dart';
+import 'gltf_mesh_validation.dart';
+import 'gltf_node_constraint_validation.dart';
+import 'gltf_structure_validation.dart';
+import 'gltf_texture_validation.dart';
+import 'gltf_types.dart';
+
+@internal
+void validateRequiredExtensions(
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   Set<String> supported,
 ) {
   _validateUniqueRootStrings(
@@ -79,7 +95,7 @@ Map<String, String> _declaredExtensionObjectPaths(Object? value) {
 
 void _validateUniqueRootStrings(
   List<String> values,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String code,
   String jsonPath,
 ) {
@@ -94,11 +110,12 @@ void _validateUniqueRootStrings(
   }
 }
 
-void _validateGltfReferences(GltfAsset gltf, _DiagnosticSink sink) {
+@internal
+void validateGltfReferences(GltfAsset gltf, DiagnosticSink sink) {
   final vertexAttributeAccessors = _vertexAttributeAccessors(gltf);
   final primitiveIndexAccessors = _primitiveIndexAccessors(gltf);
-  _validateGltfBuffers(gltf, sink);
-  _validateGltfBufferViews(gltf, sink);
+  validateGltfBuffers(gltf, sink);
+  validateGltfBufferViews(gltf, sink);
 
   if (gltf.json.containsKey('scene') && gltf.json['scene'] is! int) {
     sink.error(
@@ -113,7 +130,7 @@ void _validateGltfReferences(GltfAsset gltf, _DiagnosticSink sink) {
       jsonPath: r'$.scene',
     );
   } else if (gltf.scene != null) {
-    _validateIndex(
+    validateIndex(
       gltf.scene!,
       gltf.scenes.length,
       sink,
@@ -127,7 +144,7 @@ void _validateGltfReferences(GltfAsset gltf, _DiagnosticSink sink) {
     var duplicateNodeReported = false;
     for (var nodeIndex = 0; nodeIndex < scene.nodes.length; nodeIndex++) {
       final node = scene.nodes[nodeIndex];
-      final nodePath = _scenePath(scene.index, '.nodes[$nodeIndex]');
+      final nodePath = scenePath(scene.index, '.nodes[$nodeIndex]');
       if (!nodes.add(node)) {
         if (!duplicateNodeReported) {
           sink.error(
@@ -139,7 +156,7 @@ void _validateGltfReferences(GltfAsset gltf, _DiagnosticSink sink) {
         }
         continue;
       }
-      _validateIndex(
+      validateIndex(
         node,
         gltf.nodes.length,
         sink,
@@ -149,45 +166,45 @@ void _validateGltfReferences(GltfAsset gltf, _DiagnosticSink sink) {
     }
   }
 
-  _validateNodeHierarchy(gltf, sink);
+  validateNodeHierarchy(gltf, sink);
 
-  final rawAccessors = _list(gltf.json['accessors']);
+  final rawAccessors = jsonList(gltf.json['accessors']);
   for (final accessor in gltf.accessors) {
-    final raw = _object(rawAccessors.elementAtOrNull(accessor.index));
+    final raw = jsonObject(rawAccessors.elementAtOrNull(accessor.index));
     if (raw.containsKey('bufferView') && raw['bufferView'] is! int) {
       sink.error(
         'gltf.invalidAccessorBufferView',
         'Accessor bufferView must be an integer.',
-        jsonPath: _accessorPath(accessor.index, '.bufferView'),
+        jsonPath: accessorPath(accessor.index, '.bufferView'),
       );
     } else if (accessor.bufferView != null) {
-      _validateIndex(
+      validateIndex(
         accessor.bufferView!,
         gltf.bufferViews.length,
         sink,
         'gltf.invalidAccessorBufferView',
-        _accessorPath(accessor.index, '.bufferView'),
+        accessorPath(accessor.index, '.bufferView'),
       );
     } else if (raw.containsKey('byteOffset')) {
       sink.error(
         'gltf.accessorByteOffsetWithoutBufferView',
         'Accessor byteOffset must not be defined without bufferView.',
-        jsonPath: _accessorPath(accessor.index, '.byteOffset'),
+        jsonPath: accessorPath(accessor.index, '.byteOffset'),
       );
     }
     if (raw['componentType'] is! int ||
-        _componentByteSize(accessor.componentType) == null) {
+        componentByteSize(accessor.componentType) == null) {
       sink.error(
         'gltf.invalidAccessorComponentType',
         'Accessor componentType must be a glTF 2.0 component type.',
-        jsonPath: _accessorPath(accessor.index, '.componentType'),
+        jsonPath: accessorPath(accessor.index, '.componentType'),
       );
     }
     if (raw['type'] is! String || accessor.componentCount == null) {
       sink.error(
         'gltf.invalidAccessorType',
         'Accessor type must be a glTF 2.0 accessor type.',
-        jsonPath: _accessorPath(accessor.index, '.type'),
+        jsonPath: accessorPath(accessor.index, '.type'),
       );
     }
     if ((raw.containsKey('byteOffset') && raw['byteOffset'] is! int) ||
@@ -197,21 +214,21 @@ void _validateGltfReferences(GltfAsset gltf, _DiagnosticSink sink) {
       sink.error(
         'gltf.invalidAccessorShape',
         'Accessor byteOffset must be non-negative and count must be positive.',
-        jsonPath: _accessorPath(accessor.index, ''),
+        jsonPath: accessorPath(accessor.index, ''),
       );
     }
     if (raw.containsKey('normalized') && raw['normalized'] is! bool) {
       sink.error(
         'gltf.invalidAccessorNormalized',
         'Accessor normalized must be a boolean.',
-        jsonPath: _accessorPath(accessor.index, '.normalized'),
+        jsonPath: accessorPath(accessor.index, '.normalized'),
       );
     } else if (accessor.normalized &&
         (accessor.componentType == 5125 || accessor.componentType == 5126)) {
       sink.error(
         'gltf.invalidAccessorNormalized',
         'Accessor normalized must not be true for FLOAT or UNSIGNED_INT components.',
-        jsonPath: _accessorPath(accessor.index, '.normalized'),
+        jsonPath: accessorPath(accessor.index, '.normalized'),
       );
     }
     if (accessor.componentType == 5125 &&
@@ -222,35 +239,35 @@ void _validateGltfReferences(GltfAsset gltf, _DiagnosticSink sink) {
         jsonPath: '\$.accessors[${accessor.index}].componentType',
       );
     }
-    _validateRawAccessorSparse(accessor.index, raw, sink);
-    _validateAccessorBounds(accessor, raw, sink);
-    _validateAccessorBoundsMatchData(accessor, gltf, sink);
-    _validateAccessorRange(
+    validateRawAccessorSparse(accessor.index, raw, sink);
+    validateAccessorBounds(accessor, raw, sink);
+    validateAccessorBoundsMatchData(accessor, gltf, sink);
+    validateAccessorRange(
       accessor,
       gltf,
       sink,
       isVertexAttribute: vertexAttributeAccessors.contains(accessor.index),
     );
-    _validateAccessorSparse(accessor, gltf, sink);
-    _validateAccessorFiniteFloatValues(accessor, gltf, sink);
+    validateAccessorSparse(accessor, gltf, sink);
+    validateAccessorFiniteFloatValues(accessor, gltf, sink);
   }
 
-  _validateGltfNodes(gltf, sink);
+  validateGltfNodes(gltf, sink);
 
-  _validateGltfCameras(gltf, sink);
+  validateGltfCameras(gltf, sink);
 
-  _validateGltfMeshes(gltf, sink);
+  validateGltfMeshes(gltf, sink);
 
-  _validateGltfMaterials(gltf, sink);
+  validateGltfMaterials(gltf, sink);
 
-  final rawSkins = _list(gltf.json['skins']);
+  final rawSkins = jsonList(gltf.json['skins']);
   for (final skin in gltf.skins) {
-    final raw = _object(rawSkins.elementAtOrNull(skin.index));
+    final raw = jsonObject(rawSkins.elementAtOrNull(skin.index));
     if (skin.joints.isEmpty) {
       sink.error(
         'gltf.missingSkinJoints',
         'Skin joints are required.',
-        jsonPath: _skinPath(skin.index, '.joints'),
+        jsonPath: skinPath(skin.index, '.joints'),
       );
     }
     final joints = <int>{};
@@ -262,60 +279,62 @@ void _validateGltfReferences(GltfAsset gltf, _DiagnosticSink sink) {
         sink.error(
           'gltf.duplicateSkinJoint',
           'Skin joints must not contain duplicate node indices.',
-          jsonPath: _skinPath(skin.index, '.joints[$jointIndex]'),
+          jsonPath: skinPath(skin.index, '.joints[$jointIndex]'),
         );
       }
-      _validateIndex(
+      validateIndex(
         joint,
         gltf.nodes.length,
         sink,
         'gltf.invalidSkinJoint',
-        _skinPath(skin.index, '.joints[$jointIndex]'),
+        skinPath(skin.index, '.joints[$jointIndex]'),
       );
     }
     if (raw.containsKey('skeleton') && raw['skeleton'] is! int) {
       sink.error(
         'gltf.invalidSkinSkeleton',
         'Skin skeleton must be an integer.',
-        jsonPath: _skinPath(skin.index, '.skeleton'),
+        jsonPath: skinPath(skin.index, '.skeleton'),
       );
     } else if (skin.skeleton != null) {
-      _validateIndex(
+      validateIndex(
         skin.skeleton!,
         gltf.nodes.length,
         sink,
         'gltf.invalidSkinSkeleton',
-        _skinPath(skin.index, '.skeleton'),
+        skinPath(skin.index, '.skeleton'),
       );
-      _validateSkinSkeletonRoot(skin, gltf, sink);
+      validateSkinSkeletonRoot(skin, gltf, sink);
     }
-    _validateSkinJointCommonRoot(skin, gltf, sink);
+    validateSkinJointCommonRoot(skin, gltf, sink);
     if (raw.containsKey('inverseBindMatrices') &&
         raw['inverseBindMatrices'] is! int) {
       sink.error(
         'gltf.invalidSkinInverseBindMatrices',
         'Skin inverseBindMatrices must be an integer.',
-        jsonPath: _skinPath(skin.index, '.inverseBindMatrices'),
+        jsonPath: skinPath(skin.index, '.inverseBindMatrices'),
       );
     } else if (skin.inverseBindMatrices != null) {
-      _validateIndex(
+      validateIndex(
         skin.inverseBindMatrices!,
         gltf.accessors.length,
         sink,
         'gltf.invalidSkinInverseBindMatrices',
-        _skinPath(skin.index, '.inverseBindMatrices'),
+        skinPath(skin.index, '.inverseBindMatrices'),
       );
-      _validateSkinInverseBindMatrices(skin, gltf, sink);
+      validateSkinInverseBindMatrices(skin, gltf, sink);
     }
   }
 
-  _validateGltfTextureResources(gltf, sink);
-  _validateGltfAnimations(gltf, sink);
+  validateGltfTextureResources(gltf, sink);
+  validateGltfAnimations(gltf, sink);
 }
 
-String _skinPath(int skinIndex, String suffix) => '\$.skins[$skinIndex]$suffix';
+@internal
+String skinPath(int skinIndex, String suffix) => '\$.skins[$skinIndex]$suffix';
 
-String _scenePath(int sceneIndex, String suffix) =>
+@internal
+String scenePath(int sceneIndex, String suffix) =>
     '\$.scenes[$sceneIndex]$suffix';
 
 Set<int> _primitiveIndexAccessors(GltfAsset gltf) {

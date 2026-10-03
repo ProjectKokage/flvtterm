@@ -1,4 +1,13 @@
-part of '../../flvtterm.dart';
+import 'package:meta/meta.dart';
+
+import '../gltf/animation_math.dart';
+import '../gltf/gltf_animation_types.dart';
+import '../gltf/gltf_scene_types.dart';
+import '../gltf/gltf_types.dart';
+import '../safe_list_index.dart';
+import '../vrm/vrm_enums.dart';
+import '../vrm/vrm_humanoid_parser.dart';
+import 'constraint_math.dart';
 
 /// Retargets one VRMA humanoid bone pose onto a destination VRM humanoid bone.
 abstract interface class VrmHumanoidRetargeter {
@@ -57,9 +66,9 @@ final class VrmFkHumanoidRetargeter implements VrmHumanoidRetargeter {
         ? _retargetHipsRootTranslation(
             sourceRest: sourceRestNode.restTranslation,
             sourceCurrent: sourcePose.translation,
-            sourceParentRestWorldRotation: _quatMultiply(
+            sourceParentRestWorldRotation: quatMultiply(
               sourceRestWorldRotation,
-              _quatInverse(sourceRestNode.restRotation),
+              quatInverse(sourceRestNode.restRotation),
             ),
             scale: hipsTranslationScale,
           )
@@ -89,38 +98,41 @@ List<double> _retargetHumanoidRotation({
   required List<double> destinationRestLocal,
   required List<double> destinationRestWorld,
 }) {
-  final normalized = _normalizedHumanoidRotation(
+  final normalized = normalizedHumanoidRotation(
     localRest: sourceRestLocal,
     worldRest: sourceRestWorld,
     current: sourceCurrent,
   );
-  return _humanoidLocalRotationFromNormalized(
+  return humanoidLocalRotationFromNormalized(
     localRest: destinationRestLocal,
     worldRest: destinationRestWorld,
     normalized: normalized,
   );
 }
 
-List<double> _normalizedHumanoidRotation({
+@internal
+List<double> normalizedHumanoidRotation({
   required List<double> localRest,
   required List<double> worldRest,
   required List<double> current,
-}) => _quatMultiply(
-  _quatMultiply(_quatMultiply(worldRest, _quatInverse(localRest)), current),
-  _quatInverse(worldRest),
+}) => quatMultiply(
+  quatMultiply(quatMultiply(worldRest, quatInverse(localRest)), current),
+  quatInverse(worldRest),
 );
 
-List<double> _humanoidLocalRotationFromNormalized({
+@internal
+List<double> humanoidLocalRotationFromNormalized({
   required List<double> localRest,
   required List<double> worldRest,
   required List<double> normalized,
-}) => _quatMultiply(
-  _quatMultiply(_quatMultiply(localRest, _quatInverse(worldRest)), normalized),
+}) => quatMultiply(
+  quatMultiply(quatMultiply(localRest, quatInverse(worldRest)), normalized),
   worldRest,
 );
 
-Map<int, List<double>> _restWorldRotations(GltfAsset gltf) {
-  final parents = _nodeParents(gltf);
+@internal
+Map<int, List<double>> restWorldRotations(GltfAsset gltf) {
+  final parents = nodeParents(gltf);
   final result = <int, List<double>>{};
   for (final start in gltf.nodes) {
     if (result.containsKey(start.index)) continue;
@@ -143,7 +155,7 @@ Map<int, List<double>> _restWorldRotations(GltfAsset gltf) {
       currentIndex = parent;
     }
     for (final node in chain.reversed) {
-      world = List.unmodifiable(_quatMultiply(world, node.restRotation));
+      world = List.unmodifiable(quatMultiply(world, node.restRotation));
       result[node.index] = world;
     }
   }
@@ -162,22 +174,23 @@ List<double>? _retargetHipsRootTranslation({
     (sourceCurrent[1] - sourceRest[1]) * scale,
     (sourceCurrent[2] - sourceRest[2]) * scale,
   ];
-  return _rotateVectorPreservingLength(
+  return rotateVectorPreservingLength(
     sourceParentRestWorldRotation,
     localDelta,
   );
 }
 
-List<double> _rotateVectorPreservingLength(
+@internal
+List<double> rotateVectorPreservingLength(
   List<double> rotation,
   List<double> vector,
 ) {
-  final q = _normalize(rotation);
+  final q = normalizeList(rotation);
   final axis = [q[0], q[1], q[2]];
   final scalar = q[3];
-  final axisDotVector = _vectorDot(axis, vector);
-  final axisLengthSquared = _vectorDot(axis, axis);
-  final cross = _vectorCross(axis, vector);
+  final axisDotVector = vectorDot(axis, vector);
+  final axisLengthSquared = vectorDot(axis, axis);
+  final cross = vectorCross(axis, vector);
   return [
     2 * axisDotVector * axis[0] +
         (scalar * scalar - axisLengthSquared) * vector[0] +

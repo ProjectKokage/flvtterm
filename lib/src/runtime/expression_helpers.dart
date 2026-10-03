@@ -1,6 +1,16 @@
-part of '../../flvtterm.dart';
+import 'package:meta/meta.dart';
 
-void _applyOverrideGroup(
+import '../gltf/animation_math.dart';
+import '../gltf/gltf_material_types.dart';
+import '../math_types.dart';
+import '../safe_list_index.dart';
+import '../vrm/vrm_assets.dart';
+import '../vrm/vrm_enums.dart';
+import '../vrm/vrm_types.dart';
+import 'scene_binding.dart';
+
+@internal
+void applyOverrideGroup(
   Map<String, VrmExpression> definitions,
   Map<String, double> output,
   Iterable<String> targetNames,
@@ -22,7 +32,7 @@ void _applyOverrideGroup(
     }
   }
 
-  final blendEffect = _clamp01(blend);
+  final blendEffect = clamp01(blend);
   for (final name in targetNames) {
     final expression = definitions[name];
     if (expression == null) continue;
@@ -46,7 +56,8 @@ VrmVector4 _baseMaterialColor(GltfMaterial material, String type) {
   };
 }
 
-VrmVector4 _baseMaterialColorForModel(
+@internal
+VrmVector4 baseMaterialColorForModel(
   VrmModel model,
   int materialIndex,
   String type,
@@ -76,7 +87,8 @@ VrmVector4 _baseMaterialColorForModel(
       : _baseMaterialColor(material, type);
 }
 
-VrmVector4 _materialColorTarget(
+@internal
+VrmVector4 materialColorTarget(
   String type,
   VrmVector4 base,
   VrmVector4 target,
@@ -85,29 +97,31 @@ VrmVector4 _materialColorTarget(
   return VrmVector4(target.x, target.y, target.z, base.w);
 }
 
-_TextureTransformAccum _baseTextureTransform(GltfMaterial material) {
+@internal
+TextureTransformAccum baseTextureTransform(GltfMaterial material) {
   final transforms = _baseTextureTransforms(material);
-  if (transforms.isEmpty) return _TextureTransformAccum();
+  if (transforms.isEmpty) return TextureTransformAccum();
   final first = transforms.values.first;
-  return _TextureTransformAccum(scale: first.scale, offset: first.offset);
+  return TextureTransformAccum(scale: first.scale, offset: first.offset);
 }
 
-Map<VrmMaterialTextureSlot, _TextureTransformAccum>
-_baseTextureTransformsForModel(VrmModel model, int materialIndex) {
-  final result = <VrmMaterialTextureSlot, _TextureTransformAccum>{};
+@internal
+Map<VrmMaterialTextureSlot, TextureTransformAccum>
+baseTextureTransformsForModel(VrmModel model, int materialIndex) {
+  final result = <VrmMaterialTextureSlot, TextureTransformAccum>{};
   final legacy = model
       .vrm0MaterialPropertyForGltfIndex(materialIndex)
       ?.vectorProperties['_MainTex'];
   if (legacy != null && legacy.length >= 4) {
     final scale = VrmVector2(legacy[0], legacy[1]);
-    result[VrmMaterialTextureSlot.baseColor] = _TextureTransformAccum(
+    result[VrmMaterialTextureSlot.baseColor] = TextureTransformAccum(
       scale: scale,
       offset: VrmVector2(legacy[2], 1 - legacy[3] - scale.y),
     );
   } else if (model.isVrm0) {
     // Legacy material-value binds target Unity's conceptual _MainTex even when
     // the glTF fallback omits a base-color texture reference.
-    result[VrmMaterialTextureSlot.baseColor] = _TextureTransformAccum();
+    result[VrmMaterialTextureSlot.baseColor] = TextureTransformAccum();
   }
   final material = model.gltf.materials.elementAtOrNull(materialIndex);
   if (material == null) return result;
@@ -117,13 +131,13 @@ _baseTextureTransformsForModel(VrmModel model, int materialIndex) {
   return result;
 }
 
-Map<VrmMaterialTextureSlot, _TextureTransformAccum> _baseTextureTransforms(
+Map<VrmMaterialTextureSlot, TextureTransformAccum> _baseTextureTransforms(
   GltfMaterial material,
 ) {
-  final result = <VrmMaterialTextureSlot, _TextureTransformAccum>{};
+  final result = <VrmMaterialTextureSlot, TextureTransformAccum>{};
   for (final entry in _uvAccessedMaterialTextures(material)) {
     final transform = entry.texture.textureTransform;
-    result[entry.slot] = _TextureTransformAccum(
+    result[entry.slot] = TextureTransformAccum(
       scale: transform?.scale ?? VrmVector2.one,
       offset: transform?.offset ?? VrmVector2.zero,
     );
@@ -175,9 +189,10 @@ _uvAccessedMaterialTextures(GltfMaterial material) sync* {
   }
 }
 
-void _setTextureTransforms(
+@internal
+void setTextureTransforms(
   VrmMaterialBinding binding,
-  Map<VrmMaterialTextureSlot, _TextureTransformAccum> transforms,
+  Map<VrmMaterialTextureSlot, TextureTransformAccum> transforms,
 ) {
   if (transforms.isEmpty) return;
   if (binding is VrmPerTextureMaterialBinding) {
@@ -194,8 +209,9 @@ void _setTextureTransforms(
   binding.setTextureTransform(scale: transform.scale, offset: transform.offset);
 }
 
-final class _TextureTransformAccum {
-  _TextureTransformAccum({
+@internal
+final class TextureTransformAccum {
+  TextureTransformAccum({
     this.scale = VrmVector2.one,
     this.offset = VrmVector2.zero,
   });

@@ -1,8 +1,14 @@
-part of '../../flvtterm.dart';
+import 'package:meta/meta.dart';
+
+import '../json_values.dart';
+import '../math_types.dart';
+import 'vrm_enums.dart';
 
 /// Runtime-facing VRM extension data normalized from VRM 0.x or VRM 1.0.
 final class VrmExtension {
-  VrmExtension._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  VrmExtension.internal({
     required this.sourceVersion,
     required this.specVersion,
     required this.meta,
@@ -11,7 +17,7 @@ final class VrmExtension {
     required this.expressions,
     required this.lookAt,
     required Map<String, Object?> raw,
-  }) : raw = _immutableJsonValue(raw) as Map<String, Object?>;
+  }) : raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Specification family from which this data was parsed.
   final VrmSourceVersion sourceVersion;
@@ -40,7 +46,9 @@ final class VrmExtension {
 
 /// VRM model metadata.
 final class VrmMeta {
-  VrmMeta._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  VrmMeta.internal({
     required this.name,
     required this.version,
     required List<String> authors,
@@ -63,7 +71,7 @@ final class VrmMeta {
     required Map<String, Object?> raw,
   }) : authors = List.unmodifiable(authors),
        references = List.unmodifiable(references),
-       raw = _immutableJsonValue(raw) as Map<String, Object?>;
+       raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Model name.
   final String? name;
@@ -128,11 +136,13 @@ final class VrmMeta {
 
 /// VRM humanoid mapping.
 final class VrmHumanoid {
-  VrmHumanoid._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  VrmHumanoid.internal({
     required Map<VrmHumanoidBone, VrmHumanBone> humanBones,
     required Map<String, Object?> raw,
   }) : humanBones = Map.unmodifiable(humanBones),
-       raw = _immutableJsonValue(raw) as Map<String, Object?>;
+       raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Bone assignments by semantic humanoid bone.
   final Map<VrmHumanoidBone, VrmHumanBone> humanBones;
@@ -151,7 +161,7 @@ final class VrmHumanBone {
     required this.bone,
     required this.node,
     Map<String, Object?> raw = const {},
-  }) : raw = _immutableJsonValue(raw) as Map<String, Object?>;
+  }) : raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Semantic humanoid bone.
   final VrmHumanoidBone bone;
@@ -165,12 +175,14 @@ final class VrmHumanBone {
 
 /// VRM first-person settings.
 final class VrmFirstPerson {
-  VrmFirstPerson._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  VrmFirstPerson.internal({
     required this.firstPersonBone,
     required List<VrmFirstPersonMeshAnnotation> meshAnnotations,
     required Map<String, Object?> raw,
   }) : meshAnnotations = List.unmodifiable(meshAnnotations),
-       raw = _immutableJsonValue(raw) as Map<String, Object?>;
+       raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Node used for `auto` visibility classification.
   ///
@@ -200,7 +212,7 @@ final class VrmFirstPersonMeshAnnotation {
     required this.node,
     required this.type,
     Map<String, Object?> raw = const {},
-  }) : raw = _immutableJsonValue(raw) as Map<String, Object?>;
+  }) : raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Target glTF node index.
   final int node;
@@ -214,13 +226,15 @@ final class VrmFirstPersonMeshAnnotation {
 
 /// VRM expression definitions.
 final class VrmExpressions {
-  VrmExpressions._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  VrmExpressions.internal({
     required Map<VrmExpressionPreset, VrmExpression> preset,
     required Map<String, VrmExpression> custom,
     required Map<String, Object?> raw,
   }) : preset = Map.unmodifiable(preset),
        custom = Map.unmodifiable(custom),
-       raw = _immutableJsonValue(raw) as Map<String, Object?>,
+       raw = immutableJsonValue(raw) as Map<String, Object?>,
        all = Map.unmodifiable({
          for (final entry in preset.entries) entry.key.specName: entry.value,
          ...custom,
@@ -241,7 +255,9 @@ final class VrmExpressions {
 
 /// One VRM expression definition.
 final class VrmExpression {
-  VrmExpression._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  VrmExpression.internal({
     required this.name,
     required this.isBinary,
     required List<VrmMorphTargetBind> morphTargetBinds,
@@ -254,7 +270,7 @@ final class VrmExpression {
   }) : morphTargetBinds = List.unmodifiable(morphTargetBinds),
        materialColorBinds = List.unmodifiable(materialColorBinds),
        textureTransformBinds = List.unmodifiable(textureTransformBinds),
-       raw = _immutableJsonValue(raw) as Map<String, Object?>;
+       raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Raw expression name.
   final String name;
@@ -292,7 +308,7 @@ final class VrmMorphTargetBind {
     required this.index,
     required this.weight,
     Map<String, Object?> raw = const {},
-  }) : raw = _immutableJsonValue(raw) as Map<String, Object?>;
+  }) : raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Target node index.
   final int node;
@@ -315,7 +331,7 @@ final class VrmMaterialColorBind {
     required this.type,
     required this.targetValue,
     Map<String, Object?> raw = const {},
-  }) : raw = _immutableJsonValue(raw) as Map<String, Object?>;
+  }) : raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Target material index.
   final int material;
@@ -338,7 +354,7 @@ final class VrmTextureTransformBind {
     required this.scale,
     required this.offset,
     Map<String, Object?> raw = const {},
-  }) : raw = _immutableJsonValue(raw) as Map<String, Object?>;
+  }) : raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Target material index.
   final int material;
@@ -377,7 +393,9 @@ enum VrmLookAtType {
 
 /// VRM LookAt settings.
 final class VrmLookAt {
-  VrmLookAt._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  VrmLookAt.internal({
     required this.type,
     required this.originNode,
     required List<double> offsetFromHeadBone,
@@ -387,7 +405,7 @@ final class VrmLookAt {
     required this.rangeMapVerticalUp,
     required Map<String, Object?> raw,
   }) : offsetFromHeadBone = List.unmodifiable(offsetFromHeadBone),
-       raw = _immutableJsonValue(raw) as Map<String, Object?>;
+       raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// LookAt target type.
   final VrmLookAtType type;
@@ -432,7 +450,7 @@ final class VrmLookAtRangeMap {
     List<double> curve = const [],
     Map<String, Object?> raw = const {},
   }) : curve = List.unmodifiable(curve),
-       raw = _immutableJsonValue(raw) as Map<String, Object?>;
+       raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Max input angle value.
   final double inputMaxValue;

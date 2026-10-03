@@ -1,16 +1,23 @@
-part of '../../flvtterm.dart';
+import 'package:meta/meta.dart';
+
+import '../json_values.dart';
+import '../math_types.dart';
+import '../matrix_math.dart';
+import 'gltf_node_constraint_types.dart';
 
 /// Parsed glTF scene.
 final class GltfScene {
-  GltfScene._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  GltfScene.internal({
     required this.index,
     required this.name,
     required List<int> nodes,
     required Map<String, Object?> extensions,
     required Object? extras,
   }) : nodes = List.unmodifiable(nodes),
-       extensions = _immutableJsonValue(extensions) as Map<String, Object?>,
-       extras = _immutableJsonValue(extras);
+       extensions = immutableJsonValue(extensions) as Map<String, Object?>,
+       extras = immutableJsonValue(extras);
 
   /// glTF scene index.
   final int index;
@@ -30,7 +37,9 @@ final class GltfScene {
 
 /// Parsed glTF node.
 final class GltfNode {
-  GltfNode._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  GltfNode.internal({
     required this.index,
     required this.name,
     required List<int> children,
@@ -50,8 +59,8 @@ final class GltfNode {
        rotation = List.unmodifiable(rotation),
        scale = List.unmodifiable(scale),
        weights = List.unmodifiable(weights),
-       extensions = _immutableJsonValue(extensions) as Map<String, Object?>,
-       extras = _immutableJsonValue(extras);
+       extensions = immutableJsonValue(extensions) as Map<String, Object?>,
+       extras = immutableJsonValue(extras);
 
   /// glTF node index.
   final int index;
@@ -98,19 +107,19 @@ final class GltfNode {
   /// Rest local translation after applying matrix fallback.
   late final List<double> restTranslation = matrix == null
       ? translation
-      : List.unmodifiable(_matrixTranslation(matrix!));
+      : List.unmodifiable(matrixTranslation(matrix!));
 
   /// Rest local rotation after applying matrix fallback.
   late final List<double> restRotation = matrix == null
       ? rotation
-      : List.unmodifiable(_matrixRotation(matrix!, fallback: rotation));
+      : List.unmodifiable(matrixRotation(matrix!, fallback: rotation));
 
   /// Rest local scale after applying matrix fallback.
   late final List<double> restScale = matrix == null
       ? scale
-      : List.unmodifiable(_matrixScale(matrix!));
+      : List.unmodifiable(matrixScale(matrix!));
 
   /// Rest local transform.
   late final VrmMatrix4 restTransform =
-      matrix ?? _trsMatrix(translation, rotation, scale);
+      matrix ?? trsMatrix(translation, rotation, scale);
 }

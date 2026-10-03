@@ -1,9 +1,24 @@
-part of '../../flvtterm.dart';
+import 'dart:math' as math;
+
+import '../gltf/animation_math.dart';
+import '../gltf/gltf_accessor_validation.dart';
+import '../gltf/gltf_scene_types.dart';
+import '../json_values.dart';
+import '../math_types.dart';
+import '../safe_list_index.dart';
+import '../vrm/spring_bone_parser.dart';
+import '../vrm/spring_bone_types.dart';
+import '../vrm/vrm_assets.dart';
+import '../vrm/vrm_enums.dart';
+import '../vrm/vrm_humanoid_parser.dart';
+import '../vrm0/vrm_coordinate_convention.dart';
+import 'scene_binding.dart';
+import 'spring_bone_math.dart';
 
 /// Evaluates `VRMC_springBone` procedural joint motion.
 final class VrmSpringBoneController {
   /// Creates a SpringBone controller for [model].
-  VrmSpringBoneController(this.model) : _parents = _nodeParents(model.gltf);
+  VrmSpringBoneController(this.model) : _parents = nodeParents(model.gltf);
 
   /// Parsed model backing this controller.
   final VrmModel model;
@@ -74,18 +89,18 @@ final class VrmSpringBoneController {
   }
 
   void _step(double dt) {
-    final rootTransform = _springRootTransform(_binding);
+    final rootTransform = springRootTransform(_binding);
     for (final state in _states) {
       final scratch = state.scratch;
       final head = scratch.head;
       final referenceTail = scratch.referenceTail;
-      _springReferenceWorldPointInto(
+      springReferenceWorldPointInto(
         state.nodePath,
         VrmVector3.zero,
         rootTransform,
         head,
       );
-      _springReferenceWorldPointInto(
+      springReferenceWorldPointInto(
         state.nodePath,
         state.initialLocalTail,
         rootTransform,
@@ -100,7 +115,7 @@ final class VrmSpringBoneController {
       if (boneLength == 0) continue;
       final inverseBoneLength = 1 / boneLength;
       final currentTail = scratch.currentTail;
-      _springCenterToWorldInto(
+      springCenterToWorldInto(
         state.centerPath,
         rootTransform,
         state.currentTail,
@@ -108,7 +123,7 @@ final class VrmSpringBoneController {
       );
       final nextTail = scratch.nextTail..copyFrom(currentTail);
       if (dt > 0) {
-        final inertiaScale = 1 - _clamp01(state.joint.dragForce);
+        final inertiaScale = 1 - clamp01(state.joint.dragForce);
         final temporary = scratch.temporary;
         temporary.set(
           state.currentTail.x +
@@ -118,7 +133,7 @@ final class VrmSpringBoneController {
           state.currentTail.z +
               (state.currentTail.z - state.previousTail.z) * inertiaScale,
         );
-        _springCenterToWorldInto(
+        springCenterToWorldInto(
           state.centerPath,
           rootTransform,
           temporary,
@@ -130,12 +145,12 @@ final class VrmSpringBoneController {
           nextTail.y + axisY * stiffness + state.gravity.y * dt,
           nextTail.z + axisZ * stiffness + state.gravity.z * dt,
         );
-        _springConstrainTail(head, nextTail, boneLength);
+        springConstrainTail(head, nextTail, boneLength);
       }
 
       final scaledHitRadius =
           state.joint.hitRadius *
-          _springPathUniformScale(state.nodePath, rootTransform);
+          springPathUniformScale(state.nodePath, rootTransform);
       for (final collider in state.colliders) {
         _collideSpringTail(
           collider: collider,
@@ -144,7 +159,7 @@ final class VrmSpringBoneController {
           rootTransform: rootTransform,
           scratch: scratch,
         );
-        _springConstrainTail(head, nextTail, boneLength);
+        springConstrainTail(head, nextTail, boneLength);
       }
 
       if (dt > 0 ||
@@ -152,7 +167,7 @@ final class VrmSpringBoneController {
           nextTail.y != currentTail.y ||
           nextTail.z != currentTail.z) {
         state.previousTail.copyFrom(state.currentTail);
-        _springWorldToCenterInto(
+        springWorldToCenterInto(
           state.centerPath,
           rootTransform,
           nextTail,
@@ -160,13 +175,13 @@ final class VrmSpringBoneController {
         );
       }
       final localTail = scratch.localTail;
-      _springWorldToReferenceLocalInto(
+      springWorldToReferenceLocalInto(
         state.nodePath,
         rootTransform,
         nextTail,
         localTail,
       );
-      _springLocalRotation(
+      springLocalRotation(
         state.boneAxis,
         localTail,
         state.initialLocalRotation,
@@ -174,7 +189,7 @@ final class VrmSpringBoneController {
       );
       final nodeBinding = state.nodePath.bindings.first;
       final current = nodeBinding.localTransform;
-      nodeBinding.localTransform = _springOutputTransform(
+      nodeBinding.localTransform = springOutputTransform(
         current,
         state.rotationScratch,
       );
@@ -184,10 +199,10 @@ final class VrmSpringBoneController {
   void _initialize(VrmSpringBone springBone, VrmSceneBinding binding) {
     _states.clear();
     final duplicateJointNodes = _duplicateSpringJointNodes(springBone);
-    final paths = <int, _SpringNodePath>{};
-    final rootTransform = _springRootTransform(binding);
+    final paths = <int, SpringNodePath>{};
+    final rootTransform = springRootTransform(binding);
 
-    _SpringNodePath? resolvePath(int? nodeIndex) {
+    SpringNodePath? resolvePath(int? nodeIndex) {
       if (nodeIndex == null) return null;
       return paths.putIfAbsent(nodeIndex, () {
         final nodes = <GltfNode>[];
@@ -201,7 +216,7 @@ final class VrmSpringBoneController {
           bindings.add(binding.nodeByGltfIndex(current));
           current = _parents[current];
         }
-        return _SpringNodePath(
+        return SpringNodePath(
           List.unmodifiable(nodes),
           List.unmodifiable(bindings),
         );
@@ -224,8 +239,8 @@ final class VrmSpringBoneController {
             _SpringColliderState(
               type: shape.type!,
               nodePath: nodePath,
-              offset: _springVector(shape.offset),
-              tail: _springVector(shape.tail ?? const [0, 0, 0]),
+              offset: springVector(shape.offset),
+              tail: springVector(shape.tail ?? const [0, 0, 0]),
               radius: shape.radius,
             ),
           );
@@ -239,7 +254,7 @@ final class VrmSpringBoneController {
       void addState(
         VrmSpringBoneJoint joint,
         GltfNode gltfNode,
-        _SpringNodePath nodePath,
+        SpringNodePath nodePath,
         VrmVector3 initialLocalTail,
         VrmVector3 restModelTail,
       ) {
@@ -249,7 +264,7 @@ final class VrmSpringBoneController {
               initialLocalTail.z * initialLocalTail.z,
         );
         if (length == 0) return;
-        final simulationTail = _springInitialTail(
+        final simulationTail = springInitialTail(
           centerPath,
           rootTransform,
           restModelTail,
@@ -266,9 +281,9 @@ final class VrmSpringBoneController {
             initialLocalTail: initialLocalTail,
             initialLocalRotation: gltfNode.restRotation,
             gravity:
-                _sourceDirectionToRuntime(
+                sourceDirectionToRuntime(
                   model.sourceVersion,
-                  _springVector(joint.gravityDir),
+                  springVector(joint.gravityDir),
                 ) *
                 joint.gravityPower,
           ),
@@ -278,17 +293,17 @@ final class VrmSpringBoneController {
       void addStateWithNodeTail(
         VrmSpringBoneJoint joint,
         GltfNode gltfNode,
-        _SpringNodePath nodePath,
+        SpringNodePath nodePath,
         int tailNode,
       ) {
         final tailPath = resolvePath(tailNode);
         if (tailPath == null) return;
-        final tail = _springRestPathPoint(tailPath, VrmVector3.zero);
+        final tail = springRestPathPoint(tailPath, VrmVector3.zero);
         addState(
           joint,
           gltfNode,
           nodePath,
-          _springInverseRestPathPoint(nodePath, tail),
+          springInverseRestPathPoint(nodePath, tail),
           tail,
         );
       }
@@ -296,14 +311,14 @@ final class VrmSpringBoneController {
       void addLegacyLeafState(
         VrmSpringBoneJoint joint,
         GltfNode gltfNode,
-        _SpringNodePath nodePath,
+        SpringNodePath nodePath,
         double terminalLength,
       ) {
-        final head = _springRestPathPoint(nodePath, VrmVector3.zero);
+        final head = springRestPathPoint(nodePath, VrmVector3.zero);
         final parentPath = resolvePath(_parents[gltfNode.index]);
         final parentHead = parentPath == null
             ? VrmVector3.zero
-            : _springRestPathPoint(parentPath, VrmVector3.zero);
+            : springRestPathPoint(parentPath, VrmVector3.zero);
         final direction = head - parentHead;
         final directionLength = math.sqrt(
           direction.x * direction.x +
@@ -316,7 +331,7 @@ final class VrmSpringBoneController {
           joint,
           gltfNode,
           nodePath,
-          _springInverseRestPathPoint(nodePath, tail),
+          springInverseRestPathPoint(nodePath, tail),
           tail,
         );
       }
@@ -377,7 +392,7 @@ final class VrmSpringBoneController {
       if (duplicateJointNodes.contains(node)) return false;
       if (springBone.sourceVersion == VrmSourceVersion.vrm1 &&
           i > 0 &&
-          !_isDescendantOf(node, spring.joints[i - 1].node!, _parents)) {
+          !isDescendantOf(node, spring.joints[i - 1].node!, _parents)) {
         return false;
       }
       if (!_springJointParametersAreValid(spring.joints[i])) return false;
@@ -387,7 +402,7 @@ final class VrmSpringBoneController {
     if (model.gltf.nodes.elementAtOrNull(center) == null) return false;
     if (springBone.sourceVersion == VrmSourceVersion.vrm0) return true;
     final firstNode = spring.joints.first.node!;
-    if (center != firstNode && !_isDescendantOf(firstNode, center, _parents)) {
+    if (center != firstNode && !isDescendantOf(firstNode, center, _parents)) {
       return false;
     }
     for (final otherSpring in springBone.springs) {
@@ -396,7 +411,7 @@ final class VrmSpringBoneController {
         final otherNode = joint.node;
         if (otherNode == null) continue;
         if (center == otherNode ||
-            _isDescendantOf(center, otherNode, _parents)) {
+            isDescendantOf(center, otherNode, _parents)) {
           return false;
         }
       }
@@ -424,7 +439,7 @@ final class VrmSpringBoneController {
         joint.dragForce > 1) {
       return false;
     }
-    final rawGravityDir = _list(joint.raw['gravityDir']);
+    final rawGravityDir = jsonList(joint.raw['gravityDir']);
     return rawGravityDir.isEmpty ||
         (rawGravityDir.length == 3 &&
             rawGravityDir.every((value) => value is num));
@@ -435,7 +450,7 @@ final class VrmSpringBoneController {
     final shape = collider?.shape;
     final shapeParameters = shape == null
         ? const <String, Object?>{}
-        : _springColliderShapeParameters(shape);
+        : springColliderShapeParameters(shape);
     return collider != null &&
         node != null &&
         model.gltf.nodes.elementAtOrNull(node) != null &&
@@ -444,20 +459,20 @@ final class VrmSpringBoneController {
         shape.type != null &&
         shape.radius >= 0 &&
         (!shapeParameters.containsKey('offset') ||
-            !_hasInvalidNumberListLength(shapeParameters['offset'], 3)) &&
+            !hasInvalidNumberListLength(shapeParameters['offset'], 3)) &&
         (shape.type != VrmSpringBoneColliderShapeType.capsule ||
             !shapeParameters.containsKey('tail') ||
-            !_hasInvalidNumberListLength(shapeParameters['tail'], 3));
+            !hasInvalidNumberListLength(shapeParameters['tail'], 3));
   }
 
   void _collideSpringTail({
     required _SpringColliderState collider,
-    required _SpringVector3 tail,
+    required SpringVector3 tail,
     required double hitRadius,
     required VrmMatrix4? rootTransform,
     required _SpringScratch scratch,
   }) {
-    _springPathWorldPointInto(
+    springPathWorldPointInto(
       collider.nodePath,
       collider.offset,
       rootTransform,
@@ -465,20 +480,20 @@ final class VrmSpringBoneController {
     );
     final collisionRadius =
         collider.radius *
-            _springPathUniformScale(collider.nodePath, rootTransform) +
+            springPathUniformScale(collider.nodePath, rootTransform) +
         hitRadius;
     switch (collider.type) {
       case VrmSpringBoneColliderShapeType.sphere:
-        _springPushOutOfSphere(tail, scratch.colliderStart, collisionRadius);
+        springPushOutOfSphere(tail, scratch.colliderStart, collisionRadius);
         break;
       case VrmSpringBoneColliderShapeType.capsule:
-        _springPathWorldPointInto(
+        springPathWorldPointInto(
           collider.nodePath,
           collider.tail,
           rootTransform,
           scratch.colliderEnd,
         );
-        _springPushOutOfCapsule(
+        springPushOutOfCapsule(
           tail,
           scratch.colliderStart,
           scratch.colliderEnd,
@@ -501,33 +516,33 @@ final class _SpringJointState {
     required this.initialLocalTail,
     required this.initialLocalRotation,
     required VrmVector3 gravity,
-  }) : previousTail = _SpringVector3.from(previousTail),
-       currentTail = _SpringVector3.from(currentTail),
-       gravity = _SpringVector3.from(gravity);
+  }) : previousTail = SpringVector3.from(previousTail),
+       currentTail = SpringVector3.from(currentTail),
+       gravity = SpringVector3.from(gravity);
 
-  final _SpringNodePath? centerPath;
-  final _SpringNodePath nodePath;
+  final SpringNodePath? centerPath;
+  final SpringNodePath nodePath;
   final VrmSpringBoneJoint joint;
   final List<_SpringColliderState> colliders;
-  final _SpringVector3 previousTail;
-  final _SpringVector3 currentTail;
+  final SpringVector3 previousTail;
+  final SpringVector3 currentTail;
   final VrmVector3 boneAxis;
   final VrmVector3 initialLocalTail;
   final List<double> initialLocalRotation;
-  final _SpringVector3 gravity;
+  final SpringVector3 gravity;
   final _SpringScratch scratch = _SpringScratch();
   final List<double> rotationScratch = List<double>.filled(4, 0);
 }
 
 final class _SpringScratch {
-  final _SpringVector3 head = _SpringVector3();
-  final _SpringVector3 referenceTail = _SpringVector3();
-  final _SpringVector3 currentTail = _SpringVector3();
-  final _SpringVector3 nextTail = _SpringVector3();
-  final _SpringVector3 temporary = _SpringVector3();
-  final _SpringVector3 localTail = _SpringVector3();
-  final _SpringVector3 colliderStart = _SpringVector3();
-  final _SpringVector3 colliderEnd = _SpringVector3();
+  final SpringVector3 head = SpringVector3();
+  final SpringVector3 referenceTail = SpringVector3();
+  final SpringVector3 currentTail = SpringVector3();
+  final SpringVector3 nextTail = SpringVector3();
+  final SpringVector3 temporary = SpringVector3();
+  final SpringVector3 localTail = SpringVector3();
+  final SpringVector3 colliderStart = SpringVector3();
+  final SpringVector3 colliderEnd = SpringVector3();
 }
 
 final class _SpringColliderState {
@@ -540,7 +555,7 @@ final class _SpringColliderState {
   });
 
   final VrmSpringBoneColliderShapeType type;
-  final _SpringNodePath nodePath;
+  final SpringNodePath nodePath;
   final VrmVector3 offset;
   final VrmVector3 tail;
   final double radius;

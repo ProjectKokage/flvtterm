@@ -1,10 +1,18 @@
-part of '../../flvtterm.dart';
+import 'package:meta/meta.dart';
 
-void _validateGltfMaterials(GltfAsset gltf, _DiagnosticSink sink) {
-  final rawMaterials = _list(gltf.json['materials']);
+import '../diagnostics.dart';
+import '../json_values.dart';
+import '../safe_list_index.dart';
+import 'gltf_material_types.dart';
+import 'gltf_node_constraint_validation.dart';
+import 'gltf_types.dart';
+
+@internal
+void validateGltfMaterials(GltfAsset gltf, DiagnosticSink sink) {
+  final rawMaterials = jsonList(gltf.json['materials']);
   for (final material in gltf.materials) {
-    final raw = _object(rawMaterials.elementAtOrNull(material.index));
-    final extensions = _object(raw['extensions']);
+    final raw = jsonObject(rawMaterials.elementAtOrNull(material.index));
+    final extensions = jsonObject(raw['extensions']);
     _validateMaterialExtensionObject(
       extensions,
       'KHR_materials_emissive_strength',
@@ -41,7 +49,7 @@ void _validateGltfMaterials(GltfAsset gltf, _DiagnosticSink sink) {
         gltfMaterialIndex: material.index,
       );
     }
-    final pbr = _object(raw['pbrMetallicRoughness']);
+    final pbr = jsonObject(raw['pbrMetallicRoughness']);
     _validateMaterialColorFactor(
       pbr,
       'baseColorFactor',
@@ -78,7 +86,7 @@ void _validateGltfMaterials(GltfAsset gltf, _DiagnosticSink sink) {
       _materialPath(material.index, '.emissiveFactor'),
       material.index,
     );
-    final emissiveStrengthExtension = _object(
+    final emissiveStrengthExtension = jsonObject(
       extensions['KHR_materials_emissive_strength'],
     );
     if (emissiveStrengthExtension.containsKey('emissiveStrength')) {
@@ -238,7 +246,7 @@ String _materialPath(int materialIndex, String suffix) =>
 void _validateMaterialExtensionObject(
   Map<String, Object?> extensions,
   String key,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String code,
   String jsonPath,
   int materialIndex,
@@ -256,14 +264,14 @@ void _validateMaterialColorFactor(
   Map<String, Object?> raw,
   String key,
   int expectedLength,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String code,
   String message,
   String jsonPath,
   int materialIndex,
 ) {
   if (!raw.containsKey(key)) return;
-  final values = _list(raw[key]);
+  final values = jsonList(raw[key]);
   if (values.length == expectedLength &&
       values.every((value) => value is num && value >= 0 && value <= 1)) {
     return;
@@ -279,7 +287,7 @@ void _validateMaterialColorFactor(
 void _validateMaterialFactor(
   Map<String, Object?> raw,
   String key,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String code,
   String message,
   int materialIndex,
@@ -299,7 +307,7 @@ void _validateMaterialMinimum(
   Map<String, Object?> raw,
   String key,
   double minimum,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String code,
   String message,
   int materialIndex,
@@ -318,7 +326,7 @@ void _validateMaterialMinimum(
 void _validateTextureInfoIndex(
   Map<String, Object?> rawParent,
   String key,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String code,
   String jsonPath,
   int materialIndex,
@@ -333,7 +341,7 @@ void _validateTextureInfoIndex(
     );
     return;
   }
-  final raw = _object(rawParent[key]);
+  final raw = jsonObject(rawParent[key]);
   if (raw['index'] is int) return;
   sink.error(
     code,
@@ -347,9 +355,9 @@ void _validateNormalTextureScale(
   VrmTextureInfo? texture,
   Object? rawValue,
   int materialIndex,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
-  final raw = texture?.raw ?? _object(rawValue);
+  final raw = texture?.raw ?? jsonObject(rawValue);
   if (!raw.containsKey('scale')) return;
   if (raw['scale'] is num) return;
   sink.error(
@@ -364,13 +372,13 @@ void _validateTextureInfo(
   VrmTextureInfo? info,
   Object? rawValue,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String code,
   String jsonPath,
   int materialIndex,
 ) {
   if (info != null) {
-    _validateIndex(
+    validateIndex(
       info.index,
       gltf.textures.length,
       sink,
@@ -379,7 +387,7 @@ void _validateTextureInfo(
       gltfMaterialIndex: materialIndex,
     );
   }
-  final raw = info?.raw ?? _object(rawValue);
+  final raw = info?.raw ?? jsonObject(rawValue);
   if (raw.isEmpty) return;
   if (raw.containsKey('texCoord')) {
     final texCoord = raw['texCoord'];
@@ -403,7 +411,7 @@ void _validateTextureInfo(
       );
     }
   }
-  final extensions = _object(raw['extensions']);
+  final extensions = jsonObject(raw['extensions']);
   final transformValue = extensions['KHR_texture_transform'];
   if (extensions.containsKey('KHR_texture_transform') &&
       transformValue is! Map) {
@@ -414,7 +422,7 @@ void _validateTextureInfo(
       gltfMaterialIndex: materialIndex,
     );
   }
-  final transform = _object(transformValue);
+  final transform = jsonObject(transformValue);
   final transformPath = '$jsonPath.extensions.KHR_texture_transform';
   if (transform.containsKey('offset')) {
     _validateTextureTransformVector2(
@@ -459,13 +467,13 @@ void _validateTextureInfo(
 
 void _validateTextureTransformVector2(
   Object? value,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String code,
   String message,
   String jsonPath,
   int materialIndex,
 ) {
-  final values = _list(value);
+  final values = jsonList(value);
   if (values.length == 2 && values.every((value) => value is num)) return;
   sink.error(
     code,
@@ -475,7 +483,8 @@ void _validateTextureTransformVector2(
   );
 }
 
-void _validateMToonMaterials(GltfAsset gltf, _DiagnosticSink sink) {
+@internal
+void validateMToonMaterials(GltfAsset gltf, DiagnosticSink sink) {
   for (final material in gltf.materials) {
     final mtoon = material.mtoon;
     if (mtoon == null) continue;
@@ -659,7 +668,7 @@ void _validateMToonNumber(
   VrmMToonMaterial mtoon,
   String key,
   int materialIndex,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   if (!mtoon.raw.containsKey(key)) return;
   if (mtoon.raw[key] is num) return;
@@ -677,7 +686,7 @@ void _validateMToonFactor(
   double min,
   double? max,
   int materialIndex,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   if (!mtoon.raw.containsKey(key)) return;
   final value = mtoon.raw[key];
@@ -696,10 +705,10 @@ void _validateMToonColorFactor(
   VrmMToonMaterial mtoon,
   String key,
   int materialIndex,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   if (!mtoon.raw.containsKey(key)) return;
-  final values = _list(mtoon.raw[key]);
+  final values = jsonList(mtoon.raw[key]);
   if (values.length == 3 &&
       values.every((value) => value is num && value >= 0 && value <= 1)) {
     return;
@@ -717,9 +726,9 @@ void _validateMToonTextureScale(
   Object? rawValue,
   String key,
   int materialIndex,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
-  final raw = texture?.raw ?? _object(rawValue);
+  final raw = texture?.raw ?? jsonObject(rawValue);
   if (!raw.containsKey('scale')) return;
   if (raw['scale'] is num) return;
   sink.error(
@@ -749,7 +758,8 @@ Iterable<({String key, VrmTextureInfo? texture})> _mtoonTextureEntries(
   }
 }
 
-Iterable<({String key, VrmTextureInfo texture})> _mtoonUvTextures(
+@internal
+Iterable<({String key, VrmTextureInfo texture})> mtoonUvTextures(
   VrmMToonMaterial mtoon,
 ) sync* {
   for (final entry in _mtoonTextureEntries(mtoon)) {

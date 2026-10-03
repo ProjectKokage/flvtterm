@@ -1,14 +1,30 @@
-part of '../../flvtterm.dart';
+import 'dart:math' as math;
+
+import 'package:meta/meta.dart';
+
+import '../diagnostics.dart';
+import '../json_values.dart';
+import '../safe_list_index.dart';
+import 'accessor_reader.dart';
+import 'gltf_accessor_validation.dart';
+import 'gltf_material_types.dart';
+import 'gltf_material_validation.dart';
+import 'gltf_mesh_types.dart';
+import 'gltf_node_constraint_validation.dart';
+import 'gltf_resource_types.dart';
+import 'gltf_structure_validation.dart';
+import 'gltf_types.dart';
 
 const _gltfArrayBufferTarget = 34962;
 const _gltfElementArrayBufferTarget = 34963;
 
-void _validateGltfMeshes(GltfAsset gltf, _DiagnosticSink sink) {
-  final rawMeshes = _list(gltf.json['meshes']);
+@internal
+void validateGltfMeshes(GltfAsset gltf, DiagnosticSink sink) {
+  final rawMeshes = jsonList(gltf.json['meshes']);
   for (final mesh in gltf.meshes) {
     final meshPath = _meshPath(mesh.index);
-    final rawMesh = _object(rawMeshes.elementAtOrNull(mesh.index));
-    _validateRequiredArray(
+    final rawMesh = jsonObject(rawMeshes.elementAtOrNull(mesh.index));
+    validateRequiredArray(
       rawMesh,
       'primitives',
       sink,
@@ -17,12 +33,12 @@ void _validateGltfMeshes(GltfAsset gltf, _DiagnosticSink sink) {
       'Mesh primitives must be a non-empty array.',
       '$meshPath.primitives',
     );
-    final rawPrimitives = _list(rawMesh['primitives']);
+    final rawPrimitives = jsonList(rawMesh['primitives']);
     final targetCount = mesh.primitives.isEmpty
         ? 0
         : mesh.primitives.first.targets.length;
     if (rawMesh.containsKey('weights') &&
-        _hasInvalidNumberList(rawMesh['weights'])) {
+        hasInvalidNumberList(rawMesh['weights'])) {
       sink.error(
         'gltf.invalidMeshWeights',
         'Mesh weights must be a non-empty array of numbers.',
@@ -41,9 +57,9 @@ void _validateGltfMeshes(GltfAsset gltf, _DiagnosticSink sink) {
       primitiveIndex < mesh.primitives.length;
       primitiveIndex++
     ) {
-      final primitivePath = _primitivePath(mesh.index, primitiveIndex);
+      final primitivePath = meshPrimitivePath(mesh.index, primitiveIndex);
       final primitive = mesh.primitives[primitiveIndex];
-      final rawPrimitive = _object(
+      final rawPrimitive = jsonObject(
         rawPrimitives.elementAtOrNull(primitiveIndex),
       );
       if (primitive.targets.length != targetCount) {
@@ -74,7 +90,7 @@ void _validateGltfMeshes(GltfAsset gltf, _DiagnosticSink sink) {
           jsonPath: '$primitivePath.material',
         );
       } else if (primitive.material != null) {
-        _validateIndex(
+        validateIndex(
           primitive.material!,
           gltf.materials.length,
           sink,
@@ -100,7 +116,7 @@ void _validateGltfMeshes(GltfAsset gltf, _DiagnosticSink sink) {
           jsonPath: '$primitivePath.indices',
         );
       } else if (primitive.indices != null) {
-        _validateIndex(
+        validateIndex(
           primitive.indices!,
           gltf.accessors.length,
           sink,
@@ -119,7 +135,7 @@ void _validateGltfMeshes(GltfAsset gltf, _DiagnosticSink sink) {
             jsonPath: '$primitivePath.indices',
           );
         }
-        _validateAccessorBufferViewTarget(
+        validateAccessorBufferViewTarget(
           gltf,
           primitive.indices!,
           _gltfElementArrayBufferTarget,
@@ -139,7 +155,7 @@ void _validateGltfMeshes(GltfAsset gltf, _DiagnosticSink sink) {
         );
       }
       if (rawPrimitive.containsKey('attributes')) {
-        _validatePrimitiveIndexMapAt(
+        validatePrimitiveIndexMapAt(
           rawPrimitive['attributes'],
           sink,
           'gltf.invalidPrimitiveAttribute',
@@ -162,14 +178,14 @@ void _validateGltfMeshes(GltfAsset gltf, _DiagnosticSink sink) {
       var reportedAttributeCountMismatch = false;
       for (final entry in primitive.attributes.entries) {
         final accessor = entry.value;
-        _validateIndex(
+        validateIndex(
           accessor,
           gltf.accessors.length,
           sink,
           'gltf.invalidPrimitiveAttribute',
           '$primitivePath.attributes.${entry.key}',
         );
-        _validateAccessorBufferViewTarget(
+        validateAccessorBufferViewTarget(
           gltf,
           accessor,
           _gltfArrayBufferTarget,
@@ -180,7 +196,7 @@ void _validateGltfMeshes(GltfAsset gltf, _DiagnosticSink sink) {
         );
         final attributeAccessor = gltf.accessors.elementAtOrNull(accessor);
         if (attributeAccessor != null &&
-            !_isValidPrimitiveAttributeAccessor(entry.key, attributeAccessor)) {
+            !isValidPrimitiveAttributeAccessor(entry.key, attributeAccessor)) {
           sink.error(
             'gltf.invalidPrimitiveAttributeAccessor',
             'Primitive attribute accessor shape does not match its semantic.',
@@ -203,7 +219,7 @@ void _validateGltfMeshes(GltfAsset gltf, _DiagnosticSink sink) {
             '$primitivePath.attributes.${entry.key}',
           );
         }
-        if (_isIndexedSemantic(entry.key, 'WEIGHTS_')) {
+        if (isIndexedSemantic(entry.key, 'WEIGHTS_')) {
           _validateSkinWeightValues(
             accessor,
             gltf,
@@ -256,21 +272,21 @@ void _validateGltfMeshes(GltfAsset gltf, _DiagnosticSink sink) {
       }
       if (rawPrimitive.containsKey('targets') &&
           (rawPrimitive['targets'] is! List ||
-              _list(rawPrimitive['targets']).isEmpty)) {
+              jsonList(rawPrimitive['targets']).isEmpty)) {
         sink.error(
           'gltf.invalidPrimitiveTargets',
           'Primitive targets must be a non-empty array when present.',
           jsonPath: '$primitivePath.targets',
         );
       }
-      final rawTargets = _list(rawPrimitive['targets']);
+      final rawTargets = jsonList(rawPrimitive['targets']);
       for (
         var targetIndex = 0;
         targetIndex < primitive.targets.length;
         targetIndex++
       ) {
         final target = primitive.targets[targetIndex];
-        _validatePrimitiveIndexMapAt(
+        validatePrimitiveIndexMapAt(
           rawTargets.elementAtOrNull(targetIndex),
           sink,
           'gltf.invalidPrimitiveTarget',
@@ -284,14 +300,14 @@ void _validateGltfMeshes(GltfAsset gltf, _DiagnosticSink sink) {
         );
         for (final entry in target.entries) {
           final accessor = entry.value;
-          _validateIndex(
+          validateIndex(
             accessor,
             gltf.accessors.length,
             sink,
             'gltf.invalidPrimitiveTarget',
             '$primitivePath.targets[$targetIndex].${entry.key}',
           );
-          _validateAccessorBufferViewTarget(
+          validateAccessorBufferViewTarget(
             gltf,
             accessor,
             _gltfArrayBufferTarget,
@@ -302,10 +318,7 @@ void _validateGltfMeshes(GltfAsset gltf, _DiagnosticSink sink) {
           );
           final targetAccessor = gltf.accessors.elementAtOrNull(accessor);
           if (targetAccessor != null &&
-              !_isValidMorphTargetAttributeAccessor(
-                entry.key,
-                targetAccessor,
-              )) {
+              !isValidMorphTargetAttributeAccessor(entry.key, targetAccessor)) {
             sink.error(
               'gltf.invalidPrimitiveTargetAccessor',
               'Morph target accessor shape does not match its semantic.',
@@ -352,13 +365,14 @@ void _validateGltfMeshes(GltfAsset gltf, _DiagnosticSink sink) {
 
 String _meshPath(int meshIndex) => '\$.meshes[$meshIndex]';
 
-String _primitivePath(int meshIndex, int primitiveIndex) =>
+@internal
+String meshPrimitivePath(int meshIndex, int primitiveIndex) =>
     '${_meshPath(meshIndex)}.primitives[$primitiveIndex]';
 
 void _validateMeshTargetNames(
   Map<String, Object?> rawMesh,
   int targetCount,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String meshPath,
 ) {
   final extras = rawMesh['extras'];
@@ -381,11 +395,11 @@ void _validatePrimitiveIndexValues(
   int mode,
   int attributeCount,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String jsonPath,
 ) {
   final accessor = gltf.accessors.elementAtOrNull(accessorIndex);
-  final values = _readAccessorNumbers(
+  final values = readGltfAccessorNumbers(
     gltf,
     accessorIndex,
     applyNormalization: false,
@@ -463,10 +477,14 @@ bool _hasDegenerateIndexedPrimitive(int mode, List<double> indices) {
 void _validateTangentHandedness(
   int accessorIndex,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String jsonPath,
 ) {
-  final values = _readAccessorNumbers(gltf, accessorIndex, requireFloat: true);
+  final values = readGltfAccessorNumbers(
+    gltf,
+    accessorIndex,
+    requireFloat: true,
+  );
   if (values == null) return;
   for (var i = 3; i < values.length; i += 4) {
     if (values[i] == 1.0 || values[i] == -1.0) continue;
@@ -482,10 +500,10 @@ void _validateTangentHandedness(
 void _validateColor0Range(
   int accessorIndex,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String jsonPath,
 ) {
-  final values = _readAccessorNumbers(gltf, accessorIndex);
+  final values = readGltfAccessorNumbers(gltf, accessorIndex);
   if (values == null) return;
   for (final value in values) {
     if (value >= 0 && value <= 1) continue;
@@ -501,12 +519,12 @@ void _validateColor0Range(
 void _validateSkinWeightValues(
   int accessorIndex,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String jsonPath,
 ) {
   final accessor = gltf.accessors.elementAtOrNull(accessorIndex);
   if (accessor == null) return;
-  final values = _readAccessorNumbers(
+  final values = readGltfAccessorNumbers(
     gltf,
     accessorIndex,
     applyNormalization: false,
@@ -550,7 +568,7 @@ void _validateSkinWeightValues(
 void _validateFloatSkinWeightSums(
   List<double> values,
   int componentCount,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String jsonPath,
 ) {
   for (var i = 0; i < values.length; i += componentCount) {
@@ -575,7 +593,7 @@ void _validateFloatSkinWeightSums(
 void _validatePrimitiveMaterialTexCoords(
   GltfMeshPrimitive primitive,
   GltfMaterial material,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String jsonPath,
 ) {
   final available = _attributeSetIndices(primitive.attributes, 'TEXCOORD_');
@@ -604,7 +622,7 @@ Iterable<VrmTextureInfo> _materialTextures(GltfMaterial material) sync* {
   }
   final mtoon = material.mtoon;
   if (mtoon == null) return;
-  for (final entry in _mtoonUvTextures(mtoon)) {
+  for (final entry in mtoonUvTextures(mtoon)) {
     yield entry.texture;
   }
 }
@@ -631,7 +649,7 @@ bool _isValidPrimitiveTopologyCount(int mode, int count) {
 
 void _validatePrimitiveAttributeSemantics(
   Map<String, int> attributes,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String jsonPath,
 ) {
   for (final prefix in const ['TEXCOORD_', 'COLOR_', 'JOINTS_', 'WEIGHTS_']) {
@@ -680,7 +698,7 @@ void _validatePrimitiveAttributeSemantics(
 
 void _validateMorphTargetAttributeSemantics(
   Map<String, int> target,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String jsonPath,
 ) {
   if (target.keys.any((semantic) {

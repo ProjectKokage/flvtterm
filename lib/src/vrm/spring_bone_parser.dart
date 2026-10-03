@@ -1,10 +1,20 @@
-part of '../../flvtterm.dart';
+import 'package:meta/meta.dart';
 
-VrmSpringBone? _parseSpringBone(
+import '../diagnostics.dart';
+import '../gltf/gltf_accessor_validation.dart';
+import '../gltf/gltf_node_constraint_validation.dart';
+import '../gltf/gltf_types.dart';
+import '../json_values.dart';
+import 'spring_bone_types.dart';
+import 'vrm_enums.dart';
+import 'vrm_humanoid_parser.dart';
+
+@internal
+VrmSpringBone? parseSpringBone(
   Map<String, Object?> gltfJson,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
-  final extensions = _object(gltfJson['extensions']);
+  final extensions = jsonObject(gltfJson['extensions']);
   if (!extensions.containsKey('VRMC_springBone')) return null;
   final extensionValue = extensions['VRMC_springBone'];
   if (extensionValue is! Map) {
@@ -15,21 +25,25 @@ VrmSpringBone? _parseSpringBone(
     );
     return null;
   }
-  final raw = _object(extensionValue);
-  return VrmSpringBone._(
+  final raw = jsonObject(extensionValue);
+  return VrmSpringBone.internal(
     sourceVersion: VrmSourceVersion.vrm1,
-    specVersion: _string(raw['specVersion']),
+    specVersion: jsonString(raw['specVersion']),
     colliders: [
-      for (var i = 0; i < _list(raw['colliders']).length; i++)
-        _parseSpringBoneCollider(i, _list(raw['colliders'])[i], sink),
+      for (var i = 0; i < jsonList(raw['colliders']).length; i++)
+        _parseSpringBoneCollider(i, jsonList(raw['colliders'])[i], sink),
     ],
     colliderGroups: [
-      for (var i = 0; i < _list(raw['colliderGroups']).length; i++)
-        _parseSpringBoneColliderGroup(i, _list(raw['colliderGroups'])[i], sink),
+      for (var i = 0; i < jsonList(raw['colliderGroups']).length; i++)
+        _parseSpringBoneColliderGroup(
+          i,
+          jsonList(raw['colliderGroups'])[i],
+          sink,
+        ),
     ],
     springs: [
-      for (var i = 0; i < _list(raw['springs']).length; i++)
-        _parseSpringBoneSpring(i, _list(raw['springs'])[i], sink),
+      for (var i = 0; i < jsonList(raw['springs']).length; i++)
+        _parseSpringBoneSpring(i, jsonList(raw['springs'])[i], sink),
     ],
     raw: raw,
   );
@@ -38,7 +52,7 @@ VrmSpringBone? _parseSpringBone(
 VrmSpringBoneCollider _parseSpringBoneCollider(
   int index,
   Object? value,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   _validateSpringBoneObject(
     value,
@@ -47,10 +61,10 @@ VrmSpringBoneCollider _parseSpringBoneCollider(
     'SpringBone collider entries must be JSON objects.',
     '\$.extensions.VRMC_springBone.colliders[$index]',
   );
-  final raw = _object(value);
-  return VrmSpringBoneCollider._(
+  final raw = jsonObject(value);
+  return VrmSpringBoneCollider.internal(
     index: index,
-    node: _int(raw['node']),
+    node: jsonInt(raw['node']),
     shape: _parseSpringBoneColliderShape(index, raw['shape'], sink),
     raw: raw,
   );
@@ -59,7 +73,7 @@ VrmSpringBoneCollider _parseSpringBoneCollider(
 VrmSpringBoneColliderShape _parseSpringBoneColliderShape(
   int colliderIndex,
   Object? value,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   final path = '\$.extensions.VRMC_springBone.colliders[$colliderIndex].shape';
   _validateSpringBoneObject(
@@ -69,7 +83,7 @@ VrmSpringBoneColliderShape _parseSpringBoneColliderShape(
     'SpringBone collider shape must be a JSON object.',
     path,
   );
-  final raw = _object(value);
+  final raw = jsonObject(value);
   final declaredTypes = [
     if (raw.containsKey('sphere')) VrmSpringBoneColliderShapeType.sphere,
     if (raw.containsKey('capsule')) VrmSpringBoneColliderShapeType.capsule,
@@ -85,17 +99,17 @@ VrmSpringBoneColliderShape _parseSpringBoneColliderShape(
     );
   }
   final shape = switch (type) {
-    VrmSpringBoneColliderShapeType.sphere => _object(raw['sphere']),
-    VrmSpringBoneColliderShapeType.capsule => _object(raw['capsule']),
+    VrmSpringBoneColliderShapeType.sphere => jsonObject(raw['sphere']),
+    VrmSpringBoneColliderShapeType.capsule => jsonObject(raw['capsule']),
     null => const <String, Object?>{},
   };
-  return VrmSpringBoneColliderShape._(
+  return VrmSpringBoneColliderShape.internal(
     type: type,
     declaredShapeCount: declaredTypes.length,
-    offset: _doubleList(shape['offset'], 3, const [0, 0, 0]),
-    radius: _double(shape['radius']) ?? 0,
+    offset: jsonDoubleList(shape['offset'], 3, const [0, 0, 0]),
+    radius: jsonDouble(shape['radius']) ?? 0,
     tail: type == VrmSpringBoneColliderShapeType.capsule
-        ? _doubleList(shape['tail'], 3, const [0, 0, 0])
+        ? jsonDoubleList(shape['tail'], 3, const [0, 0, 0])
         : null,
     raw: raw,
   );
@@ -104,7 +118,7 @@ VrmSpringBoneColliderShape _parseSpringBoneColliderShape(
 VrmSpringBoneColliderGroup _parseSpringBoneColliderGroup(
   int index,
   Object? value,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   _validateSpringBoneObject(
     value,
@@ -113,11 +127,11 @@ VrmSpringBoneColliderGroup _parseSpringBoneColliderGroup(
     'SpringBone collider group entries must be JSON objects.',
     '\$.extensions.VRMC_springBone.colliderGroups[$index]',
   );
-  final raw = _object(value);
-  return VrmSpringBoneColliderGroup._(
+  final raw = jsonObject(value);
+  return VrmSpringBoneColliderGroup.internal(
     index: index,
-    name: _string(raw['name']),
-    colliders: _intList(raw['colliders']),
+    name: jsonString(raw['name']),
+    colliders: jsonIntList(raw['colliders']),
     raw: raw,
   );
 }
@@ -125,7 +139,7 @@ VrmSpringBoneColliderGroup _parseSpringBoneColliderGroup(
 VrmSpringBoneSpring _parseSpringBoneSpring(
   int index,
   Object? value,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   _validateSpringBoneObject(
     value,
@@ -134,17 +148,17 @@ VrmSpringBoneSpring _parseSpringBoneSpring(
     'SpringBone spring entries must be JSON objects.',
     '\$.extensions.VRMC_springBone.springs[$index]',
   );
-  final raw = _object(value);
-  final jointValues = _list(raw['joints']);
-  return VrmSpringBoneSpring._(
+  final raw = jsonObject(value);
+  final jointValues = jsonList(raw['joints']);
+  return VrmSpringBoneSpring.internal(
     index: index,
-    name: _string(raw['name']),
+    name: jsonString(raw['name']),
     joints: [
       for (var i = 0; i < jointValues.length; i++)
         _parseSpringBoneJoint(index, i, jointValues[i], sink),
     ],
-    colliderGroups: _intList(raw['colliderGroups']),
-    center: _int(raw['center']),
+    colliderGroups: jsonIntList(raw['colliderGroups']),
+    center: jsonInt(raw['center']),
     legacyTerminalLength: null,
     raw: raw,
   );
@@ -154,7 +168,7 @@ VrmSpringBoneJoint _parseSpringBoneJoint(
   int springIndex,
   int jointIndex,
   Object? value,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   final path =
       '\$.extensions.VRMC_springBone.springs[$springIndex].joints[$jointIndex]';
@@ -165,25 +179,26 @@ VrmSpringBoneJoint _parseSpringBoneJoint(
     'SpringBone joint entries must be JSON objects.',
     path,
   );
-  final raw = _object(value);
-  return VrmSpringBoneJoint._(
+  final raw = jsonObject(value);
+  return VrmSpringBoneJoint.internal(
     index: jointIndex,
-    node: _int(raw['node']),
-    hitRadius: _double(raw['hitRadius']) ?? 0,
-    stiffness: _double(raw['stiffness']) ?? 1,
-    gravityPower: _double(raw['gravityPower']) ?? 0,
-    gravityDir: _doubleList(raw['gravityDir'], 3, const [0, -1, 0]),
-    dragForce: _double(raw['dragForce']) ?? 0.5,
+    node: jsonInt(raw['node']),
+    hitRadius: jsonDouble(raw['hitRadius']) ?? 0,
+    stiffness: jsonDouble(raw['stiffness']) ?? 1,
+    gravityPower: jsonDouble(raw['gravityPower']) ?? 0,
+    gravityDir: jsonDoubleList(raw['gravityDir'], 3, const [0, -1, 0]),
+    dragForce: jsonDouble(raw['dragForce']) ?? 0.5,
     raw: raw,
   );
 }
 
-Map<String, Object?> _springColliderShapeParameters(
+@internal
+Map<String, Object?> springColliderShapeParameters(
   VrmSpringBoneColliderShape shape,
 ) {
   return switch (shape.type) {
-    VrmSpringBoneColliderShapeType.sphere => _object(shape.raw['sphere']),
-    VrmSpringBoneColliderShapeType.capsule => _object(shape.raw['capsule']),
+    VrmSpringBoneColliderShapeType.sphere => jsonObject(shape.raw['sphere']),
+    VrmSpringBoneColliderShapeType.capsule => jsonObject(shape.raw['capsule']),
     null => const <String, Object?>{},
   };
 }
@@ -211,10 +226,11 @@ String _springJointPath(
   String suffix,
 ) => _springPath(spring, '.joints[${joint.index}]$suffix');
 
-void _validateSpringBone(
+@internal
+void validateSpringBone(
   GltfAsset gltf,
   VrmSpringBone springBone,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   _validateSpringBoneArray(
     springBone,
@@ -276,7 +292,7 @@ void _validateSpringBone(
       );
     }
     if (node != null) {
-      _validateIndex(
+      validateIndex(
         node,
         gltf.nodes.length,
         sink,
@@ -291,7 +307,7 @@ void _validateSpringBone(
         jsonPath: _springColliderPath(collider, '.shape'),
       );
     }
-    final shapeParameters = _springColliderShapeParameters(collider.shape);
+    final shapeParameters = springColliderShapeParameters(collider.shape);
     if ((shapeParameters.containsKey('radius') &&
             shapeParameters['radius'] is! num) ||
         collider.shape.radius < 0) {
@@ -302,7 +318,7 @@ void _validateSpringBone(
       );
     }
     if (shapeParameters.containsKey('offset') &&
-        _hasInvalidNumberListLength(shapeParameters['offset'], 3)) {
+        hasInvalidNumberListLength(shapeParameters['offset'], 3)) {
       sink.error(
         'springBone.invalidColliderOffset',
         'SpringBone collider offset must contain three numbers.',
@@ -311,7 +327,7 @@ void _validateSpringBone(
     }
     if (collider.shape.type == VrmSpringBoneColliderShapeType.capsule &&
         shapeParameters.containsKey('tail') &&
-        _hasInvalidNumberListLength(shapeParameters['tail'], 3)) {
+        hasInvalidNumberListLength(shapeParameters['tail'], 3)) {
       sink.error(
         'springBone.invalidColliderTail',
         'SpringBone capsule collider tail must contain three numbers.',
@@ -329,7 +345,7 @@ void _validateSpringBone(
       );
     }
     if (group.raw.containsKey('colliders') &&
-        _hasInvalidIntList(group.raw['colliders'])) {
+        hasInvalidIntList(group.raw['colliders'])) {
       sink.error(
         'springBone.invalidColliderGroupCollider',
         'SpringBone collider group colliders must be integer indices.',
@@ -344,7 +360,7 @@ void _validateSpringBone(
       );
     }
     for (final collider in group.colliders) {
-      _validateIndex(
+      validateIndex(
         collider,
         springBone.colliders.length,
         sink,
@@ -354,7 +370,7 @@ void _validateSpringBone(
     }
   }
 
-  final parents = _nodeParents(gltf);
+  final parents = nodeParents(gltf);
   final jointOwner = <int, int>{};
 
   for (final spring in springBone.springs) {
@@ -381,8 +397,8 @@ void _validateSpringBone(
     }
 
     if (spring.raw.containsKey('colliderGroups') &&
-        (_hasInvalidIntList(spring.raw['colliderGroups']) ||
-            _list(spring.raw['colliderGroups']).isEmpty)) {
+        (hasInvalidIntList(spring.raw['colliderGroups']) ||
+            jsonList(spring.raw['colliderGroups']).isEmpty)) {
       sink.error(
         'springBone.invalidSpringColliderGroup',
         'SpringBone spring colliderGroups must be a non-empty array of integer indices.',
@@ -390,7 +406,7 @@ void _validateSpringBone(
       );
     }
     for (final group in spring.colliderGroups) {
-      _validateIndex(
+      validateIndex(
         group,
         springBone.colliderGroups.length,
         sink,
@@ -407,7 +423,7 @@ void _validateSpringBone(
       );
     }
     if (spring.center != null) {
-      _validateIndex(
+      validateIndex(
         spring.center!,
         gltf.nodes.length,
         sink,
@@ -417,7 +433,7 @@ void _validateSpringBone(
       final firstNode = spring.joints.isEmpty ? null : spring.joints.first.node;
       if (firstNode != null &&
           spring.center != firstNode &&
-          !_isDescendantOf(firstNode, spring.center!, parents)) {
+          !isDescendantOf(firstNode, spring.center!, parents)) {
         sink.error(
           'springBone.invalidCenter',
           'SpringBone center must be the first joint or one of its ancestors.',
@@ -445,7 +461,7 @@ void _validateSpringBone(
         );
       }
       if (node == null) continue;
-      _validateIndex(
+      validateIndex(
         node,
         gltf.nodes.length,
         sink,
@@ -465,7 +481,7 @@ void _validateSpringBone(
       }
       if (i > 0) {
         final previous = spring.joints[i - 1].node;
-        if (previous != null && !_isDescendantOf(node, previous, parents)) {
+        if (previous != null && !isDescendantOf(node, previous, parents)) {
           sink.error(
             'springBone.invalidJointOrder',
             'Each SpringBone joint must be a descendant of the previous joint.',
@@ -493,7 +509,7 @@ void _validateSpringBone(
           gltfNodeIndex: node,
         );
       }
-      final rawGravityDir = _list(joint.raw['gravityDir']);
+      final rawGravityDir = jsonList(joint.raw['gravityDir']);
       if (rawGravityDir.isNotEmpty &&
           (rawGravityDir.length != 3 ||
               rawGravityDir.any((value) => value is! num))) {
@@ -515,8 +531,7 @@ void _validateSpringBone(
       for (final joint in otherSpring.joints) {
         final otherNode = joint.node;
         if (otherNode == null) continue;
-        if (center == otherNode ||
-            _isDescendantOf(center, otherNode, parents)) {
+        if (center == otherNode || isDescendantOf(center, otherNode, parents)) {
           sink.error(
             'springBone.invalidCenter',
             'SpringBone center must not be a joint, or descendant of a joint, in another spring chain.',
@@ -531,7 +546,7 @@ void _validateSpringBone(
 
 void _validateSpringBoneArray(
   VrmSpringBone springBone,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String key,
   String invalidCode,
   String invalidMessage,
@@ -550,7 +565,7 @@ void _validateSpringBoneArray(
 
 void _validateSpringBoneObject(
   Object? value,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String code,
   String message,
   String path,

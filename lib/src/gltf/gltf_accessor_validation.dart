@@ -1,26 +1,39 @@
-part of '../../flvtterm.dart';
+import 'dart:math' as math;
 
-void _validateAccessorBounds(
+import 'package:meta/meta.dart';
+
+import '../diagnostics.dart';
+import '../json_values.dart';
+import '../safe_list_index.dart';
+import 'accessor_reader.dart';
+import 'gltf_mesh_types.dart';
+import 'gltf_mesh_validation.dart';
+import 'gltf_resource_types.dart';
+import 'gltf_scene_types.dart';
+import 'gltf_structure_validation.dart';
+import 'gltf_types.dart';
+import 'gltf_validation.dart';
+
+@internal
+void validateAccessorBounds(
   GltfAccessor accessor,
   Map<String, Object?> raw,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
-  final invalidMin =
-      raw.containsKey('min') && _hasInvalidNumberList(raw['min']);
-  final invalidMax =
-      raw.containsKey('max') && _hasInvalidNumberList(raw['max']);
+  final invalidMin = raw.containsKey('min') && hasInvalidNumberList(raw['min']);
+  final invalidMax = raw.containsKey('max') && hasInvalidNumberList(raw['max']);
   if (invalidMin) {
     sink.error(
       'gltf.invalidAccessorMin',
       'Accessor min must be a non-empty array of numbers.',
-      jsonPath: _accessorPath(accessor.index, '.min'),
+      jsonPath: accessorPath(accessor.index, '.min'),
     );
   }
   if (invalidMax) {
     sink.error(
       'gltf.invalidAccessorMax',
       'Accessor max must be a non-empty array of numbers.',
-      jsonPath: _accessorPath(accessor.index, '.max'),
+      jsonPath: accessorPath(accessor.index, '.max'),
     );
   }
   final componentCount = accessor.componentCount;
@@ -29,14 +42,14 @@ void _validateAccessorBounds(
     sink.error(
       'gltf.invalidAccessorMin',
       'Accessor min must contain one value per accessor component.',
-      jsonPath: _accessorPath(accessor.index, '.min'),
+      jsonPath: accessorPath(accessor.index, '.min'),
     );
   }
   if (accessor.maximum != null && accessor.maximum!.length != componentCount) {
     sink.error(
       'gltf.invalidAccessorMax',
       'Accessor max must contain one value per accessor component.',
-      jsonPath: _accessorPath(accessor.index, '.max'),
+      jsonPath: accessorPath(accessor.index, '.max'),
     );
   }
   if (accessor.minimum == null ||
@@ -50,16 +63,17 @@ void _validateAccessorBounds(
     sink.error(
       'gltf.invalidAccessorBounds',
       'Accessor min values must be less than or equal to max values.',
-      jsonPath: _accessorPath(accessor.index, '.min'),
+      jsonPath: accessorPath(accessor.index, '.min'),
     );
     return;
   }
 }
 
-void _validateAccessorBoundsMatchData(
+@internal
+void validateAccessorBoundsMatchData(
   GltfAccessor accessor,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   final minimum = accessor.minimum;
   final maximum = accessor.maximum;
@@ -72,7 +86,7 @@ void _validateAccessorBoundsMatchData(
       (accessor.bufferView == null && accessor.sparse == null)) {
     return;
   }
-  final values = _readAccessorNumbers(
+  final values = readGltfAccessorNumbers(
     gltf,
     accessor.index,
     applyNormalization: false,
@@ -99,7 +113,7 @@ void _validateAccessorBoundsMatchData(
     sink.error(
       'gltf.accessorBoundsMismatch',
       'Accessor min and max must match the binary accessor data.',
-      jsonPath: _accessorPath(accessor.index, '.min'),
+      jsonPath: accessorPath(accessor.index, '.min'),
     );
     return;
   }
@@ -108,7 +122,7 @@ void _validateAccessorBoundsMatchData(
     sink.error(
       'gltf.accessorBoundsMismatch',
       'Accessor min and max must match the binary accessor data.',
-      jsonPath: _accessorPath(accessor.index, '.max'),
+      jsonPath: accessorPath(accessor.index, '.max'),
     );
     return;
   }
@@ -117,10 +131,11 @@ void _validateAccessorBoundsMatchData(
 bool _accessorBoundMatches(double declared, double actual) =>
     (declared - actual).abs() <= 1e-5;
 
-void _validateAccessorRange(
+@internal
+void validateAccessorRange(
   GltfAccessor accessor,
   GltfAsset gltf,
-  _DiagnosticSink sink, {
+  DiagnosticSink sink, {
   required bool isVertexAttribute,
 }) {
   final viewIndex = accessor.bufferView;
@@ -129,7 +144,7 @@ void _validateAccessorRange(
       viewIndex >= gltf.bufferViews.length) {
     return;
   }
-  final componentSize = _componentByteSize(accessor.componentType);
+  final componentSize = componentByteSize(accessor.componentType);
   if (componentSize == null) {
     return;
   }
@@ -142,12 +157,12 @@ void _validateAccessorRange(
   final view = gltf.bufferViews[viewIndex];
   final viewLength = view.byteLength;
   if (viewLength == null || viewLength < 0) return;
-  final minimumStride = _accessorTightStride(
+  final minimumStride = accessorTightStride(
     accessor.type,
     componentSize,
     componentCount,
   );
-  final elementByteLength = _accessorLastElementByteLength(
+  final elementByteLength = accessorLastElementByteLength(
     accessor.type,
     componentSize,
     componentCount,
@@ -160,25 +175,25 @@ void _validateAccessorRange(
     sink.error(
       'gltf.invalidAccessorAlignment',
       'Accessor byte offsets must align to the accessor component size.',
-      jsonPath: _accessorPath(accessor.index, '.byteOffset'),
+      jsonPath: accessorPath(accessor.index, '.byteOffset'),
     );
   }
   if (componentSize < 4 &&
       accessor.byteOffset >= 0 &&
       view.byteOffset >= 0 &&
-      _accessorMatrixColumnCount(accessor.type) != null &&
+      accessorMatrixColumnCount(accessor.type) != null &&
       (accessor.byteOffset + view.byteOffset) % 4 != 0) {
     sink.error(
       'gltf.invalidAccessorAlignment',
       'Matrix accessor columns must start on 4-byte boundaries.',
-      jsonPath: _accessorPath(accessor.index, '.byteOffset'),
+      jsonPath: accessorPath(accessor.index, '.byteOffset'),
     );
   }
   if (isVertexAttribute && (accessor.byteOffset % 4 != 0 || stride % 4 != 0)) {
     sink.error(
       'gltf.invalidAccessorAlignment',
       'Vertex attribute accessors must be aligned to 4-byte boundaries.',
-      jsonPath: _accessorPath(accessor.index, '.byteOffset'),
+      jsonPath: accessorPath(accessor.index, '.byteOffset'),
     );
   }
   if (stride < minimumStride ||
@@ -198,15 +213,16 @@ void _validateAccessorRange(
     sink.error(
       'gltf.accessorOutOfRange',
       'Accessor range exceeds its bufferView byteLength.',
-      jsonPath: _accessorPath(accessor.index, '.bufferView'),
+      jsonPath: accessorPath(accessor.index, '.bufferView'),
     );
   }
 }
 
-void _validateAccessorSparse(
+@internal
+void validateAccessorSparse(
   GltfAccessor accessor,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   final sparse = accessor.sparse;
   if (sparse == null) return;
@@ -237,7 +253,7 @@ void _validateAccessorSparse(
     sparse.indicesByteOffset,
     count,
     1,
-    _componentByteSize(sparse.indicesComponentType),
+    componentByteSize(sparse.indicesComponentType),
     sink,
     _accessorSparsePath(accessor.index, '.indices'),
   );
@@ -247,15 +263,15 @@ void _validateAccessorSparse(
     sparse.valuesByteOffset,
     count,
     accessor.componentCount,
-    _componentByteSize(accessor.componentType),
+    componentByteSize(accessor.componentType),
     sink,
     _accessorSparsePath(accessor.index, '.values'),
     accessorType: accessor.type,
   );
-  final indices = _readSparseIndices(gltf, sparse, count);
+  final indices = readSparseIndices(gltf, sparse, count);
   if (indices != null &&
       (indices.any((index) => index >= accessor.count!) ||
-          !_isStrictlyIncreasing(indices))) {
+          !isStrictlyIncreasing(indices))) {
     sink.error(
       'gltf.invalidSparseAccessorIndices',
       'Sparse accessor indices must be strictly increasing and less than accessor.count.',
@@ -264,13 +280,14 @@ void _validateAccessorSparse(
   }
 }
 
-void _validateAccessorFiniteFloatValues(
+@internal
+void validateAccessorFiniteFloatValues(
   GltfAccessor accessor,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   if (accessor.componentType != 5126) return;
-  final values = _readAccessorNumbers(
+  final values = readGltfAccessorNumbers(
     gltf,
     accessor.index,
     requireFloat: true,
@@ -280,14 +297,15 @@ void _validateAccessorFiniteFloatValues(
   sink.error(
     'gltf.invalidAccessorFloatValue',
     'FLOAT accessor values must not contain NaN or infinity.',
-    jsonPath: _accessorPath(accessor.index, ''),
+    jsonPath: accessorPath(accessor.index, ''),
   );
 }
 
-void _validateRawAccessorSparse(
+@internal
+void validateRawAccessorSparse(
   int accessorIndex,
   Map<String, Object?> raw,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   if (!raw.containsKey('sparse')) return;
   final sparseValue = raw['sparse'];
@@ -322,7 +340,7 @@ void _validateRawAccessorSparse(
       jsonPath: _accessorSparsePath(accessorIndex, '.indices'),
     );
   } else {
-    final indices = _object(indicesValue);
+    final indices = jsonObject(indicesValue);
     _validateSparseInt(
       indices,
       'bufferView',
@@ -350,7 +368,7 @@ void _validateRawAccessorSparse(
       jsonPath: _accessorSparsePath(accessorIndex, '.values'),
     );
   } else {
-    final values = _object(valuesValue);
+    final values = jsonObject(valuesValue);
     _validateSparseInt(
       values,
       'bufferView',
@@ -369,7 +387,7 @@ void _validateRawAccessorSparse(
 void _validateSparseInt(
   Map<String, Object?> raw,
   String key,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String jsonPath,
 ) {
   if (!raw.containsKey(key) || raw[key] is int) return;
@@ -387,7 +405,7 @@ void _validateSparseBufferRange(
   int count,
   int? componentCount,
   int? componentSize,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String jsonPath, {
   String? accessorType,
 }) {
@@ -421,7 +439,7 @@ void _validateSparseBufferRange(
       jsonPath: jsonPath,
     );
   }
-  if (_accessorMatrixColumnCount(accessorType) != null &&
+  if (accessorMatrixColumnCount(accessorType) != null &&
       componentSize < 4 &&
       (byteOffset + view.byteOffset) % 4 != 0) {
     sink.error(
@@ -430,12 +448,12 @@ void _validateSparseBufferRange(
       jsonPath: jsonPath,
     );
   }
-  final stride = _accessorTightStride(
+  final stride = accessorTightStride(
     accessorType,
     componentSize,
     componentCount,
   );
-  final elementByteLength = _accessorLastElementByteLength(
+  final elementByteLength = accessorLastElementByteLength(
     accessorType,
     componentSize,
     componentCount,
@@ -450,19 +468,21 @@ void _validateSparseBufferRange(
 }
 
 String _accessorSparsePath(int accessorIndex, String suffix) =>
-    _accessorPath(accessorIndex, '.sparse$suffix');
+    accessorPath(accessorIndex, '.sparse$suffix');
 
-String _accessorPath(int accessorIndex, String suffix) =>
+@internal
+String accessorPath(int accessorIndex, String suffix) =>
     '\$.accessors[$accessorIndex]$suffix';
 
-void _validateSkinnedNode(GltfNode node, GltfAsset gltf, _DiagnosticSink sink) {
+@internal
+void validateSkinnedNode(GltfNode node, GltfAsset gltf, DiagnosticSink sink) {
   _validateSkinJointsInNodeScenes(node, gltf, sink);
   final meshIndex = node.mesh;
   if (meshIndex == null) {
     sink.error(
       'gltf.skinnedNodeMissingMesh',
       'A node with skin must also reference a mesh.',
-      jsonPath: _nodePath(node.index, '.mesh'),
+      jsonPath: nodePath(node.index, '.mesh'),
       gltfNodeIndex: node.index,
     );
     return;
@@ -477,7 +497,7 @@ void _validateSkinnedNode(GltfNode node, GltfAsset gltf, _DiagnosticSink sink) {
     primitiveIndex++
   ) {
     final primitive = mesh.primitives[primitiveIndex];
-    final primitivePath = _primitivePath(mesh.index, primitiveIndex);
+    final primitivePath = meshPrimitivePath(mesh.index, primitiveIndex);
     if (!primitive.attributes.containsKey('JOINTS_0') ||
         !primitive.attributes.containsKey('WEIGHTS_0')) {
       sink.error(
@@ -505,13 +525,13 @@ void _validateSkinJointAttributeValues(
   GltfSkin skin,
   GltfMeshPrimitive primitive,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String primitivePath,
 ) {
   final weightedJointsByVertex = <int, Set<int>>{};
   for (final entry in primitive.attributes.entries) {
-    if (!_isIndexedSemantic(entry.key, 'JOINTS_')) continue;
-    final joints = _readAccessorNumbers(
+    if (!isIndexedSemantic(entry.key, 'JOINTS_')) continue;
+    final joints = readGltfAccessorNumbers(
       gltf,
       entry.value,
       applyNormalization: false,
@@ -529,7 +549,7 @@ void _validateSkinJointAttributeValues(
     final setName = entry.key.substring(7);
     final weightAccessor = primitive.attributes['WEIGHTS_$setName'];
     if (weightAccessor != null) {
-      final weights = _readAccessorNumbers(
+      final weights = readGltfAccessorNumbers(
         gltf,
         weightAccessor,
         applyNormalization: false,
@@ -562,7 +582,7 @@ void _validateDuplicateWeightedSkinJoints(
   int weightAccessor,
   List<double> weights,
   Map<int, Set<int>> weightedJointsByVertex,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String jsonPath,
 ) {
   final jointComponents = gltf.accessors
@@ -596,7 +616,7 @@ void _validateDuplicateWeightedSkinJoints(
 void _validateZeroWeightJointValues(
   List<double> joints,
   List<double> weights,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String jsonPath,
 ) {
   final length = math.min(joints.length, weights.length);
@@ -614,7 +634,7 @@ void _validateZeroWeightJointValues(
 void _validateSkinJointsInNodeScenes(
   GltfNode node,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   final skinIndex = node.skin;
   if (skinIndex == null || skinIndex < 0 || skinIndex >= gltf.skins.length) {
@@ -654,9 +674,10 @@ Set<int> _sceneNodeSet(GltfAsset gltf, List<int> roots) {
   return seen;
 }
 
-void _validatePrimitiveIndexMapAt(
+@internal
+void validatePrimitiveIndexMapAt(
   Object? value,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String code,
   String message,
   String jsonPath,
@@ -672,18 +693,22 @@ void _validatePrimitiveIndexMapAt(
   }
 }
 
-bool _hasInvalidNumberList(Object? value) =>
+@internal
+bool hasInvalidNumberList(Object? value) =>
     value is! List || value.isEmpty || value.any((item) => item is! num);
 
-bool _hasInvalidNumberListLength(Object? value, int length) {
-  final list = _list(value);
+@internal
+bool hasInvalidNumberListLength(Object? value, int length) {
+  final list = jsonList(value);
   return list.length != length || list.any((item) => item is! num);
 }
 
-bool _hasInvalidIntList(Object? value) =>
+@internal
+bool hasInvalidIntList(Object? value) =>
     value is! List || value.any((item) => item is! int);
 
-bool _hasInvalidSamplerField(
+@internal
+bool hasInvalidSamplerField(
   Map<String, Object?> raw,
   String key,
   Set<int> allowed,
@@ -693,10 +718,11 @@ bool _hasInvalidSamplerField(
   return value is! int || !allowed.contains(value);
 }
 
-void _validateSkinInverseBindMatrices(
+@internal
+void validateSkinInverseBindMatrices(
   GltfSkin skin,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   final accessor = gltf.accessors.elementAtOrNull(skin.inverseBindMatrices!);
   if (accessor == null) return;
@@ -707,11 +733,11 @@ void _validateSkinInverseBindMatrices(
     sink.error(
       'gltf.invalidSkinInverseBindMatricesAccessor',
       'Skin inverseBindMatrices must be a float MAT4 accessor with at least one element per joint.',
-      jsonPath: _skinPath(skin.index, '.inverseBindMatrices'),
+      jsonPath: skinPath(skin.index, '.inverseBindMatrices'),
     );
     return;
   }
-  final matrices = _readAccessorNumbers(
+  final matrices = readGltfAccessorNumbers(
     gltf,
     accessor.index,
     requireFloat: true,
@@ -727,17 +753,18 @@ void _validateSkinInverseBindMatrices(
       sink.error(
         'gltf.invalidSkinInverseBindMatrix',
         'Skin inverse bind matrices must have fourth row [0, 0, 0, 1].',
-        jsonPath: _skinPath(skin.index, '.inverseBindMatrices'),
+        jsonPath: skinPath(skin.index, '.inverseBindMatrices'),
       );
       return;
     }
   }
 }
 
-void _validateSkinSkeletonRoot(
+@internal
+void validateSkinSkeletonRoot(
   GltfSkin skin,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   final skeleton = skin.skeleton;
   if (skeleton == null || skeleton < 0 || skeleton >= gltf.nodes.length) {
@@ -756,10 +783,11 @@ void _validateSkinSkeletonRoot(
   }
 }
 
-void _validateSkinJointCommonRoot(
+@internal
+void validateSkinJointCommonRoot(
   GltfSkin skin,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   final parents = _gltfNodeParents(gltf);
   Set<int>? commonAncestors;

@@ -1,9 +1,19 @@
-part of '../../flvtterm.dart';
+import 'package:meta/meta.dart';
 
-VrmHumanoid _parseHumanoid(
+import '../diagnostics.dart';
+import '../gltf/gltf_node_constraint_validation.dart';
+import '../gltf/gltf_types.dart';
+import '../json_values.dart';
+import '../math_types.dart';
+import '../safe_list_index.dart';
+import 'vrm_enums.dart';
+import 'vrm_types.dart';
+
+@internal
+VrmHumanoid parseHumanoid(
   Object? value,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path, {
   bool validateRequiredBones = true,
 }) {
@@ -14,7 +24,7 @@ VrmHumanoid _parseHumanoid(
       jsonPath: path,
     );
   }
-  final raw = _object(value);
+  final raw = jsonObject(value);
   if (raw.containsKey('humanBones') && raw['humanBones'] is! Map) {
     sink.error(
       'vrm.invalidHumanoidBonesObject',
@@ -30,7 +40,7 @@ VrmHumanoid _parseHumanoid(
       jsonPath: '$path.humanBones',
     );
   }
-  final humanBonesJson = _object(raw['humanBones']);
+  final humanBonesJson = jsonObject(raw['humanBones']);
   final humanBones = <VrmHumanoidBone, VrmHumanBone>{};
   final usedNodes = <int, VrmHumanoidBone>{};
 
@@ -52,9 +62,9 @@ VrmHumanoid _parseHumanoid(
       );
       continue;
     }
-    final assignment = _object(entry.value);
+    final assignment = jsonObject(entry.value);
     final nodeValue = assignment['node'];
-    final node = _int(nodeValue);
+    final node = jsonInt(nodeValue);
     if (!assignment.containsKey('node')) {
       sink.error(
         'vrm.humanoidBoneMissingNode',
@@ -71,7 +81,7 @@ VrmHumanoid _parseHumanoid(
       );
       continue;
     }
-    _validateIndex(
+    validateIndex(
       node,
       gltf.nodes.length,
       sink,
@@ -109,19 +119,22 @@ VrmHumanoid _parseHumanoid(
 
   _validateHumanoidTransforms(gltf, humanBones, sink);
   _validateHumanoidParents(gltf, humanBones, sink, path);
-  return VrmHumanoid._(humanBones: Map.unmodifiable(humanBones), raw: raw);
+  return VrmHumanoid.internal(
+    humanBones: Map.unmodifiable(humanBones),
+    raw: raw,
+  );
 }
 
 void _validateHumanoidTransforms(
   GltfAsset gltf,
   Map<VrmHumanoidBone, VrmHumanBone> humanBones,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   for (final assignment in humanBones.values) {
     final node = gltf.nodes.elementAtOrNull(assignment.node);
     if (node == null) continue;
     if (node.restScale.any((component) => component <= 0) ||
-        _hasReflectedMatrixBasis(node.matrix)) {
+        hasReflectedMatrixBasis(node.matrix)) {
       sink.error(
         'vrm.nonPositiveHumanoidScale',
         'Humanoid bone ${assignment.bone.specName} must have positive scale components.',
@@ -134,7 +147,8 @@ void _validateHumanoidTransforms(
   }
 }
 
-bool _hasReflectedMatrixBasis(VrmMatrix4? matrix) {
+@internal
+bool hasReflectedMatrixBasis(VrmMatrix4? matrix) {
   if (matrix == null) return false;
   final m = matrix.storage;
   final determinant =
@@ -147,20 +161,16 @@ bool _hasReflectedMatrixBasis(VrmMatrix4? matrix) {
 void _validateHumanoidParents(
   GltfAsset gltf,
   Map<VrmHumanoidBone, VrmHumanBone> humanBones,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path,
 ) {
-  final parents = _nodeParents(gltf);
+  final parents = nodeParents(gltf);
   for (final entry in humanBones.entries) {
-    final expectedParent = _nearestAssignedHumanoidParent(
-      entry.key,
-      humanBones,
-    );
+    final expectedParent = nearestAssignedHumanoidParent(entry.key, humanBones);
     if (expectedParent == null) continue;
     final childNode = entry.value.node;
     final parentNode = humanBones[expectedParent]?.node;
-    if (parentNode == null ||
-        !_isDescendantOf(childNode, parentNode, parents)) {
+    if (parentNode == null || !isDescendantOf(childNode, parentNode, parents)) {
       sink.error(
         'vrm.invalidHumanoidParent',
         '${entry.key.specName} must be a descendant of ${expectedParent.specName}.',
@@ -171,7 +181,8 @@ void _validateHumanoidParents(
   }
 }
 
-Map<int, int> _nodeParents(GltfAsset gltf) {
+@internal
+Map<int, int> nodeParents(GltfAsset gltf) {
   final parents = <int, int>{};
   for (final node in gltf.nodes) {
     for (final child in node.children) {
@@ -181,19 +192,21 @@ Map<int, int> _nodeParents(GltfAsset gltf) {
   return parents;
 }
 
-VrmHumanoidBone? _nearestAssignedHumanoidParent(
+@internal
+VrmHumanoidBone? nearestAssignedHumanoidParent(
   VrmHumanoidBone bone,
   Map<VrmHumanoidBone, VrmHumanBone> humanBones,
 ) {
-  var parent = _directHumanoidParent[bone];
+  var parent = directHumanoidParent[bone];
   while (parent != null) {
     if (humanBones.containsKey(parent)) return parent;
-    parent = _directHumanoidParent[parent];
+    parent = directHumanoidParent[parent];
   }
   return null;
 }
 
-bool _isDescendantOf(int node, int expectedAncestor, Map<int, int> parents) {
+@internal
+bool isDescendantOf(int node, int expectedAncestor, Map<int, int> parents) {
   final seen = <int>{};
   var current = parents[node];
   while (current != null && seen.add(current)) {
@@ -203,7 +216,8 @@ bool _isDescendantOf(int node, int expectedAncestor, Map<int, int> parents) {
   return false;
 }
 
-final _directHumanoidParent = <VrmHumanoidBone, VrmHumanoidBone>{
+@internal
+final directHumanoidParent = <VrmHumanoidBone, VrmHumanoidBone>{
   VrmHumanoidBone.spine: VrmHumanoidBone.hips,
   VrmHumanoidBone.chest: VrmHumanoidBone.spine,
   VrmHumanoidBone.upperChest: VrmHumanoidBone.chest,

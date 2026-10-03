@@ -1,8 +1,13 @@
-part of '../../flvtterm.dart';
+import 'package:meta/meta.dart';
+
+import '../json_values.dart';
+import 'vrm_enums.dart';
 
 /// Runtime-facing spring data parsed from VRM 0.x or `VRMC_springBone`.
 final class VrmSpringBone {
-  VrmSpringBone._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  VrmSpringBone.internal({
     required this.sourceVersion,
     required this.specVersion,
     required List<VrmSpringBoneCollider> colliders,
@@ -12,7 +17,7 @@ final class VrmSpringBone {
   }) : colliders = List.unmodifiable(colliders),
        colliderGroups = List.unmodifiable(colliderGroups),
        springs = List.unmodifiable(springs),
-       raw = _immutableJsonValue(raw) as Map<String, Object?>;
+       raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Specification family from which this data was normalized.
   final VrmSourceVersion sourceVersion;
@@ -52,7 +57,9 @@ enum VrmSpringBoneColliderShapeType {
 
 /// SpringBone collider shape.
 final class VrmSpringBoneColliderShape {
-  VrmSpringBoneColliderShape._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  VrmSpringBoneColliderShape.internal({
     required this.type,
     required this.declaredShapeCount,
     required List<double> offset,
@@ -61,7 +68,7 @@ final class VrmSpringBoneColliderShape {
     required Map<String, Object?> raw,
   }) : offset = List.unmodifiable(offset),
        tail = tail == null ? null : List.unmodifiable(tail),
-       raw = _immutableJsonValue(raw) as Map<String, Object?>;
+       raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Collider shape type.
   final VrmSpringBoneColliderShapeType? type;
@@ -84,12 +91,14 @@ final class VrmSpringBoneColliderShape {
 
 /// SpringBone collider.
 final class VrmSpringBoneCollider {
-  VrmSpringBoneCollider._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  VrmSpringBoneCollider.internal({
     required this.index,
     required this.node,
     required this.shape,
     required Map<String, Object?> raw,
-  }) : raw = _immutableJsonValue(raw) as Map<String, Object?>;
+  }) : raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Collider index.
   final int index;
@@ -106,13 +115,15 @@ final class VrmSpringBoneCollider {
 
 /// SpringBone collider group.
 final class VrmSpringBoneColliderGroup {
-  VrmSpringBoneColliderGroup._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  VrmSpringBoneColliderGroup.internal({
     required this.index,
     required this.name,
     required List<int> colliders,
     required Map<String, Object?> raw,
   }) : colliders = List.unmodifiable(colliders),
-       raw = _immutableJsonValue(raw) as Map<String, Object?>;
+       raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Collider group index.
   final int index;
@@ -129,7 +140,9 @@ final class VrmSpringBoneColliderGroup {
 
 /// SpringBone spring chain.
 final class VrmSpringBoneSpring {
-  VrmSpringBoneSpring._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  VrmSpringBoneSpring.internal({
     required this.index,
     required this.name,
     required List<VrmSpringBoneJoint> joints,
@@ -139,7 +152,7 @@ final class VrmSpringBoneSpring {
     required Map<String, Object?> raw,
   }) : joints = List.unmodifiable(joints),
        colliderGroups = List.unmodifiable(colliderGroups),
-       raw = _immutableJsonValue(raw) as Map<String, Object?>;
+       raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Spring index.
   final int index;
@@ -171,7 +184,9 @@ final class VrmSpringBoneSpring {
 
 /// SpringBone joint settings.
 final class VrmSpringBoneJoint {
-  VrmSpringBoneJoint._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  VrmSpringBoneJoint.internal({
     required this.index,
     required this.node,
     required this.hitRadius,
@@ -181,7 +196,7 @@ final class VrmSpringBoneJoint {
     required this.dragForce,
     required Map<String, Object?> raw,
   }) : gravityDir = List.unmodifiable(gravityDir),
-       raw = _immutableJsonValue(raw) as Map<String, Object?>;
+       raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Joint index within its spring.
   final int index;

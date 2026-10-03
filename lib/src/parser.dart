@@ -1,13 +1,38 @@
-part of '../flvtterm.dart';
+import 'dart:convert';
+import 'dart:math' as math;
+import 'dart:typed_data';
 
-final class _Parser {
+import 'package:meta/meta.dart';
+
+import 'diagnostics.dart';
+import 'gltf/gltf_animation_parser.dart';
+import 'gltf/gltf_material_validation.dart';
+import 'gltf/gltf_node_constraint_validation.dart';
+import 'gltf/gltf_parser.dart';
+import 'gltf/gltf_types.dart';
+import 'gltf/gltf_validation.dart';
+import 'gltf/material_parser.dart';
+import 'json_values.dart';
+import 'vrm/spring_bone_parser.dart';
+import 'vrm/spring_bone_types.dart';
+import 'vrm/vrm_assets.dart';
+import 'vrm/vrm_parser.dart';
+import 'vrm/vrm_types.dart';
+import 'vrm0/vrm0_converter.dart';
+import 'vrm0/vrm0_parser.dart';
+import 'vrm0/vrm0_types.dart';
+import 'vrma/vrma_parser.dart';
+import 'vrma/vrma_validation.dart';
+
+@internal
+final class AssetParser {
   static VrmParseResult<GltfAsset> parseGltf(
     Uint8List bytes,
     VrmValidationMode mode, {
     GltfUriResolver? uriResolver,
     bool adoptBytes = false,
   }) {
-    final sink = _DiagnosticSink();
+    final sink = DiagnosticSink();
     final gltf = _looksLikeGlb(bytes)
         ? _parseGlb(
             bytes,
@@ -17,7 +42,7 @@ final class _Parser {
           )
         : _parseGltfJsonBytes(bytes, sink, uriResolver: uriResolver);
     if (gltf != null) {
-      _validateRequiredExtensions(gltf, sink, _supportedGltfExtensions);
+      validateRequiredExtensions(gltf, sink, _supportedGltfExtensions);
     }
     final result = VrmValidationResult(sink.diagnostics);
     return VrmParseResult(
@@ -32,7 +57,7 @@ final class _Parser {
     GltfUriResolver? uriResolver,
     bool adoptBytes = false,
   }) {
-    final sink = _DiagnosticSink();
+    final sink = DiagnosticSink();
     final gltf = _parseGlb(
       bytes,
       sink,
@@ -46,8 +71,8 @@ final class _Parser {
       );
     }
 
-    _validateRequiredExtensions(gltf, sink, _supportedVrmExtensions);
-    final rootExtensions = _object(gltf.json['extensions']);
+    validateRequiredExtensions(gltf, sink, _supportedVrmExtensions);
+    final rootExtensions = jsonObject(gltf.json['extensions']);
     final hasVrm1 = rootExtensions.containsKey('VRMC_vrm');
     final hasVrm0 = rootExtensions.containsKey('VRM');
     if (hasVrm1 && hasVrm0) {
@@ -62,21 +87,21 @@ final class _Parser {
     Vrm0Extension? vrm0;
     VrmSpringBone? springBone;
     if (hasVrm1 || !hasVrm0) {
-      vrm = _parseVrmExtension(gltf, sink);
-      springBone = _parseSpringBone(gltf.json, sink);
+      vrm = parseVrmExtension(gltf, sink);
+      springBone = parseSpringBone(gltf.json, sink);
       if (springBone != null) {
-        _validateSpringBone(gltf, springBone, sink);
+        validateSpringBone(gltf, springBone, sink);
       }
     } else {
-      vrm0 = _parseVrm0Extension(gltf, sink, mode);
+      vrm0 = parseVrm0Extension(gltf, sink, mode);
       if (vrm0 != null) {
-        vrm = _normalizeVrm0Extension(gltf, vrm0, sink);
-        springBone = _normalizeVrm0SpringBone(gltf, vrm0, sink);
+        vrm = normalizeVrm0Extension(gltf, vrm0, sink);
+        springBone = normalizeVrm0SpringBone(gltf, vrm0, sink);
       }
     }
     VrmModel? model;
     if (vrm != null) {
-      model = VrmModel._(
+      model = VrmModel.internal(
         gltf: gltf,
         vrm: vrm,
         vrm0: vrm0,
@@ -100,7 +125,7 @@ final class _Parser {
     GltfUriResolver? uriResolver,
     bool adoptBytes = false,
   }) {
-    final sink = _DiagnosticSink();
+    final sink = DiagnosticSink();
     final gltf = _looksLikeGlb(bytes)
         ? _parseGlb(
             bytes,
@@ -116,12 +141,12 @@ final class _Parser {
       );
     }
 
-    _validateRequiredExtensions(gltf, sink, _supportedVrmaExtensions);
-    final animation = _parseVrmaExtension(gltf, sink);
+    validateRequiredExtensions(gltf, sink, _supportedVrmaExtensions);
+    final animation = parseVrmaExtension(gltf, sink);
     VrmAnimationAsset? asset;
     if (animation != null) {
-      _validateVrmaAnimationRules(gltf, animation, sink);
-      asset = VrmAnimationAsset._(
+      validateVrmaAnimationRules(gltf, animation, sink);
+      asset = VrmAnimationAsset.internal(
         gltf: gltf,
         animation: animation,
         validation: VrmValidationResult(sink.diagnostics),
@@ -174,7 +199,7 @@ bool _looksLikeGlb(Uint8List bytes) {
 
 GltfAsset? _parseGlb(
   Uint8List bytes,
-  _DiagnosticSink sink, {
+  DiagnosticSink sink, {
   GltfUriResolver? uriResolver,
   bool adoptBytes = false,
 }) {
@@ -282,7 +307,7 @@ GltfAsset? _parseGlb(
   }
 }
 
-void _validateJsonChunkPadding(Uint8List chunk, _DiagnosticSink sink) {
+void _validateJsonChunkPadding(Uint8List chunk, DiagnosticSink sink) {
   for (var i = chunk.length - 1; i >= 0; i--) {
     final byte = chunk[i];
     if (byte == 0x20) continue;
@@ -298,7 +323,7 @@ void _validateJsonChunkPadding(Uint8List chunk, _DiagnosticSink sink) {
 
 GltfAsset? _parseGltfJsonBytes(
   Uint8List bytes,
-  _DiagnosticSink sink, {
+  DiagnosticSink sink, {
   GltfUriResolver? uriResolver,
 }) {
   try {
@@ -317,7 +342,7 @@ GltfAsset? _parseGltfJsonBytes(
 GltfAsset? _parseGltfJsonString(
   String source,
   Uint8List? binaryChunk,
-  _DiagnosticSink sink, {
+  DiagnosticSink sink, {
   GltfUriResolver? uriResolver,
   bool adoptBinaryChunk = false,
 }) {
@@ -334,11 +359,11 @@ GltfAsset? _parseGltfJsonString(
   }
   // Frozen once here; every later freeze of a part of this tree returns that
   // part unchanged.
-  final json = _immutableJsonValue(decoded) as Map<String, Object?>;
+  final json = immutableJsonValue(decoded) as Map<String, Object?>;
   final assetObject = _validateAssetObject(json, sink);
   if (assetObject != null) {
     final versionValue = assetObject['version'];
-    final version = _string(versionValue);
+    final version = jsonString(versionValue);
     final validVersion = version != null && _versionParts(version) != null;
     if (!validVersion) {
       sink.error(
@@ -380,13 +405,13 @@ GltfAsset? _parseGltfJsonString(
   }
   _validateExtensionsObjects(json, sink, r'$');
   _validateRootArrays(json, sink);
-  final extensionsUsed = _parseRootStringList(
+  final extensionsUsed = parseRootStringList(
     json,
     'extensionsUsed',
     'gltf.invalidExtensionsUsed',
     sink,
   );
-  final extensionsRequired = _parseRootStringList(
+  final extensionsRequired = parseRootStringList(
     json,
     'extensionsRequired',
     'gltf.invalidExtensionsRequired',
@@ -402,18 +427,18 @@ GltfAsset? _parseGltfJsonString(
       ? binaryChunk.asUnmodifiableView()
       : Uint8List.fromList(binaryChunk).asUnmodifiableView();
   final uriResolverFailures = <String, String>{};
-  final buffers = _parseBuffers(
+  final buffers = parseBuffers(
     json['buffers'],
     sink,
     ownedBinaryChunk,
     uriResolver,
     uriResolverFailures,
   );
-  final bufferViews = _parseBufferViews(json['bufferViews']);
-  final gltf = GltfAsset._(
+  final bufferViews = parseBufferViews(json['bufferViews']);
+  final gltf = GltfAsset.internal(
     json: json,
     binaryChunk: ownedBinaryChunk,
-    extensions: _object(json['extensions']),
+    extensions: jsonObject(json['extensions']),
     extras: json['extras'],
     hasUriResolver: uriResolver != null,
     uriResolverFailures: uriResolverFailures,
@@ -421,16 +446,16 @@ GltfAsset? _parseGltfJsonString(
     extensionsRequired: extensionsRequired,
     buffers: buffers,
     bufferViews: bufferViews,
-    cameras: _parseCameras(json['cameras']),
-    scene: _int(json['scene']),
-    scenes: _parseScenes(json['scenes'], sink),
-    nodes: _parseNodes(json['nodes'], sink),
-    meshes: _parseMeshes(json['meshes']),
-    materials: _parseMaterials(json['materials']),
-    skins: _parseSkins(json['skins'], sink),
-    accessors: _parseAccessors(json['accessors']),
-    textures: _parseTextures(json['textures']),
-    images: _parseImages(
+    cameras: parseCameras(json['cameras']),
+    scene: jsonInt(json['scene']),
+    scenes: parseScenes(json['scenes'], sink),
+    nodes: parseNodes(json['nodes'], sink),
+    meshes: parseMeshes(json['meshes']),
+    materials: parseMaterials(json['materials']),
+    skins: parseSkins(json['skins'], sink),
+    accessors: parseAccessors(json['accessors']),
+    textures: parseTextures(json['textures']),
+    images: parseImages(
       json['images'],
       sink,
       buffers,
@@ -438,18 +463,18 @@ GltfAsset? _parseGltfJsonString(
       uriResolver,
       uriResolverFailures,
     ),
-    samplers: _parseSamplers(json['samplers']),
-    animations: _parseAnimations(json['animations'], sink),
+    samplers: parseSamplers(json['samplers']),
+    animations: parseAnimations(json['animations'], sink),
   );
-  _validateGltfReferences(gltf, sink);
-  _validateMToonMaterials(gltf, sink);
-  _validateNodeConstraints(gltf, sink);
+  validateGltfReferences(gltf, sink);
+  validateMToonMaterials(gltf, sink);
+  validateNodeConstraints(gltf, sink);
   return gltf;
 }
 
 Map<String, Object?>? _validateAssetObject(
   Map<String, Object?> json,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   if (!json.containsKey('asset')) {
     sink.error(
@@ -497,7 +522,7 @@ List<int>? _versionParts(String value) {
 
 void _validateExtensionsObjects(
   Object? value,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path,
 ) {
   if (value is Map) {
@@ -519,7 +544,7 @@ void _validateExtensionsObjects(
   }
 }
 
-void _validateRootArrays(Map<String, Object?> json, _DiagnosticSink sink) {
+void _validateRootArrays(Map<String, Object?> json, DiagnosticSink sink) {
   for (final key in const [
     'accessors',
     'animations',

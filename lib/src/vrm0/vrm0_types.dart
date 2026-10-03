@@ -1,8 +1,14 @@
-part of '../../flvtterm.dart';
+import 'package:meta/meta.dart';
+
+import '../json_values.dart';
+import '../math_types.dart';
+import '../vrm/vrm_enums.dart';
 
 /// Parsed legacy `extensions.VRM` data from a VRM 0.x asset.
 final class Vrm0Extension {
-  Vrm0Extension._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  Vrm0Extension.internal({
     required this.exporterVersion,
     required this.specVersion,
     required this.meta,
@@ -13,7 +19,7 @@ final class Vrm0Extension {
     required List<Vrm0MaterialProperty> materialProperties,
     required Map<String, Object?> raw,
   }) : materialProperties = List.unmodifiable(materialProperties),
-       raw = _immutableJsonValue(raw) as Map<String, Object?>;
+       raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Version string reported by the exporter that created the asset.
   final String? exporterVersion;
@@ -45,7 +51,9 @@ final class Vrm0Extension {
 
 /// Legacy VRM 0.x model metadata.
 final class Vrm0Meta {
-  Vrm0Meta._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  Vrm0Meta.internal({
     required this.title,
     required this.version,
     required this.author,
@@ -60,7 +68,7 @@ final class Vrm0Meta {
     required this.licenseName,
     required this.otherLicenseUrl,
     required Map<String, Object?> raw,
-  }) : raw = _immutableJsonValue(raw) as Map<String, Object?>;
+  }) : raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Model title.
   final String? title;
@@ -113,7 +121,9 @@ final class Vrm0Meta {
 
 /// Legacy VRM 0.x humanoid configuration.
 final class Vrm0Humanoid {
-  Vrm0Humanoid._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  Vrm0Humanoid.internal({
     required List<Vrm0HumanBone> humanBones,
     required this.armStretch,
     required this.legStretch,
@@ -125,7 +135,7 @@ final class Vrm0Humanoid {
     required this.hasTranslationDoF,
     required Map<String, Object?> raw,
   }) : humanBones = List.unmodifiable(humanBones),
-       raw = _immutableJsonValue(raw) as Map<String, Object?>;
+       raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Humanoid bone assignments in source array order.
   final List<Vrm0HumanBone> humanBones;
@@ -160,7 +170,9 @@ final class Vrm0Humanoid {
 
 /// One legacy VRM 0.x humanoid bone assignment.
 final class Vrm0HumanBone {
-  Vrm0HumanBone._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  Vrm0HumanBone.internal({
     required this.sourceIndex,
     required this.bone,
     required this.normalizedBone,
@@ -171,7 +183,7 @@ final class Vrm0HumanBone {
     required this.center,
     required this.axisLength,
     required Map<String, Object?> raw,
-  }) : raw = _immutableJsonValue(raw) as Map<String, Object?>;
+  }) : raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Index of this entry in the source `humanBones` array.
   final int sourceIndex;
@@ -206,7 +218,9 @@ final class Vrm0HumanBone {
 
 /// Legacy VRM 0.x first-person and gaze configuration.
 final class Vrm0FirstPerson {
-  Vrm0FirstPerson._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  Vrm0FirstPerson.internal({
     required this.firstPersonBone,
     required this.firstPersonBoneOffset,
     required List<Vrm0MeshAnnotation> meshAnnotations,
@@ -217,7 +231,7 @@ final class Vrm0FirstPerson {
     required this.lookAtVerticalUp,
     required Map<String, Object?> raw,
   }) : meshAnnotations = List.unmodifiable(meshAnnotations),
-       raw = _immutableJsonValue(raw) as Map<String, Object?>;
+       raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// glTF node used as the first-person reference bone.
   final int? firstPersonBone;
@@ -249,12 +263,14 @@ final class Vrm0FirstPerson {
 
 /// One legacy VRM 0.x first-person mesh annotation.
 final class Vrm0MeshAnnotation {
-  Vrm0MeshAnnotation._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  Vrm0MeshAnnotation.internal({
     required this.sourceIndex,
     required this.mesh,
     required this.firstPersonFlag,
     required Map<String, Object?> raw,
-  }) : raw = _immutableJsonValue(raw) as Map<String, Object?>;
+  }) : raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Index of this entry in the source `meshAnnotations` array.
   final int sourceIndex;
@@ -271,13 +287,15 @@ final class Vrm0MeshAnnotation {
 
 /// Legacy VRM 0.x gaze degree map.
 final class Vrm0DegreeMap {
-  Vrm0DegreeMap._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  Vrm0DegreeMap.internal({
     required List<double> curve,
     required this.xRange,
     required this.yRange,
     required Map<String, Object?> raw,
   }) : curve = List.unmodifiable(curve),
-       raw = _immutableJsonValue(raw) as Map<String, Object?>;
+       raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Serialized legacy animation-curve values.
   final List<double> curve;
@@ -294,11 +312,13 @@ final class Vrm0DegreeMap {
 
 /// Legacy VRM 0.x blend-shape expression collection.
 final class Vrm0BlendShapeMaster {
-  Vrm0BlendShapeMaster._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  Vrm0BlendShapeMaster.internal({
     required List<Vrm0BlendShapeGroup> blendShapeGroups,
     required Map<String, Object?> raw,
   }) : blendShapeGroups = List.unmodifiable(blendShapeGroups),
-       raw = _immutableJsonValue(raw) as Map<String, Object?>;
+       raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Blend-shape groups in source array order.
   final List<Vrm0BlendShapeGroup> blendShapeGroups;
@@ -309,7 +329,9 @@ final class Vrm0BlendShapeMaster {
 
 /// One legacy VRM 0.x blend-shape expression group.
 final class Vrm0BlendShapeGroup {
-  Vrm0BlendShapeGroup._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  Vrm0BlendShapeGroup.internal({
     required this.sourceIndex,
     required this.name,
     required this.presetName,
@@ -319,7 +341,7 @@ final class Vrm0BlendShapeGroup {
     required Map<String, Object?> raw,
   }) : binds = List.unmodifiable(binds),
        materialValues = List.unmodifiable(materialValues),
-       raw = _immutableJsonValue(raw) as Map<String, Object?>;
+       raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Index of this entry in the source `blendShapeGroups` array.
   final int sourceIndex;
@@ -345,13 +367,15 @@ final class Vrm0BlendShapeGroup {
 
 /// One legacy VRM 0.x morph-target binding.
 final class Vrm0BlendShapeBind {
-  Vrm0BlendShapeBind._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  Vrm0BlendShapeBind.internal({
     required this.sourceIndex,
     required this.mesh,
     required this.index,
     required this.weight,
     required Map<String, Object?> raw,
-  }) : raw = _immutableJsonValue(raw) as Map<String, Object?>;
+  }) : raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Index of this entry in its source `binds` array.
   final int sourceIndex;
@@ -371,14 +395,16 @@ final class Vrm0BlendShapeBind {
 
 /// One legacy VRM 0.x expression material-value binding.
 final class Vrm0MaterialValueBind {
-  Vrm0MaterialValueBind._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  Vrm0MaterialValueBind.internal({
     required this.sourceIndex,
     required this.materialName,
     required this.propertyName,
     required List<double> targetValue,
     required Map<String, Object?> raw,
   }) : targetValue = List.unmodifiable(targetValue),
-       raw = _immutableJsonValue(raw) as Map<String, Object?>;
+       raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Index of this entry in its source `materialValues` array.
   final int sourceIndex;
@@ -398,13 +424,15 @@ final class Vrm0MaterialValueBind {
 
 /// Legacy VRM 0.x secondary-animation configuration.
 final class Vrm0SecondaryAnimation {
-  Vrm0SecondaryAnimation._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  Vrm0SecondaryAnimation.internal({
     required List<Vrm0SpringBoneGroup> boneGroups,
     required List<Vrm0ColliderGroup> colliderGroups,
     required Map<String, Object?> raw,
   }) : boneGroups = List.unmodifiable(boneGroups),
        colliderGroups = List.unmodifiable(colliderGroups),
-       raw = _immutableJsonValue(raw) as Map<String, Object?>;
+       raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Spring-bone groups in source array order.
   final List<Vrm0SpringBoneGroup> boneGroups;
@@ -418,7 +446,9 @@ final class Vrm0SecondaryAnimation {
 
 /// One legacy VRM 0.x spring-bone group.
 final class Vrm0SpringBoneGroup {
-  Vrm0SpringBoneGroup._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  Vrm0SpringBoneGroup.internal({
     required this.sourceIndex,
     required this.comment,
     required this.stiffiness,
@@ -438,7 +468,7 @@ final class Vrm0SpringBoneGroup {
        colliderGroupSourceIndices = List.unmodifiable(
          colliderGroupSourceIndices,
        ),
-       raw = _immutableJsonValue(raw) as Map<String, Object?>;
+       raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Index of this entry in the source `boneGroups` array.
   final int sourceIndex;
@@ -484,13 +514,15 @@ final class Vrm0SpringBoneGroup {
 
 /// One legacy VRM 0.x collider group.
 final class Vrm0ColliderGroup {
-  Vrm0ColliderGroup._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  Vrm0ColliderGroup.internal({
     required this.sourceIndex,
     required this.node,
     required List<Vrm0Collider> colliders,
     required Map<String, Object?> raw,
   }) : colliders = List.unmodifiable(colliders),
-       raw = _immutableJsonValue(raw) as Map<String, Object?>;
+       raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Index of this entry in the source `colliderGroups` array.
   final int sourceIndex;
@@ -507,12 +539,14 @@ final class Vrm0ColliderGroup {
 
 /// One legacy VRM 0.x sphere collider.
 final class Vrm0Collider {
-  Vrm0Collider._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  Vrm0Collider.internal({
     required this.sourceIndex,
     required this.offset,
     required this.radius,
     required Map<String, Object?> raw,
-  }) : raw = _immutableJsonValue(raw) as Map<String, Object?>;
+  }) : raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Index of this entry in its source `colliders` array.
   final int sourceIndex;
@@ -529,7 +563,9 @@ final class Vrm0Collider {
 
 /// One legacy VRM 0.x material property entry.
 final class Vrm0MaterialProperty {
-  Vrm0MaterialProperty._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  Vrm0MaterialProperty.internal({
     required this.name,
     required this.shader,
     required this.renderQueue,
@@ -547,7 +583,7 @@ final class Vrm0MaterialProperty {
        textureProperties = Map.unmodifiable(textureProperties),
        keywordMap = Map.unmodifiable(keywordMap),
        tagMap = Map.unmodifiable(tagMap),
-       raw = _immutableJsonValue(raw) as Map<String, Object?>;
+       raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Source material name.
   final String? name;

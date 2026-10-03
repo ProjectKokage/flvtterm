@@ -1,14 +1,24 @@
-part of '../../flvtterm.dart';
+import 'dart:typed_data';
+
+import 'package:meta/meta.dart';
+
+import '../diagnostics.dart';
+import '../json_values.dart';
+import '../safe_list_index.dart';
+import 'accessor_reader.dart';
+import 'gltf_node_constraint_validation.dart';
+import 'gltf_types.dart';
 
 const _gltfBufferMimeTypes = {
   'application/octet-stream',
   'application/gltf-buffer',
 };
 
-void _validateGltfBuffers(GltfAsset gltf, _DiagnosticSink sink) {
-  final rawBuffers = _list(gltf.json['buffers']);
+@internal
+void validateGltfBuffers(GltfAsset gltf, DiagnosticSink sink) {
+  final rawBuffers = jsonList(gltf.json['buffers']);
   for (final buffer in gltf.buffers) {
-    final raw = _object(rawBuffers.elementAtOrNull(buffer.index));
+    final raw = jsonObject(rawBuffers.elementAtOrNull(buffer.index));
     if (buffer.byteLength == null || buffer.byteLength! < 1) {
       sink.error(
         'gltf.invalidBufferByteLength',
@@ -42,22 +52,22 @@ void _validateGltfBuffers(GltfAsset gltf, _DiagnosticSink sink) {
         !buffer.uri!.startsWith('data:') &&
         !(buffer.index == 0 && gltf.binaryChunk != null) &&
         buffer.data == null) {
-      final unresolved = gltf._hasUriResolver;
+      final unresolved = gltf.hasUriResolver;
       sink.error(
         unresolved
             ? 'gltf.unresolvedExternalBufferUri'
             : 'gltf.unsupportedExternalBufferUri',
         unresolved
-            ? _unresolvedUriMessage(
+            ? unresolvedUriMessage(
                 'External buffer URI was not resolved.',
-                gltf._uriResolverFailures['\$.buffers[${buffer.index}].uri'],
+                gltf.uriResolverFailures['\$.buffers[${buffer.index}].uri'],
               )
             : 'External buffer URIs require a GltfUriResolver.',
         jsonPath: '\$.buffers[${buffer.index}].uri',
       );
     }
     if (buffer.uri != null && buffer.uri!.startsWith('data:')) {
-      final mediaType = _dataUriMediaType(buffer.uri!);
+      final mediaType = dataUriMediaType(buffer.uri!);
       if (mediaType != null && !_gltfBufferMimeTypes.contains(mediaType)) {
         sink.error(
           'gltf.invalidBufferDataUri',
@@ -73,7 +83,7 @@ void _validateGltfBuffers(GltfAsset gltf, _DiagnosticSink sink) {
         );
       }
     }
-    final bufferBytes = _bufferBytes(gltf, buffer.index);
+    final bufferBytes = gltfBufferBytes(gltf, buffer.index);
     if (buffer.byteLength != null &&
         bufferBytes != null &&
         buffer.byteLength! > bufferBytes.length) {
@@ -110,7 +120,8 @@ void _validateGltfBuffers(GltfAsset gltf, _DiagnosticSink sink) {
 String _bufferPath(int bufferIndex, String suffix) =>
     '\$.buffers[$bufferIndex]$suffix';
 
-String _unresolvedUriMessage(String fallback, String? failure) {
+@internal
+String unresolvedUriMessage(String fallback, String? failure) {
   return failure == null ? fallback : '$fallback $failure';
 }
 
@@ -121,13 +132,14 @@ bool _hasZeroPadding(Uint8List bytes, int start) {
   return true;
 }
 
-void _validateGltfBufferViews(GltfAsset gltf, _DiagnosticSink sink) {
+@internal
+void validateGltfBufferViews(GltfAsset gltf, DiagnosticSink sink) {
   final vertexAttributeBufferViewUseCounts =
       _vertexAttributeBufferViewUseCounts(gltf);
   _validateBufferViewDataKinds(gltf, sink);
-  final rawBufferViews = _list(gltf.json['bufferViews']);
+  final rawBufferViews = jsonList(gltf.json['bufferViews']);
   for (final view in gltf.bufferViews) {
-    final raw = _object(rawBufferViews.elementAtOrNull(view.index));
+    final raw = jsonObject(rawBufferViews.elementAtOrNull(view.index));
     if (!raw.containsKey('buffer')) {
       sink.error(
         'gltf.bufferViewMissingBuffer',
@@ -141,7 +153,7 @@ void _validateGltfBufferViews(GltfAsset gltf, _DiagnosticSink sink) {
         jsonPath: _bufferViewPath(view.index, '.buffer'),
       );
     } else {
-      _validateIndex(
+      validateIndex(
         view.buffer!,
         gltf.buffers.length,
         sink,
@@ -252,7 +264,7 @@ Map<int, int> _vertexAttributeBufferViewUseCounts(GltfAsset gltf) {
   };
 }
 
-void _validateBufferViewDataKinds(GltfAsset gltf, _DiagnosticSink sink) {
+void _validateBufferViewDataKinds(GltfAsset gltf, DiagnosticSink sink) {
   final kindsByView = <int, Set<String>>{};
   void addKind(int? accessorIndex, String kind) {
     final view = accessorIndex == null
@@ -294,7 +306,8 @@ void _validateBufferViewDataKinds(GltfAsset gltf, _DiagnosticSink sink) {
   }
 }
 
-String? _dataUriMediaType(String uri) {
+@internal
+String? dataUriMediaType(String uri) {
   final comma = uri.indexOf(',');
   if (comma < 0) return null;
   return uri.substring(5, comma).toLowerCase().split(';').first;

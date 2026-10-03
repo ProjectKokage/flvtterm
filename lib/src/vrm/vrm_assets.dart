@@ -1,8 +1,25 @@
-part of '../../flvtterm.dart';
+import 'dart:typed_data';
+
+import 'package:meta/meta.dart';
+
+import '../diagnostics.dart';
+import '../gltf/gltf_material_types.dart';
+import '../gltf/gltf_types.dart';
+import '../json_values.dart';
+import '../math_types.dart';
+import '../parser.dart';
+import '../safe_list_index.dart';
+import '../vrm0/vrm0_types.dart';
+import 'first_person_analysis.dart';
+import 'spring_bone_types.dart';
+import 'vrm_enums.dart';
+import 'vrm_types.dart';
 
 /// Parsed VRM 0.x or VRM 1.0 model asset.
 final class VrmModel {
-  VrmModel._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  VrmModel.internal({
     required this.gltf,
     required this.vrm,
     required this.vrm0,
@@ -129,7 +146,7 @@ final class VrmModel {
   ) {
     final declared = vrm.firstPerson.typeForNode(nodeIndex);
     if (declared != VrmFirstPersonMeshAnnotationType.auto) return declared;
-    final headInfluenced = _meshHasHeadInfluence(this, nodeIndex);
+    final headInfluenced = meshHasHeadInfluence(this, nodeIndex);
     if (headInfluenced == null) return VrmFirstPersonMeshAnnotationType.auto;
     return headInfluenced
         ? VrmFirstPersonMeshAnnotationType.thirdPersonOnly
@@ -144,7 +161,7 @@ final class VrmModel {
   ) {
     final declared = vrm.firstPerson.typeForNode(nodeIndex);
     if (declared != VrmFirstPersonMeshAnnotationType.auto) return declared;
-    final headInfluenced = _primitiveHasHeadInfluence(
+    final headInfluenced = primitiveHasHeadInfluence(
       this,
       nodeIndex,
       primitiveIndex,
@@ -220,13 +237,13 @@ final class VrmModel {
     int primitiveIndex,
   ) {
     final declared = vrm.firstPerson.typeForNode(nodeIndex);
-    final headInfluence = _primitiveTriangleHeadInfluence(
+    final headInfluence = primitiveTriangleHeadInfluence(
       this,
       nodeIndex,
       primitiveIndex,
     );
     if (headInfluence == null) {
-      final count = _primitiveTriangleCount(gltf, nodeIndex, primitiveIndex);
+      final count = primitiveTriangleCount(gltf, nodeIndex, primitiveIndex);
       if (declared == VrmFirstPersonMeshAnnotationType.auto || count == null) {
         return const [];
       }
@@ -281,7 +298,7 @@ final class VrmModel {
     VrmValidationMode validation = VrmValidationMode.strict,
     GltfUriResolver? uriResolver,
     bool adoptBytes = false,
-  }) => _Parser.parseVrmGlb(
+  }) => AssetParser.parseVrmGlb(
     bytes,
     validation,
     uriResolver: uriResolver,
@@ -323,7 +340,9 @@ bool _vrm0ShaderIsUnlit(String? shader) =>
 
 /// Parsed VRMC_vrm_animation 1.0 extension.
 final class VrmAnimationExtension {
-  VrmAnimationExtension._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  VrmAnimationExtension.internal({
     required this.specVersion,
     required this.humanoid,
     required Map<VrmExpressionPreset, int> presetExpressions,
@@ -334,7 +353,7 @@ final class VrmAnimationExtension {
   }) : presetExpressions = Map.unmodifiable(presetExpressions),
        customExpressions = Map.unmodifiable(customExpressions),
        offsetFromHeadBone = List.unmodifiable(offsetFromHeadBone),
-       raw = _immutableJsonValue(raw) as Map<String, Object?>;
+       raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// VRMC_vrm_animation spec version.
   final String? specVersion;
@@ -360,7 +379,9 @@ final class VrmAnimationExtension {
 
 /// Parsed VRM Animation asset.
 final class VrmAnimationAsset {
-  VrmAnimationAsset._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  VrmAnimationAsset.internal({
     required this.gltf,
     required this.animation,
     required this.validation,
@@ -418,7 +439,7 @@ final class VrmAnimationAsset {
     VrmValidationMode validation = VrmValidationMode.strict,
     GltfUriResolver? uriResolver,
     bool adoptBytes = false,
-  }) => _Parser.parseVrma(
+  }) => AssetParser.parseVrma(
     bytes,
     validation,
     uriResolver: uriResolver,

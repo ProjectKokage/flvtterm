@@ -1,6 +1,16 @@
-part of '../../flvtterm.dart';
+import 'package:meta/meta.dart';
 
-VrmMeta _parseMeta(Object? value, GltfAsset gltf, _DiagnosticSink sink) {
+import '../diagnostics.dart';
+import '../gltf/gltf_node_constraint_validation.dart';
+import '../gltf/gltf_resource_types.dart';
+import '../gltf/gltf_types.dart';
+import '../image_dimensions.dart';
+import '../json_values.dart';
+import 'vrm_enums.dart';
+import 'vrm_types.dart';
+
+@internal
+VrmMeta parseMeta(Object? value, GltfAsset gltf, DiagnosticSink sink) {
   if (value is! Map) {
     sink.error(
       'vrm.metaInvalidObject',
@@ -8,10 +18,10 @@ VrmMeta _parseMeta(Object? value, GltfAsset gltf, _DiagnosticSink sink) {
       jsonPath: r'$.extensions.VRMC_vrm.meta',
     );
   }
-  final raw = _object(value);
-  final name = _string(raw['name']);
+  final raw = jsonObject(value);
+  final name = jsonString(raw['name']);
   final version = _parseMetaString(raw, 'version', sink);
-  final authors = _stringList(raw['authors']);
+  final authors = jsonStringList(raw['authors']);
   final copyrightInformation = _parseMetaString(
     raw,
     'copyrightInformation',
@@ -21,8 +31,8 @@ VrmMeta _parseMeta(Object? value, GltfAsset gltf, _DiagnosticSink sink) {
   final references = _parseMetaStringList(raw, 'references', sink);
   final thirdPartyLicenses = _parseMetaString(raw, 'thirdPartyLicenses', sink);
   final thumbnailImage = _parseMetaThumbnailImage(raw, gltf, sink);
-  final licenseUrl = _string(raw['licenseUrl']);
-  final rawAuthors = _list(raw['authors']);
+  final licenseUrl = jsonString(raw['licenseUrl']);
+  final rawAuthors = jsonList(raw['authors']);
   if (raw.containsKey('name') && raw['name'] is! String) {
     sink.error(
       'vrm.metaInvalidString',
@@ -75,7 +85,7 @@ VrmMeta _parseMeta(Object? value, GltfAsset gltf, _DiagnosticSink sink) {
       jsonPath: r'$.extensions.VRMC_vrm.meta.licenseUrl',
     );
   }
-  return VrmMeta._(
+  return VrmMeta.internal(
     name: name,
     version: version,
     authors: authors,
@@ -146,7 +156,7 @@ VrmMeta _parseMeta(Object? value, GltfAsset gltf, _DiagnosticSink sink) {
 String? _parseMetaString(
   Map<String, Object?> raw,
   String field,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   if (raw.containsKey(field) && raw[field] is! String) {
     sink.error(
@@ -155,17 +165,17 @@ String? _parseMetaString(
       jsonPath: '\$.extensions.VRMC_vrm.meta.$field',
     );
   }
-  return _string(raw[field]);
+  return jsonString(raw[field]);
 }
 
 List<String> _parseMetaStringList(
   Map<String, Object?> raw,
   String field,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   if (!raw.containsKey(field)) return const [];
   final value = raw[field];
-  final values = _stringList(value);
+  final values = jsonStringList(value);
   if (value is! List || value.isEmpty || values.length != value.length) {
     sink.error(
       'vrm.metaInvalidStringList',
@@ -180,7 +190,7 @@ List<String> _parseMetaStringList(
 int? _parseMetaThumbnailImage(
   Map<String, Object?> raw,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   if (!raw.containsKey('thumbnailImage')) return null;
   final value = raw['thumbnailImage'];
@@ -192,7 +202,7 @@ int? _parseMetaThumbnailImage(
     );
     return null;
   }
-  _validateIndex(
+  validateIndex(
     value,
     gltf.images.length,
     sink,
@@ -204,10 +214,10 @@ int? _parseMetaThumbnailImage(
   return value;
 }
 
-void _validateMetaThumbnailDimensions(GltfImage image, _DiagnosticSink sink) {
+void _validateMetaThumbnailDimensions(GltfImage image, DiagnosticSink sink) {
   final bytes = image.data;
   if (bytes == null) return;
-  final dimensions = _imageDimensions(bytes);
+  final dimensions = imageDimensions(bytes);
   if (dimensions == null || dimensions.width == dimensions.height) return;
   sink.error(
     'vrm.metaThumbnailNotSquare',
@@ -219,7 +229,7 @@ void _validateMetaThumbnailDimensions(GltfImage image, _DiagnosticSink sink) {
 bool _parseMetaBool(
   Map<String, Object?> raw,
   String field,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   if (raw.containsKey(field) && raw[field] is! bool) {
     sink.error(
@@ -228,7 +238,7 @@ bool _parseMetaBool(
       jsonPath: '\$.extensions.VRMC_vrm.meta.$field',
     );
   }
-  return _bool(raw[field]) ?? false;
+  return jsonBool(raw[field]) ?? false;
 }
 
 T _parseMetaEnum<T>(
@@ -237,7 +247,7 @@ T _parseMetaEnum<T>(
   List<T> values,
   String Function(T value) specName,
   T fallback,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   if (!raw.containsKey(field)) return fallback;
   final value = raw[field];

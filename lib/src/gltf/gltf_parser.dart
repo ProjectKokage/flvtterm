@@ -1,13 +1,29 @@
-part of '../../flvtterm.dart';
+import 'dart:convert';
+import 'dart:typed_data';
 
-List<GltfBuffer> _parseBuffers(
+import 'package:meta/meta.dart';
+
+import '../diagnostics.dart';
+import '../json_values.dart';
+import '../math_types.dart';
+import 'accessor_reader.dart';
+import 'gltf_camera_types.dart';
+import 'gltf_mesh_types.dart';
+import 'gltf_node_constraint_types.dart';
+import 'gltf_node_constraint_validation.dart';
+import 'gltf_resource_types.dart';
+import 'gltf_scene_types.dart';
+import 'gltf_types.dart';
+
+@internal
+List<GltfBuffer> parseBuffers(
   Object? value,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   Uint8List? binaryChunk,
   GltfUriResolver? uriResolver,
   Map<String, String> uriResolverFailures,
 ) {
-  final list = _list(value);
+  final list = jsonList(value);
   return [
     for (var i = 0; i < list.length; i++)
       _parseBuffer(
@@ -24,24 +40,24 @@ List<GltfBuffer> _parseBuffers(
 GltfBuffer _parseBuffer(
   int index,
   Object? value,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   Uint8List? binaryChunk,
   GltfUriResolver? uriResolver,
   Map<String, String> uriResolverFailures,
 ) {
-  final raw = _object(value);
-  final uri = _string(raw['uri']);
-  final byteLength = _int(raw['byteLength']);
+  final raw = jsonObject(value);
+  final uri = jsonString(raw['uri']);
+  final byteLength = jsonInt(raw['byteLength']);
   final data = index == 0 && binaryChunk != null
       ? binaryChunk
       : _decodeBufferBytes(uri, index, sink, uriResolver, uriResolverFailures);
-  return GltfBuffer._(
+  return GltfBuffer.internal(
     index: index,
-    name: _string(raw['name']),
+    name: jsonString(raw['name']),
     uri: uri,
     byteLength: byteLength,
     data: _declaredBufferBytes(data, byteLength),
-    extensions: _object(raw['extensions']),
+    extensions: jsonObject(raw['extensions']),
     extras: raw['extras'],
   );
 }
@@ -58,7 +74,7 @@ Uint8List? _declaredBufferBytes(Uint8List? bytes, int? byteLength) {
 Uint8List? _decodeBufferBytes(
   String? uri,
   int bufferIndex,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   GltfUriResolver? uriResolver,
   Map<String, String> uriResolverFailures,
 ) {
@@ -88,7 +104,7 @@ Uint8List? _ownedCopy(Uint8List? bytes) =>
 
 Uint8List? _decodeDataUri(
   String uri,
-  _DiagnosticSink sink, {
+  DiagnosticSink sink, {
   required String code,
   required String jsonPath,
   required String missingCommaMessage,
@@ -133,140 +149,148 @@ String _normalizeDataUriBase64Marker(String uri, int comma) {
   return '${metadata.substring(0, metadata.length - 'base64'.length)}base64${uri.substring(comma)}';
 }
 
-List<GltfBufferView> _parseBufferViews(Object? value) {
-  final list = _list(value);
+@internal
+List<GltfBufferView> parseBufferViews(Object? value) {
+  final list = jsonList(value);
   return [
     for (var i = 0; i < list.length; i++)
-      GltfBufferView._(
+      GltfBufferView.internal(
         index: i,
-        name: _string(_object(list[i])['name']),
-        buffer: _int(_object(list[i])['buffer']),
-        byteOffset: _int(_object(list[i])['byteOffset']) ?? 0,
-        byteLength: _int(_object(list[i])['byteLength']),
-        byteStride: _int(_object(list[i])['byteStride']),
-        target: _int(_object(list[i])['target']),
-        extensions: _object(_object(list[i])['extensions']),
-        extras: _object(list[i])['extras'],
+        name: jsonString(jsonObject(list[i])['name']),
+        buffer: jsonInt(jsonObject(list[i])['buffer']),
+        byteOffset: jsonInt(jsonObject(list[i])['byteOffset']) ?? 0,
+        byteLength: jsonInt(jsonObject(list[i])['byteLength']),
+        byteStride: jsonInt(jsonObject(list[i])['byteStride']),
+        target: jsonInt(jsonObject(list[i])['target']),
+        extensions: jsonObject(jsonObject(list[i])['extensions']),
+        extras: jsonObject(list[i])['extras'],
       ),
   ];
 }
 
-List<GltfCamera> _parseCameras(Object? value) {
-  final list = _list(value);
+@internal
+List<GltfCamera> parseCameras(Object? value) {
+  final list = jsonList(value);
   return [
     for (var i = 0; i < list.length; i++)
-      GltfCamera._(
+      GltfCamera.internal(
         index: i,
-        name: _string(_object(list[i])['name']),
-        type: GltfCameraType.fromSpecName(_string(_object(list[i])['type'])),
-        perspective: _parseCameraPerspective(_object(list[i])['perspective']),
-        orthographic: _parseCameraOrthographic(
-          _object(list[i])['orthographic'],
+        name: jsonString(jsonObject(list[i])['name']),
+        type: GltfCameraType.fromSpecName(
+          jsonString(jsonObject(list[i])['type']),
         ),
-        extensions: _object(_object(list[i])['extensions']),
-        extras: _object(list[i])['extras'],
+        perspective: _parseCameraPerspective(
+          jsonObject(list[i])['perspective'],
+        ),
+        orthographic: _parseCameraOrthographic(
+          jsonObject(list[i])['orthographic'],
+        ),
+        extensions: jsonObject(jsonObject(list[i])['extensions']),
+        extras: jsonObject(list[i])['extras'],
       ),
   ];
 }
 
 GltfCameraPerspective? _parseCameraPerspective(Object? value) {
-  final raw = _object(value);
+  final raw = jsonObject(value);
   if (raw.isEmpty) return null;
-  return GltfCameraPerspective._(
-    aspectRatio: _double(raw['aspectRatio']),
-    yfov: _double(raw['yfov']),
-    zfar: _double(raw['zfar']),
-    znear: _double(raw['znear']),
-    extensions: _object(raw['extensions']),
+  return GltfCameraPerspective.internal(
+    aspectRatio: jsonDouble(raw['aspectRatio']),
+    yfov: jsonDouble(raw['yfov']),
+    zfar: jsonDouble(raw['zfar']),
+    znear: jsonDouble(raw['znear']),
+    extensions: jsonObject(raw['extensions']),
     extras: raw['extras'],
   );
 }
 
 GltfCameraOrthographic? _parseCameraOrthographic(Object? value) {
-  final raw = _object(value);
+  final raw = jsonObject(value);
   if (raw.isEmpty) return null;
-  return GltfCameraOrthographic._(
-    xmag: _double(raw['xmag']),
-    ymag: _double(raw['ymag']),
-    zfar: _double(raw['zfar']),
-    znear: _double(raw['znear']),
-    extensions: _object(raw['extensions']),
+  return GltfCameraOrthographic.internal(
+    xmag: jsonDouble(raw['xmag']),
+    ymag: jsonDouble(raw['ymag']),
+    zfar: jsonDouble(raw['zfar']),
+    znear: jsonDouble(raw['znear']),
+    extensions: jsonObject(raw['extensions']),
     extras: raw['extras'],
   );
 }
 
-List<GltfScene> _parseScenes(Object? value, _DiagnosticSink sink) {
-  final list = _list(value);
+@internal
+List<GltfScene> parseScenes(Object? value, DiagnosticSink sink) {
+  final list = jsonList(value);
   return [
     for (var i = 0; i < list.length; i++)
-      GltfScene._(
+      GltfScene.internal(
         index: i,
-        name: _string(_object(list[i])['name']),
+        name: jsonString(jsonObject(list[i])['name']),
         nodes: _parseIndexList(
-          _object(list[i])['nodes'],
+          jsonObject(list[i])['nodes'],
           sink,
           code: 'gltf.invalidSceneNode',
           jsonPath: '\$.scenes[$i].nodes',
           message: 'Scene node references must be integers.',
         ),
-        extensions: _object(_object(list[i])['extensions']),
-        extras: _object(list[i])['extras'],
+        extensions: jsonObject(jsonObject(list[i])['extensions']),
+        extras: jsonObject(list[i])['extras'],
       ),
   ];
 }
 
-List<GltfNode> _parseNodes(Object? value, _DiagnosticSink sink) {
-  final list = _list(value);
+@internal
+List<GltfNode> parseNodes(Object? value, DiagnosticSink sink) {
+  final list = jsonList(value);
   return [
     for (var i = 0; i < list.length; i++)
-      GltfNode._(
+      GltfNode.internal(
         index: i,
-        name: _string(_object(list[i])['name']),
+        name: jsonString(jsonObject(list[i])['name']),
         children: _parseIndexList(
-          _object(list[i])['children'],
+          jsonObject(list[i])['children'],
           sink,
           code: 'gltf.invalidNodeChild',
           jsonPath: '\$.nodes[$i].children',
           message: 'Node child references must be integers.',
         ),
-        camera: _int(_object(list[i])['camera']),
-        mesh: _int(_object(list[i])['mesh']),
-        skin: _int(_object(list[i])['skin']),
-        matrix: _parseNodeMatrix(_object(list[i])['matrix']),
-        translation: _doubleList(_object(list[i])['translation'], 3, const [
-          0,
-          0,
-          0,
-        ]),
-        rotation: _doubleList(_object(list[i])['rotation'], 4, const [
+        camera: jsonInt(jsonObject(list[i])['camera']),
+        mesh: jsonInt(jsonObject(list[i])['mesh']),
+        skin: jsonInt(jsonObject(list[i])['skin']),
+        matrix: _parseNodeMatrix(jsonObject(list[i])['matrix']),
+        translation: jsonDoubleList(
+          jsonObject(list[i])['translation'],
+          3,
+          const [0, 0, 0],
+        ),
+        rotation: jsonDoubleList(jsonObject(list[i])['rotation'], 4, const [
           0,
           0,
           0,
           1,
         ]),
-        scale: _doubleList(_object(list[i])['scale'], 3, const [1, 1, 1]),
-        weights: _doubleValues(_object(list[i])['weights']),
+        scale: jsonDoubleList(jsonObject(list[i])['scale'], 3, const [1, 1, 1]),
+        weights: jsonDoubleValues(jsonObject(list[i])['weights']),
         nodeConstraint: _parseNodeConstraint(
           i,
-          _object(_object(list[i])['extensions']),
+          jsonObject(jsonObject(list[i])['extensions']),
           sink,
         ),
-        extensions: _object(_object(list[i])['extensions']),
-        extras: _object(list[i])['extras'],
+        extensions: jsonObject(jsonObject(list[i])['extensions']),
+        extras: jsonObject(list[i])['extras'],
       ),
   ];
 }
 
 VrmMatrix4? _parseNodeMatrix(Object? value) {
   if (value == null) return null;
-  final values = _doubleList(value, 16, const []);
+  final values = jsonDoubleList(value, 16, const []);
   return values.length == 16 ? VrmMatrix4(values) : null;
 }
 
 VrmNodeConstraint? _parseNodeConstraint(
   int nodeIndex,
   Map<String, Object?> extensions,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   if (!extensions.containsKey('VRMC_node_constraint')) return null;
   final value = extensions['VRMC_node_constraint'];
@@ -274,21 +298,21 @@ VrmNodeConstraint? _parseNodeConstraint(
     sink.error(
       'constraint.invalidExtensionObject',
       'VRMC_node_constraint must be a JSON object.',
-      jsonPath: _nodeConstraintPath(nodeIndex, ''),
+      jsonPath: nodeConstraintPath(nodeIndex, ''),
       gltfNodeIndex: nodeIndex,
     );
     return null;
   }
-  final raw = _object(value);
+  final raw = jsonObject(value);
   if (raw.containsKey('constraint') && raw['constraint'] is! Map) {
     sink.error(
       'constraint.invalidConstraintObject',
       'VRMC_node_constraint.constraint must be a JSON object.',
-      jsonPath: _nodeConstraintPath(nodeIndex, '.constraint'),
+      jsonPath: nodeConstraintPath(nodeIndex, '.constraint'),
       gltfNodeIndex: nodeIndex,
     );
   }
-  final constraint = _object(raw['constraint']);
+  final constraint = jsonObject(raw['constraint']);
   final declaredKinds = [
     if (constraint.containsKey('roll')) VrmNodeConstraintKind.roll,
     if (constraint.containsKey('aim')) VrmNodeConstraintKind.aim,
@@ -299,160 +323,167 @@ VrmNodeConstraint? _parseNodeConstraint(
     sink.error(
       'constraint.invalidKindObject',
       'Node constraint ${kind.specName} must be a JSON object.',
-      jsonPath: _nodeConstraintPath(nodeIndex, '.constraint.${kind.specName}'),
+      jsonPath: nodeConstraintPath(nodeIndex, '.constraint.${kind.specName}'),
       gltfNodeIndex: nodeIndex,
     );
   }
   final parameters = switch (kind) {
-    VrmNodeConstraintKind.roll => _object(constraint['roll']),
-    VrmNodeConstraintKind.aim => _object(constraint['aim']),
-    VrmNodeConstraintKind.rotation => _object(constraint['rotation']),
+    VrmNodeConstraintKind.roll => jsonObject(constraint['roll']),
+    VrmNodeConstraintKind.aim => jsonObject(constraint['aim']),
+    VrmNodeConstraintKind.rotation => jsonObject(constraint['rotation']),
     null => const <String, Object?>{},
   };
-  return VrmNodeConstraint._(
+  return VrmNodeConstraint.internal(
     destinationNode: nodeIndex,
-    specVersion: _string(raw['specVersion']),
+    specVersion: jsonString(raw['specVersion']),
     kind: kind,
     declaredKindCount: declaredKinds.length,
-    source: _int(parameters['source']),
-    weight: _double(parameters['weight']) ?? 1,
+    source: jsonInt(parameters['source']),
+    weight: jsonDouble(parameters['weight']) ?? 1,
     rollAxis: VrmNodeConstraintRollAxis.fromSpecName(
-      _string(parameters['rollAxis']),
+      jsonString(parameters['rollAxis']),
     ),
     aimAxis: VrmNodeConstraintAimAxis.fromSpecName(
-      _string(parameters['aimAxis']),
+      jsonString(parameters['aimAxis']),
     ),
     raw: raw,
   );
 }
 
-List<GltfMesh> _parseMeshes(Object? value) {
-  final list = _list(value);
+@internal
+List<GltfMesh> parseMeshes(Object? value) {
+  final list = jsonList(value);
   return [
     for (var i = 0; i < list.length; i++)
-      GltfMesh._(
+      GltfMesh.internal(
         index: i,
-        name: _string(_object(list[i])['name']),
-        primitives: _parsePrimitives(_object(list[i])['primitives']),
-        weights: _doubleValues(_object(list[i])['weights']),
-        extensions: _object(_object(list[i])['extensions']),
-        extras: _object(list[i])['extras'],
+        name: jsonString(jsonObject(list[i])['name']),
+        primitives: _parsePrimitives(jsonObject(list[i])['primitives']),
+        weights: jsonDoubleValues(jsonObject(list[i])['weights']),
+        extensions: jsonObject(jsonObject(list[i])['extensions']),
+        extras: jsonObject(list[i])['extras'],
       ),
   ];
 }
 
 List<GltfMeshPrimitive> _parsePrimitives(Object? value) {
-  final list = _list(value);
+  final list = jsonList(value);
   return [
     for (final primitive in list)
-      GltfMeshPrimitive._(
-        mode: _int(_object(primitive)['mode']) ?? 4,
-        material: _int(_object(primitive)['material']),
-        indices: _int(_object(primitive)['indices']),
-        attributes: _intMap(_object(primitive)['attributes']),
+      GltfMeshPrimitive.internal(
+        mode: jsonInt(jsonObject(primitive)['mode']) ?? 4,
+        material: jsonInt(jsonObject(primitive)['material']),
+        indices: jsonInt(jsonObject(primitive)['indices']),
+        attributes: jsonIntMap(jsonObject(primitive)['attributes']),
         targets: [
-          for (final target in _list(_object(primitive)['targets']))
-            _intMap(target),
+          for (final target in jsonList(jsonObject(primitive)['targets']))
+            jsonIntMap(target),
         ],
-        extensions: _object(_object(primitive)['extensions']),
-        extras: _object(primitive)['extras'],
+        extensions: jsonObject(jsonObject(primitive)['extensions']),
+        extras: jsonObject(primitive)['extras'],
       ),
   ];
 }
 
-List<GltfSkin> _parseSkins(Object? value, _DiagnosticSink sink) {
-  final list = _list(value);
+@internal
+List<GltfSkin> parseSkins(Object? value, DiagnosticSink sink) {
+  final list = jsonList(value);
   return [
     for (var i = 0; i < list.length; i++)
-      GltfSkin._(
+      GltfSkin.internal(
         index: i,
-        name: _string(_object(list[i])['name']),
+        name: jsonString(jsonObject(list[i])['name']),
         joints: _parseIndexList(
-          _object(list[i])['joints'],
+          jsonObject(list[i])['joints'],
           sink,
           code: 'gltf.invalidSkinJoint',
           jsonPath: '\$.skins[$i].joints',
           message: 'Skin joint references must be integers.',
         ),
-        skeleton: _int(_object(list[i])['skeleton']),
-        inverseBindMatrices: _int(_object(list[i])['inverseBindMatrices']),
-        extensions: _object(_object(list[i])['extensions']),
-        extras: _object(list[i])['extras'],
+        skeleton: jsonInt(jsonObject(list[i])['skeleton']),
+        inverseBindMatrices: jsonInt(
+          jsonObject(list[i])['inverseBindMatrices'],
+        ),
+        extensions: jsonObject(jsonObject(list[i])['extensions']),
+        extras: jsonObject(list[i])['extras'],
       ),
   ];
 }
 
-List<GltfAccessor> _parseAccessors(Object? value) {
-  final list = _list(value);
+@internal
+List<GltfAccessor> parseAccessors(Object? value) {
+  final list = jsonList(value);
   return [
     for (var i = 0; i < list.length; i++)
-      GltfAccessor._(
+      GltfAccessor.internal(
         index: i,
-        name: _string(_object(list[i])['name']),
-        bufferView: _int(_object(list[i])['bufferView']),
-        byteOffset: _int(_object(list[i])['byteOffset']) ?? 0,
-        count: _int(_object(list[i])['count']),
-        componentType: _int(_object(list[i])['componentType']),
-        type: _string(_object(list[i])['type']),
-        normalized: _bool(_object(list[i])['normalized']) ?? false,
-        minimum: _object(list[i]).containsKey('min')
-            ? _doubleValues(_object(list[i])['min'])
+        name: jsonString(jsonObject(list[i])['name']),
+        bufferView: jsonInt(jsonObject(list[i])['bufferView']),
+        byteOffset: jsonInt(jsonObject(list[i])['byteOffset']) ?? 0,
+        count: jsonInt(jsonObject(list[i])['count']),
+        componentType: jsonInt(jsonObject(list[i])['componentType']),
+        type: jsonString(jsonObject(list[i])['type']),
+        normalized: jsonBool(jsonObject(list[i])['normalized']) ?? false,
+        minimum: jsonObject(list[i]).containsKey('min')
+            ? jsonDoubleValues(jsonObject(list[i])['min'])
             : null,
-        maximum: _object(list[i]).containsKey('max')
-            ? _doubleValues(_object(list[i])['max'])
+        maximum: jsonObject(list[i]).containsKey('max')
+            ? jsonDoubleValues(jsonObject(list[i])['max'])
             : null,
-        sparse: _parseAccessorSparse(_object(list[i])['sparse']),
-        extensions: _object(_object(list[i])['extensions']),
-        extras: _object(list[i])['extras'],
+        sparse: _parseAccessorSparse(jsonObject(list[i])['sparse']),
+        extensions: jsonObject(jsonObject(list[i])['extensions']),
+        extras: jsonObject(list[i])['extras'],
       ),
   ];
 }
 
 GltfAccessorSparse? _parseAccessorSparse(Object? value) {
-  final raw = _object(value);
+  final raw = jsonObject(value);
   if (raw.isEmpty) return null;
-  final indices = _object(raw['indices']);
-  final values = _object(raw['values']);
-  return GltfAccessorSparse._(
-    count: _int(raw['count']),
-    indicesBufferView: _int(indices['bufferView']),
-    indicesByteOffset: _int(indices['byteOffset']) ?? 0,
-    indicesComponentType: _int(indices['componentType']),
-    indicesExtensions: _object(indices['extensions']),
+  final indices = jsonObject(raw['indices']);
+  final values = jsonObject(raw['values']);
+  return GltfAccessorSparse.internal(
+    count: jsonInt(raw['count']),
+    indicesBufferView: jsonInt(indices['bufferView']),
+    indicesByteOffset: jsonInt(indices['byteOffset']) ?? 0,
+    indicesComponentType: jsonInt(indices['componentType']),
+    indicesExtensions: jsonObject(indices['extensions']),
     indicesExtras: indices['extras'],
-    valuesBufferView: _int(values['bufferView']),
-    valuesByteOffset: _int(values['byteOffset']) ?? 0,
-    valuesExtensions: _object(values['extensions']),
+    valuesBufferView: jsonInt(values['bufferView']),
+    valuesByteOffset: jsonInt(values['byteOffset']) ?? 0,
+    valuesExtensions: jsonObject(values['extensions']),
     valuesExtras: values['extras'],
-    extensions: _object(raw['extensions']),
+    extensions: jsonObject(raw['extensions']),
     extras: raw['extras'],
   );
 }
 
-List<GltfTexture> _parseTextures(Object? value) {
-  final list = _list(value);
+@internal
+List<GltfTexture> parseTextures(Object? value) {
+  final list = jsonList(value);
   return [
     for (var i = 0; i < list.length; i++)
-      GltfTexture._(
+      GltfTexture.internal(
         index: i,
-        name: _string(_object(list[i])['name']),
-        source: _int(_object(list[i])['source']),
-        sampler: _int(_object(list[i])['sampler']),
-        extensions: _object(_object(list[i])['extensions']),
-        extras: _object(list[i])['extras'],
+        name: jsonString(jsonObject(list[i])['name']),
+        source: jsonInt(jsonObject(list[i])['source']),
+        sampler: jsonInt(jsonObject(list[i])['sampler']),
+        extensions: jsonObject(jsonObject(list[i])['extensions']),
+        extras: jsonObject(list[i])['extras'],
       ),
   ];
 }
 
-List<GltfImage> _parseImages(
+@internal
+List<GltfImage> parseImages(
   Object? value,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   List<GltfBuffer> buffers,
   List<GltfBufferView> bufferViews,
   GltfUriResolver? uriResolver,
   Map<String, String> uriResolverFailures,
 ) {
-  final list = _list(value);
+  final list = jsonList(value);
   return [
     for (var i = 0; i < list.length; i++)
       _parseImage(
@@ -470,25 +501,25 @@ List<GltfImage> _parseImages(
 GltfImage _parseImage(
   int index,
   Object? value,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   List<GltfBuffer> buffers,
   List<GltfBufferView> bufferViews,
   GltfUriResolver? uriResolver,
   Map<String, String> uriResolverFailures,
 ) {
-  final raw = _object(value);
-  final uri = _string(raw['uri']);
-  final bufferView = _int(raw['bufferView']);
-  return GltfImage._(
+  final raw = jsonObject(value);
+  final uri = jsonString(raw['uri']);
+  final bufferView = jsonInt(raw['bufferView']);
+  return GltfImage.internal(
     index: index,
-    name: _string(raw['name']),
+    name: jsonString(raw['name']),
     uri: uri,
     bufferView: bufferView,
-    mimeType: _string(raw['mimeType']),
+    mimeType: jsonString(raw['mimeType']),
     data:
         _decodeImageBytes(uri, index, sink, uriResolver, uriResolverFailures) ??
-        _bufferViewBytes(buffers, bufferViews, bufferView),
-    extensions: _object(raw['extensions']),
+        gltfBufferViewBytes(buffers, bufferViews, bufferView),
+    extensions: jsonObject(raw['extensions']),
     extras: raw['extras'],
   );
 }
@@ -496,7 +527,7 @@ GltfImage _parseImage(
 Uint8List? _decodeImageBytes(
   String? uri,
   int imageIndex,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   GltfUriResolver? uriResolver,
   Map<String, String> uriResolverFailures,
 ) {
@@ -520,28 +551,30 @@ Uint8List? _decodeImageBytes(
   }
 }
 
-List<GltfSampler> _parseSamplers(Object? value) {
-  final list = _list(value);
+@internal
+List<GltfSampler> parseSamplers(Object? value) {
+  final list = jsonList(value);
   return [
     for (var i = 0; i < list.length; i++)
-      GltfSampler._(
+      GltfSampler.internal(
         index: i,
-        name: _string(_object(list[i])['name']),
-        magFilter: _int(_object(list[i])['magFilter']),
-        minFilter: _int(_object(list[i])['minFilter']),
-        wrapS: _int(_object(list[i])['wrapS']) ?? 10497,
-        wrapT: _int(_object(list[i])['wrapT']) ?? 10497,
-        extensions: _object(_object(list[i])['extensions']),
-        extras: _object(list[i])['extras'],
+        name: jsonString(jsonObject(list[i])['name']),
+        magFilter: jsonInt(jsonObject(list[i])['magFilter']),
+        minFilter: jsonInt(jsonObject(list[i])['minFilter']),
+        wrapS: jsonInt(jsonObject(list[i])['wrapS']) ?? 10497,
+        wrapT: jsonInt(jsonObject(list[i])['wrapT']) ?? 10497,
+        extensions: jsonObject(jsonObject(list[i])['extensions']),
+        extras: jsonObject(list[i])['extras'],
       ),
   ];
 }
 
-List<String> _parseRootStringList(
+@internal
+List<String> parseRootStringList(
   Map<String, Object?> json,
   String key,
   String code,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
 ) {
   if (!json.containsKey(key)) return const [];
   final value = json[key];
@@ -569,7 +602,7 @@ List<String> _parseRootStringList(
 
 List<int> _parseIndexList(
   Object? value,
-  _DiagnosticSink sink, {
+  DiagnosticSink sink, {
   required String code,
   required String jsonPath,
   required String message,

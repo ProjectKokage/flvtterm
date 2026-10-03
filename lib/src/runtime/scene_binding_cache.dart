@@ -1,6 +1,14 @@
-part of '../../flvtterm.dart';
+import 'package:meta/meta.dart';
 
-VrmSceneBinding _resolveSceneBinding(VrmModel model, VrmSceneBinding binding) =>
+import '../math_types.dart';
+import '../matrix_math.dart';
+import '../vrm/vrm_assets.dart';
+import '../vrm/vrm_humanoid_parser.dart';
+import 'runtime.dart';
+import 'scene_binding.dart';
+
+@internal
+VrmSceneBinding resolveSceneBinding(VrmModel model, VrmSceneBinding binding) =>
     binding is VrmModelRootBinding
     ? _ResolvedModelRootBinding(model, binding)
     : _ResolvedFallbackModelRootBinding(model, binding);
@@ -110,7 +118,7 @@ final class _ResolvedModelRootBinding
 
   @override
   set modelRootMotionTransform(VrmMatrix4 value) {
-    _rootDelegate.modelRootMotionTransform = _multiplyMatrices(
+    _rootDelegate.modelRootMotionTransform = multiplyMatrices(
       value,
       _sourceToRuntimeTransform,
     );
@@ -123,9 +131,9 @@ final class _ResolvedFallbackModelRootBinding
     : _resolved = _ResolvedSceneBinding(model, delegate),
       _worldDelegate = delegate is VrmModelWorldBinding ? delegate : null,
       _sourceToRuntimeTransform = model.sourceToRuntimeTransform,
-      _sceneRoots = List.unmodifiable(_activeSceneRootNodeIndices(model.gltf)) {
+      _sceneRoots = List.unmodifiable(activeSceneRootNodeIndices(model.gltf)) {
     final roots = _sceneRoots.toSet();
-    final parents = _nodeParents(model.gltf);
+    final parents = nodeParents(model.gltf);
     _nodes = List.unmodifiable([
       for (final node in model.gltf.nodes)
         _RootTransformNodeBinding(
@@ -150,10 +158,10 @@ final class _ResolvedFallbackModelRootBinding
 
   @override
   void commitFrame() {
-    if (!_isIdentityMatrix(_modelRootMotionTransform)) {
+    if (!isIdentityMatrix(_modelRootMotionTransform)) {
       for (final nodeIndex in _sceneRoots) {
         final node = _resolved.nodeByGltfIndex(nodeIndex);
-        node.localTransform = _multiplyMatrices(
+        node.localTransform = multiplyMatrices(
           _modelRootMotionTransform,
           node.localTransform,
         );
@@ -181,12 +189,12 @@ final class _ResolvedFallbackModelRootBinding
     final world = _worldDelegate?.modelWorldTransform;
     return world == null
         ? _modelRootMotionTransform
-        : _multiplyMatrices(world, _modelRootMotionTransform);
+        : multiplyMatrices(world, _modelRootMotionTransform);
   }
 
   @override
   set modelRootMotionTransform(VrmMatrix4 value) {
-    _modelRootMotionTransform = _multiplyMatrices(
+    _modelRootMotionTransform = multiplyMatrices(
       value,
       _sourceToRuntimeTransform,
     );
@@ -219,23 +227,23 @@ final class _RootTransformNodeBinding implements VrmNodeBinding {
   VrmMatrix4 get worldTransform {
     final scenePath = _scenePath;
     if (scenePath == null || scenePath.isEmpty) {
-      return _multiplyMatrices(_rootTransform(), _delegate.worldTransform);
+      return multiplyMatrices(_rootTransform(), _delegate.worldTransform);
     }
     final sceneRoot = scenePath.first;
-    final inverseRootLocal = _tryInvertAffineMatrix(sceneRoot.localTransform);
+    final inverseRootLocal = tryInvertAffineMatrix(sceneRoot.localTransform);
     if (inverseRootLocal == null) {
-      return _multiplyMatrices(_rootTransform(), _delegate.worldTransform);
+      return multiplyMatrices(_rootTransform(), _delegate.worldTransform);
     }
-    final externalWorld = _multiplyMatrices(
+    final externalWorld = multiplyMatrices(
       sceneRoot.worldTransform,
       inverseRootLocal,
     );
     var modelPath = VrmMatrix4.identity();
     for (final binding in scenePath) {
-      modelPath = _multiplyMatrices(modelPath, binding.localTransform);
+      modelPath = multiplyMatrices(modelPath, binding.localTransform);
     }
-    return _multiplyMatrices(
-      _multiplyMatrices(externalWorld, _rootTransform()),
+    return multiplyMatrices(
+      multiplyMatrices(externalWorld, _rootTransform()),
       modelPath,
     );
   }

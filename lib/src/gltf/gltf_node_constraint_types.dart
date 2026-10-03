@@ -1,4 +1,6 @@
-part of '../../flvtterm.dart';
+import 'package:meta/meta.dart';
+
+import '../json_values.dart';
 
 /// VRMC_node_constraint kind.
 enum VrmNodeConstraintKind {
@@ -78,7 +80,9 @@ enum VrmNodeConstraintAimAxis {
 
 /// Parsed `VRMC_node_constraint` extension on a glTF node.
 final class VrmNodeConstraint {
-  VrmNodeConstraint._({
+  /// Creates the value from parsed data. Only flvtterm calls this.
+  @internal
+  VrmNodeConstraint.internal({
     required this.destinationNode,
     required this.specVersion,
     required this.kind,
@@ -88,7 +92,7 @@ final class VrmNodeConstraint {
     required this.rollAxis,
     required this.aimAxis,
     required Map<String, Object?> raw,
-  }) : raw = _immutableJsonValue(raw) as Map<String, Object?>;
+  }) : raw = immutableJsonValue(raw) as Map<String, Object?>;
 
   /// Node index being constrained.
   final int destinationNode;

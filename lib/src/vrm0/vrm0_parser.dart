@@ -1,4 +1,11 @@
-part of '../../flvtterm.dart';
+import 'package:meta/meta.dart';
+
+import '../diagnostics.dart';
+import '../gltf/gltf_types.dart';
+import '../json_values.dart';
+import '../math_types.dart';
+import '../vrm/vrm_enums.dart';
+import 'vrm0_types.dart';
 
 const _vrm0Path = r'$.extensions.VRM';
 
@@ -49,9 +56,10 @@ const _vrm0BlendShapePresets = {
   'surprised',
 };
 
-Vrm0Extension? _parseVrm0Extension(
+@internal
+Vrm0Extension? parseVrm0Extension(
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   VrmValidationMode mode,
 ) {
   if (!gltf.extensions.containsKey('VRM')) return null;
@@ -65,7 +73,7 @@ Vrm0Extension? _parseVrm0Extension(
     return null;
   }
 
-  final raw = _object(extensionValue);
+  final raw = jsonObject(extensionValue);
   String? specVersion;
   if (!raw.containsKey('specVersion')) {
     const code = 'vrm0.missingSpecVersion';
@@ -96,7 +104,7 @@ Vrm0Extension? _parseVrm0Extension(
     specVersion = value;
   }
 
-  return Vrm0Extension._(
+  return Vrm0Extension.internal(
     exporterVersion: _vrm0String(raw, 'exporterVersion', sink, _vrm0Path),
     specVersion: specVersion,
     meta: raw.containsKey('meta')
@@ -144,12 +152,12 @@ Vrm0Extension? _parseVrm0Extension(
 Vrm0Meta? _parseVrm0Meta(
   Object? value,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path,
 ) {
   final raw = _vrm0Object(value, sink, path, 'VRM 0.x meta');
   if (raw == null) return null;
-  return Vrm0Meta._(
+  return Vrm0Meta.internal(
     title: _vrm0String(raw, 'title', sink, path),
     version: _vrm0String(raw, 'version', sink, path),
     author: _vrm0String(raw, 'author', sink, path),
@@ -208,7 +216,7 @@ Vrm0Meta? _parseVrm0Meta(
 Vrm0Humanoid? _parseVrm0Humanoid(
   Object? value,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path,
 ) {
   final raw = _vrm0Object(value, sink, path, 'VRM 0.x humanoid');
@@ -229,7 +237,7 @@ Vrm0Humanoid? _parseVrm0Humanoid(
       }
     }
   }
-  return Vrm0Humanoid._(
+  return Vrm0Humanoid.internal(
     humanBones: humanBones,
     armStretch: _vrm0Number(raw, 'armStretch', sink, path),
     legStretch: _vrm0Number(raw, 'legStretch', sink, path),
@@ -246,7 +254,7 @@ Vrm0Humanoid? _parseVrm0Humanoid(
 Vrm0HumanBone? _parseVrm0HumanBone(
   Object? value,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path, {
   required int sourceIndex,
 }) {
@@ -261,7 +269,7 @@ Vrm0HumanBone? _parseVrm0HumanBone(
       jsonPath: '$path.bone',
     );
   }
-  return Vrm0HumanBone._(
+  return Vrm0HumanBone.internal(
     sourceIndex: sourceIndex,
     bone: bone,
     normalizedBone: normalizedBone,
@@ -290,7 +298,7 @@ VrmHumanoidBone? _vrm0NormalizeBone(String bone) {
 Vrm0FirstPerson? _parseVrm0FirstPerson(
   Object? value,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path,
 ) {
   final raw = _vrm0Object(value, sink, path, 'VRM 0.x firstPerson');
@@ -315,7 +323,7 @@ Vrm0FirstPerson? _parseVrm0FirstPerson(
       }
     }
   }
-  return Vrm0FirstPerson._(
+  return Vrm0FirstPerson.internal(
     firstPersonBone: _vrm0Index(
       raw,
       'firstPersonBone',
@@ -374,13 +382,13 @@ Vrm0FirstPerson? _parseVrm0FirstPerson(
 Vrm0MeshAnnotation? _parseVrm0MeshAnnotation(
   Object? value,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path, {
   required int sourceIndex,
 }) {
   final raw = _vrm0Object(value, sink, path, 'VRM 0.x mesh annotation');
   if (raw == null) return null;
-  return Vrm0MeshAnnotation._(
+  return Vrm0MeshAnnotation.internal(
     sourceIndex: sourceIndex,
     mesh: _vrm0Index(raw, 'mesh', gltf.meshes.length, sink, path, kind: 'mesh'),
     firstPersonFlag: _vrm0EnumString(
@@ -396,7 +404,7 @@ Vrm0MeshAnnotation? _parseVrm0MeshAnnotation(
 
 Vrm0DegreeMap? _parseVrm0DegreeMap(
   Object? value,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path,
 ) {
   final raw = _vrm0Object(value, sink, path, 'VRM 0.x degree map');
@@ -426,7 +434,7 @@ Vrm0DegreeMap? _parseVrm0DegreeMap(
   }
   final xRange = _vrm0Number(raw, 'xRange', sink, path);
   final yRange = _vrm0Number(raw, 'yRange', sink, path);
-  return Vrm0DegreeMap._(
+  return Vrm0DegreeMap.internal(
     curve: curve,
     xRange: xRange,
     yRange: yRange,
@@ -437,7 +445,7 @@ Vrm0DegreeMap? _parseVrm0DegreeMap(
 Vrm0BlendShapeMaster? _parseVrm0BlendShapeMaster(
   Object? value,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path,
 ) {
   final raw = _vrm0Object(value, sink, path, 'VRM 0.x blendShapeMaster');
@@ -462,13 +470,13 @@ Vrm0BlendShapeMaster? _parseVrm0BlendShapeMaster(
       }
     }
   }
-  return Vrm0BlendShapeMaster._(blendShapeGroups: groups, raw: raw);
+  return Vrm0BlendShapeMaster.internal(blendShapeGroups: groups, raw: raw);
 }
 
 Vrm0BlendShapeGroup? _parseVrm0BlendShapeGroup(
   Object? value,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path, {
   required int sourceIndex,
 }) {
@@ -509,7 +517,7 @@ Vrm0BlendShapeGroup? _parseVrm0BlendShapeGroup(
       }
     }
   }
-  return Vrm0BlendShapeGroup._(
+  return Vrm0BlendShapeGroup.internal(
     sourceIndex: sourceIndex,
     name: _vrm0String(raw, 'name', sink, path),
     presetName: _vrm0EnumString(
@@ -529,7 +537,7 @@ Vrm0BlendShapeGroup? _parseVrm0BlendShapeGroup(
 Vrm0BlendShapeBind? _parseVrm0BlendShapeBind(
   Object? value,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path, {
   required int sourceIndex,
 }) {
@@ -558,7 +566,7 @@ Vrm0BlendShapeBind? _parseVrm0BlendShapeBind(
       morphIndex = null;
     }
   }
-  return Vrm0BlendShapeBind._(
+  return Vrm0BlendShapeBind.internal(
     sourceIndex: sourceIndex,
     mesh: mesh,
     index: morphIndex,
@@ -569,13 +577,13 @@ Vrm0BlendShapeBind? _parseVrm0BlendShapeBind(
 
 Vrm0MaterialValueBind? _parseVrm0MaterialValueBind(
   Object? value,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path, {
   required int sourceIndex,
 }) {
   final raw = _vrm0Object(value, sink, path, 'VRM 0.x material-value bind');
   if (raw == null) return null;
-  return Vrm0MaterialValueBind._(
+  return Vrm0MaterialValueBind.internal(
     sourceIndex: sourceIndex,
     materialName: _vrm0String(raw, 'materialName', sink, path),
     propertyName: _vrm0String(raw, 'propertyName', sink, path),
@@ -589,7 +597,7 @@ Vrm0MaterialValueBind? _parseVrm0MaterialValueBind(
 Vrm0SecondaryAnimation? _parseVrm0SecondaryAnimation(
   Object? value,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path,
 ) {
   final raw = _vrm0Object(value, sink, path, 'VRM 0.x secondaryAnimation');
@@ -617,7 +625,7 @@ Vrm0SecondaryAnimation? _parseVrm0SecondaryAnimation(
         // placeholder for malformed entries instead of shifting later groups.
         colliderGroups.add(
           group ??
-              Vrm0ColliderGroup._(
+              Vrm0ColliderGroup.internal(
                 sourceIndex: i,
                 node: null,
                 colliders: const [],
@@ -646,7 +654,7 @@ Vrm0SecondaryAnimation? _parseVrm0SecondaryAnimation(
     }
   }
 
-  return Vrm0SecondaryAnimation._(
+  return Vrm0SecondaryAnimation.internal(
     boneGroups: boneGroups,
     colliderGroups: colliderGroups,
     raw: raw,
@@ -657,7 +665,7 @@ Vrm0SpringBoneGroup? _parseVrm0SpringBoneGroup(
   Object? value,
   GltfAsset gltf,
   int colliderGroupCount,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path, {
   required int sourceIndex,
 }) {
@@ -681,7 +689,7 @@ Vrm0SpringBoneGroup? _parseVrm0SpringBoneGroup(
           kind: 'collider group',
         )
       : (values: const <int>[], sourceIndices: const <int>[]);
-  return Vrm0SpringBoneGroup._(
+  return Vrm0SpringBoneGroup.internal(
     sourceIndex: sourceIndex,
     comment: _vrm0String(raw, 'comment', sink, path),
     stiffiness: _vrm0Number(raw, 'stiffiness', sink, path, minimum: 0),
@@ -716,7 +724,7 @@ Vrm0SpringBoneGroup? _parseVrm0SpringBoneGroup(
 Vrm0ColliderGroup? _parseVrm0ColliderGroup(
   Object? value,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path, {
   required int sourceIndex,
 }) {
@@ -737,7 +745,7 @@ Vrm0ColliderGroup? _parseVrm0ColliderGroup(
       }
     }
   }
-  return Vrm0ColliderGroup._(
+  return Vrm0ColliderGroup.internal(
     sourceIndex: sourceIndex,
     node: _vrm0Index(raw, 'node', gltf.nodes.length, sink, path, kind: 'node'),
     colliders: colliders,
@@ -747,13 +755,13 @@ Vrm0ColliderGroup? _parseVrm0ColliderGroup(
 
 Vrm0Collider? _parseVrm0Collider(
   Object? value,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path, {
   required int sourceIndex,
 }) {
   final raw = _vrm0Object(value, sink, path, 'VRM 0.x collider');
   if (raw == null) return null;
-  return Vrm0Collider._(
+  return Vrm0Collider.internal(
     sourceIndex: sourceIndex,
     offset: _vrm0VectorMember(raw, 'offset', sink, path),
     radius: _vrm0Number(raw, 'radius', sink, path, minimum: 0),
@@ -764,7 +772,7 @@ Vrm0Collider? _parseVrm0Collider(
 List<Vrm0MaterialProperty> _parseVrm0MaterialProperties(
   Object? value,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path,
 ) {
   final values = _vrm0Array(value, sink, path);
@@ -779,7 +787,7 @@ List<Vrm0MaterialProperty> _parseVrm0MaterialProperties(
   return List<Vrm0MaterialProperty>.unmodifiable([
     for (var i = 0; i < values.length; i++)
       _parseVrm0MaterialProperty(values[i], gltf, sink, '$path[$i]', i) ??
-          Vrm0MaterialProperty._(
+          Vrm0MaterialProperty.internal(
             name: null,
             shader: null,
             renderQueue: null,
@@ -796,13 +804,13 @@ List<Vrm0MaterialProperty> _parseVrm0MaterialProperties(
 Vrm0MaterialProperty? _parseVrm0MaterialProperty(
   Object? value,
   GltfAsset gltf,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path,
   int materialIndex,
 ) {
   final raw = _vrm0Object(value, sink, path, 'VRM 0.x material property');
   if (raw == null) return null;
-  return Vrm0MaterialProperty._(
+  return Vrm0MaterialProperty.internal(
     name: _vrm0String(raw, 'name', sink, path),
     shader: _vrm0String(raw, 'shader', sink, path),
     renderQueue: _vrm0Integer(raw, 'renderQueue', sink, path),
@@ -848,11 +856,11 @@ Vrm0MaterialProperty? _parseVrm0MaterialProperty(
 
 Map<String, Object?>? _vrm0Object(
   Object? value,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path,
   String description,
 ) {
-  if (value is Map) return _object(value);
+  if (value is Map) return jsonObject(value);
   sink.error(
     'vrm0.invalidObject',
     '$description must be a JSON object.',
@@ -861,8 +869,8 @@ Map<String, Object?>? _vrm0Object(
   return null;
 }
 
-List<Object?>? _vrm0Array(Object? value, _DiagnosticSink sink, String path) {
-  if (value is List) return _list(value);
+List<Object?>? _vrm0Array(Object? value, DiagnosticSink sink, String path) {
+  if (value is List) return jsonList(value);
   sink.error(
     'vrm0.invalidArray',
     'The value must be a JSON array.',
@@ -874,7 +882,7 @@ List<Object?>? _vrm0Array(Object? value, _DiagnosticSink sink, String path) {
 String? _vrm0String(
   Map<String, Object?> raw,
   String field,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path,
 ) {
   if (!raw.containsKey(field)) return null;
@@ -892,7 +900,7 @@ String? _vrm0EnumString(
   Map<String, Object?> raw,
   String field,
   Set<String> allowed,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path,
 ) {
   final value = _vrm0String(raw, field, sink, path);
@@ -919,7 +927,7 @@ String? _vrm0EnumString(
 bool? _vrm0Boolean(
   Map<String, Object?> raw,
   String field,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path,
 ) {
   if (!raw.containsKey(field)) return null;
@@ -936,7 +944,7 @@ bool? _vrm0Boolean(
 int? _vrm0Integer(
   Map<String, Object?> raw,
   String field,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path,
 ) {
   if (!raw.containsKey(field)) return null;
@@ -953,7 +961,7 @@ int? _vrm0Integer(
 int? _vrm0NonNegativeInteger(
   Map<String, Object?> raw,
   String field,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path,
 ) {
   final value = _vrm0Integer(raw, field, sink, path);
@@ -971,7 +979,7 @@ int? _vrm0NonNegativeInteger(
 double? _vrm0Number(
   Map<String, Object?> raw,
   String field,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path, {
   double? minimum,
   double? maximum,
@@ -989,7 +997,7 @@ double? _vrm0Number(
 
 double? _vrm0NumberValue(
   Object? value,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path,
   String description, {
   double? minimum,
@@ -1037,7 +1045,7 @@ int? _vrm0Index(
   Map<String, Object?> raw,
   String field,
   int count,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path, {
   required String kind,
   bool allowMinusOne = false,
@@ -1060,7 +1068,7 @@ int? _vrm0Index(
 ({List<int> values, List<int> sourceIndices}) _vrm0IndexList(
   Object? value,
   int count,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path, {
   required String kind,
 }) {
@@ -1101,14 +1109,14 @@ int? _vrm0Index(
 VrmVector3? _vrm0VectorMember(
   Map<String, Object?> raw,
   String field,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path,
 ) {
   if (!raw.containsKey(field)) return null;
   return _parseVrm0Vector(raw[field], sink, '$path.$field');
 }
 
-VrmVector3? _parseVrm0Vector(Object? value, _DiagnosticSink sink, String path) {
+VrmVector3? _parseVrm0Vector(Object? value, DiagnosticSink sink, String path) {
   final raw = _vrm0Object(value, sink, path, 'VRM 0.x vector');
   if (raw == null) return null;
   final x = raw.containsKey('x')
@@ -1134,7 +1142,7 @@ VrmVector3? _parseVrm0Vector(Object? value, _DiagnosticSink sink, String path) {
 
 List<double> _vrm0NumberList(
   Object? value,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path, {
   int? gltfMaterialIndex,
 }) {
@@ -1161,7 +1169,7 @@ List<double> _vrm0NumberList(
 
 Map<String, double> _vrm0NumberMap(
   Object? value,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path,
   int materialIndex,
 ) {
@@ -1183,7 +1191,7 @@ Map<String, double> _vrm0NumberMap(
 
 Map<String, List<double>> _vrm0VectorMap(
   Object? value,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path,
   int materialIndex,
 ) {
@@ -1216,7 +1224,7 @@ Map<String, List<double>> _vrm0VectorMap(
 Map<String, int> _vrm0TextureMap(
   Object? value,
   int textureCount,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path,
   int materialIndex,
 ) {
@@ -1254,7 +1262,7 @@ Map<String, int> _vrm0TextureMap(
 
 Map<String, bool> _vrm0BooleanMap(
   Object? value,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path,
   int materialIndex,
 ) {
@@ -1278,7 +1286,7 @@ Map<String, bool> _vrm0BooleanMap(
 
 Map<String, String> _vrm0StringMap(
   Object? value,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path,
   int materialIndex,
 ) {
@@ -1302,11 +1310,11 @@ Map<String, String> _vrm0StringMap(
 
 Map<String, Object?>? _vrm0Map(
   Object? value,
-  _DiagnosticSink sink,
+  DiagnosticSink sink,
   String path,
   int materialIndex,
 ) {
-  if (value is Map) return _object(value);
+  if (value is Map) return jsonObject(value);
   sink.error(
     'vrm0.invalidMap',
     'Material property map must be a JSON object.',

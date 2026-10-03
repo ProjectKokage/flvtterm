@@ -1,7 +1,19 @@
-part of '../../flvtterm.dart';
+import 'package:meta/meta.dart';
 
-VrmExtension? _parseVrmExtension(GltfAsset gltf, _DiagnosticSink sink) {
-  final rootExtensions = _object(gltf.json['extensions']);
+import '../diagnostics.dart';
+import '../gltf/gltf_types.dart';
+import '../json_values.dart';
+import 'vrm_enums.dart';
+import 'vrm_expression_parser.dart';
+import 'vrm_first_person_parser.dart';
+import 'vrm_humanoid_parser.dart';
+import 'vrm_look_at_parser.dart';
+import 'vrm_meta_parser.dart';
+import 'vrm_types.dart';
+
+@internal
+VrmExtension? parseVrmExtension(GltfAsset gltf, DiagnosticSink sink) {
+  final rootExtensions = jsonObject(gltf.json['extensions']);
   if (rootExtensions.containsKey('VRMC_vrm_animation')) {
     sink.warning(
       'vrm.embeddedVrmaExtension',
@@ -18,7 +30,7 @@ VrmExtension? _parseVrmExtension(GltfAsset gltf, _DiagnosticSink sink) {
     );
     return null;
   }
-  final raw = _object(extensionValue);
+  final raw = jsonObject(extensionValue);
   if (extensionValue == null) {
     sink.error(
       'vrm.missingExtension',
@@ -28,7 +40,7 @@ VrmExtension? _parseVrmExtension(GltfAsset gltf, _DiagnosticSink sink) {
     return null;
   }
 
-  final specVersion = _string(raw['specVersion']);
+  final specVersion = jsonString(raw['specVersion']);
   if (!raw.containsKey('specVersion')) {
     sink.error(
       'vrm.missingSpecVersion',
@@ -57,25 +69,25 @@ VrmExtension? _parseVrmExtension(GltfAsset gltf, _DiagnosticSink sink) {
     );
   }
 
-  final meta = _parseMeta(
+  final meta = parseMeta(
     raw.containsKey('meta') ? raw['meta'] : const <String, Object?>{},
     gltf,
     sink,
   );
-  final humanoid = _parseHumanoid(
+  final humanoid = parseHumanoid(
     raw.containsKey('humanoid') ? raw['humanoid'] : const <String, Object?>{},
     gltf,
     sink,
     r'$.extensions.VRMC_vrm.humanoid',
   );
-  final firstPerson = _parseFirstPerson(
+  final firstPerson = parseFirstPerson(
     raw.containsKey('firstPerson')
         ? raw['firstPerson']
         : const <String, Object?>{},
     gltf,
     sink,
   );
-  final expressions = _parseExpressions(
+  final expressions = parseExpressions(
     raw.containsKey('expressions')
         ? raw['expressions']
         : const <String, Object?>{},
@@ -83,10 +95,10 @@ VrmExtension? _parseVrmExtension(GltfAsset gltf, _DiagnosticSink sink) {
     sink,
   );
   final lookAt = raw.containsKey('lookAt')
-      ? _parseLookAt(raw['lookAt'], sink)
+      ? parseLookAt(raw['lookAt'], sink)
       : null;
 
-  return VrmExtension._(
+  return VrmExtension.internal(
     sourceVersion: VrmSourceVersion.vrm1,
     specVersion: specVersion,
     meta: meta,

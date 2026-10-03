@@ -1,12 +1,16 @@
-part of '../../flvtterm.dart';
+import 'dart:math' as math;
 
-double _clamp01(double value) {
+import 'package:meta/meta.dart';
+
+@internal
+double clamp01(double value) {
   if (value.isNaN || value <= 0) return 0;
   if (value >= 1) return 1;
   return value;
 }
 
-int? _accessorComponentCount(String? type) {
+@internal
+int? accessorComponentCount(String? type) {
   return switch (type) {
     'SCALAR' => 1,
     'VEC2' => 2,
@@ -19,7 +23,8 @@ int? _accessorComponentCount(String? type) {
   };
 }
 
-List<double> _samplerValue(
+@internal
+List<double> samplerValue(
   List<double> output,
   int key,
   int valueDimension,
@@ -33,13 +38,15 @@ List<double> _samplerValue(
   return List.unmodifiable(output.sublist(start, start + valueDimension));
 }
 
-List<double> _lerpList(List<double> a, List<double> b, double t) {
+@internal
+List<double> lerpList(List<double> a, List<double> b, double t) {
   return List.unmodifiable([
     for (var i = 0; i < a.length; i++) a[i] + (b[i] - a[i]) * t,
   ]);
 }
 
-List<double> _cubicSpline(
+@internal
+List<double> cubicSpline(
   List<double> output,
   int key,
   int valueDimension,
@@ -64,7 +71,8 @@ List<double> _cubicSpline(
   ]);
 }
 
-List<double> _slerp(List<double> a, List<double> b, double t) {
+@internal
+List<double> slerp(List<double> a, List<double> b, double t) {
   var dot = 0.0;
   for (var i = 0; i < 4; i++) {
     dot += a[i] * b[i];
@@ -77,18 +85,19 @@ List<double> _slerp(List<double> a, List<double> b, double t) {
     }
   }
   if (dot > 0.9995) {
-    return _normalize(_lerpList(a, target, t));
+    return normalizeList(lerpList(a, target, t));
   }
-  final theta = math.acos(_clamp01(dot));
+  final theta = math.acos(clamp01(dot));
   final sinTheta = math.sin(theta);
   final scaleA = math.sin((1 - t) * theta) / sinTheta;
   final scaleB = math.sin(t * theta) / sinTheta;
-  return _normalize([
+  return normalizeList([
     for (var i = 0; i < 4; i++) a[i] * scaleA + target[i] * scaleB,
   ]);
 }
 
-List<double> _normalize(List<double> value) {
+@internal
+List<double> normalizeList(List<double> value) {
   var lengthSquared = 0.0;
   for (final component in value) {
     lengthSquared += component * component;

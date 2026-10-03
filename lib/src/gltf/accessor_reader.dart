@@ -1,6 +1,14 @@
-part of '../../flvtterm.dart';
+import 'dart:math' as math;
+import 'dart:typed_data';
 
-List<double>? _readAccessorNumbers(
+import 'package:meta/meta.dart';
+
+import '../safe_list_index.dart';
+import 'gltf_resource_types.dart';
+import 'gltf_types.dart';
+
+@internal
+List<double>? readGltfAccessorNumbers(
   GltfAsset gltf,
   int accessorIndex, {
   bool requireFloat = false,
@@ -11,7 +19,7 @@ List<double>? _readAccessorNumbers(
   if (requireFloat && (accessor.componentType != 5126 || accessor.normalized)) {
     return null;
   }
-  final componentSize = _componentByteSize(accessor.componentType);
+  final componentSize = componentByteSize(accessor.componentType);
   final componentCount = accessor.componentCount;
   final count = accessor.count;
   if (componentSize == null ||
@@ -37,7 +45,7 @@ List<double>? _readAccessorNumbers(
   if (sparse != null && sparse.count != null && sparse.count! > 0) {
     final sparseCount = sparse.count!;
     if (sparseCount > count) return null;
-    final indices = _readSparseIndices(gltf, sparse, sparseCount);
+    final indices = readSparseIndices(gltf, sparse, sparseCount);
     final replacements = _readSparseValues(
       gltf,
       accessor,
@@ -69,11 +77,11 @@ List<double>? _readAccessorBaseValues(
   required bool applyNormalization,
 }) {
   final view = gltf.bufferViews.elementAtOrNull(accessor.bufferView!);
-  final bytes = _bufferBytes(gltf, view?.buffer);
+  final bytes = gltfBufferBytes(gltf, view?.buffer);
   if (view == null || bytes == null) return null;
   final byteLength = view.byteLength;
   if (byteLength == null) return null;
-  final minimumStride = _accessorTightStride(
+  final minimumStride = accessorTightStride(
     accessor.type,
     componentSize,
     componentCount,
@@ -98,14 +106,15 @@ List<double>? _readAccessorBaseValues(
   );
 }
 
-List<int>? _readSparseIndices(
+@internal
+List<int>? readSparseIndices(
   GltfAsset gltf,
   GltfAccessorSparse sparse,
   int count,
 ) {
-  final componentSize = _componentByteSize(sparse.indicesComponentType);
+  final componentSize = componentByteSize(sparse.indicesComponentType);
   final view = gltf.bufferViews.elementAtOrNull(sparse.indicesBufferView ?? -1);
-  final bytes = _bufferBytes(gltf, view?.buffer);
+  final bytes = gltfBufferBytes(gltf, view?.buffer);
   if (componentSize == null || view == null || bytes == null) return null;
   final byteLength = view.byteLength;
   if (byteLength == null) return null;
@@ -136,7 +145,7 @@ List<double>? _readSparseValues(
   required bool applyNormalization,
 }) {
   final view = gltf.bufferViews.elementAtOrNull(sparse.valuesBufferView ?? -1);
-  final bytes = _bufferBytes(gltf, view?.buffer);
+  final bytes = gltfBufferBytes(gltf, view?.buffer);
   if (view == null || bytes == null) return null;
   final byteLength = view.byteLength;
   if (byteLength == null) return null;
@@ -151,7 +160,7 @@ List<double>? _readSparseValues(
     componentSize: componentSize,
     componentType: accessor.componentType,
     accessorType: accessor.type,
-    stride: _accessorTightStride(accessor.type, componentSize, componentCount),
+    stride: accessorTightStride(accessor.type, componentSize, componentCount),
     normalized: applyNormalization && accessor.normalized,
   );
 }
@@ -168,12 +177,12 @@ List<double>? _readNumberBlock(
   required int stride,
   required bool normalized,
 }) {
-  final minimumStride = _accessorTightStride(
+  final minimumStride = accessorTightStride(
     accessorType,
     componentSize,
     componentCount,
   );
-  final elementByteLength = _accessorLastElementByteLength(
+  final elementByteLength = accessorLastElementByteLength(
     accessorType,
     componentSize,
     componentCount,
@@ -205,23 +214,25 @@ List<double>? _readNumberBlock(
   return values;
 }
 
-int _accessorTightStride(
+@internal
+int accessorTightStride(
   String? accessorType,
   int componentSize,
   int componentCount,
 ) {
-  final columns = _accessorMatrixColumnCount(accessorType);
+  final columns = accessorMatrixColumnCount(accessorType);
   if (columns == null) return componentSize * componentCount;
   final rows = componentCount ~/ columns;
   return _align4(rows * componentSize) * columns;
 }
 
-int _accessorLastElementByteLength(
+@internal
+int accessorLastElementByteLength(
   String? accessorType,
   int componentSize,
   int componentCount,
 ) {
-  final columns = _accessorMatrixColumnCount(accessorType);
+  final columns = accessorMatrixColumnCount(accessorType);
   if (columns == null) return componentSize * componentCount;
   final rows = componentCount ~/ columns;
   return _align4(rows * componentSize) * (columns - 1) + rows * componentSize;
@@ -233,7 +244,7 @@ int _accessorComponentByteOffset(
   int componentSize,
   int componentCount,
 ) {
-  final columns = _accessorMatrixColumnCount(accessorType);
+  final columns = accessorMatrixColumnCount(accessorType);
   if (columns == null) return component * componentSize;
   final rows = componentCount ~/ columns;
   final column = component ~/ rows;
@@ -241,7 +252,8 @@ int _accessorComponentByteOffset(
   return column * _align4(rows * componentSize) + row * componentSize;
 }
 
-int? _accessorMatrixColumnCount(String? accessorType) => switch (accessorType) {
+@internal
+int? accessorMatrixColumnCount(String? accessorType) => switch (accessorType) {
   'MAT2' => 2,
   'MAT3' => 3,
   'MAT4' => 4,
@@ -250,14 +262,16 @@ int? _accessorMatrixColumnCount(String? accessorType) => switch (accessorType) {
 
 int _align4(int value) => (value + 3) & ~3;
 
-Uint8List? _bufferBytes(GltfAsset gltf, int? bufferIndex) {
+@internal
+Uint8List? gltfBufferBytes(GltfAsset gltf, int? bufferIndex) {
   if (bufferIndex == null) return null;
   return gltf.buffers.elementAtOrNull(bufferIndex)?.data;
 }
 
 /// The bytes a bufferView covers, as a view of its buffer's bytes. Returns
 /// null when the index, the view's buffer or the view's range is invalid.
-Uint8List? _bufferViewBytes(
+@internal
+Uint8List? gltfBufferViewBytes(
   List<GltfBuffer> buffers,
   List<GltfBufferView> bufferViews,
   int? bufferViewIndex,
@@ -276,7 +290,8 @@ Uint8List? _bufferViewBytes(
   return Uint8List.sublistView(bytes, start, end);
 }
 
-int? _componentByteSize(int? componentType) {
+@internal
+int? componentByteSize(int? componentType) {
   return switch (componentType) {
     5120 || 5121 => 1,
     5122 || 5123 => 2,
