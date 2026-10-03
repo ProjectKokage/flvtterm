@@ -252,7 +252,7 @@ int _align4(int value) => (value + 3) & ~3;
 
 Uint8List? _bufferBytes(GltfAsset gltf, int? bufferIndex) {
   if (bufferIndex == null) return null;
-  return gltf.buffers.elementAtOrNull(bufferIndex)?._data;
+  return gltf.buffers.elementAtOrNull(bufferIndex)?.data;
 }
 
 /// The bytes a bufferView covers, as a view of its buffer's bytes. Returns
@@ -267,7 +267,7 @@ Uint8List? _bufferViewBytes(
   final bufferIndex = view?.buffer;
   final bytes = bufferIndex == null
       ? null
-      : buffers.elementAtOrNull(bufferIndex)?._data;
+      : buffers.elementAtOrNull(bufferIndex)?.data;
   final length = view?.byteLength;
   if (view == null || bytes == null || length == null) return null;
   final start = view.byteOffset;

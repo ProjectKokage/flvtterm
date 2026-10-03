@@ -1,5 +1,8 @@
 part of '../../flvtterm.dart';
 
+const _gltfArrayBufferTarget = 34962;
+const _gltfElementArrayBufferTarget = 34963;
+
 void _validateGltfMeshes(GltfAsset gltf, _DiagnosticSink sink) {
   final rawMeshes = _list(gltf.json['meshes']);
   for (final mesh in gltf.meshes) {

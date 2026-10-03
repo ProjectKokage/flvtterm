@@ -488,3 +488,60 @@ final class VrmSpringBoneController {
     }
   }
 }
+
+final class _SpringJointState {
+  _SpringJointState({
+    required this.centerPath,
+    required this.nodePath,
+    required this.joint,
+    required this.colliders,
+    required VrmVector3 previousTail,
+    required VrmVector3 currentTail,
+    required this.boneAxis,
+    required this.initialLocalTail,
+    required this.initialLocalRotation,
+    required VrmVector3 gravity,
+  }) : previousTail = _SpringVector3.from(previousTail),
+       currentTail = _SpringVector3.from(currentTail),
+       gravity = _SpringVector3.from(gravity);
+
+  final _SpringNodePath? centerPath;
+  final _SpringNodePath nodePath;
+  final VrmSpringBoneJoint joint;
+  final List<_SpringColliderState> colliders;
+  final _SpringVector3 previousTail;
+  final _SpringVector3 currentTail;
+  final VrmVector3 boneAxis;
+  final VrmVector3 initialLocalTail;
+  final List<double> initialLocalRotation;
+  final _SpringVector3 gravity;
+  final _SpringScratch scratch = _SpringScratch();
+  final List<double> rotationScratch = List<double>.filled(4, 0);
+}
+
+final class _SpringScratch {
+  final _SpringVector3 head = _SpringVector3();
+  final _SpringVector3 referenceTail = _SpringVector3();
+  final _SpringVector3 currentTail = _SpringVector3();
+  final _SpringVector3 nextTail = _SpringVector3();
+  final _SpringVector3 temporary = _SpringVector3();
+  final _SpringVector3 localTail = _SpringVector3();
+  final _SpringVector3 colliderStart = _SpringVector3();
+  final _SpringVector3 colliderEnd = _SpringVector3();
+}
+
+final class _SpringColliderState {
+  const _SpringColliderState({
+    required this.type,
+    required this.nodePath,
+    required this.offset,
+    required this.tail,
+    required this.radius,
+  });
+
+  final VrmSpringBoneColliderShapeType type;
+  final _SpringNodePath nodePath;
+  final VrmVector3 offset;
+  final VrmVector3 tail;
+  final double radius;
+}

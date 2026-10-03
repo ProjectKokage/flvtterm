@@ -140,3 +140,45 @@ final class VrmInvalidAssetException implements Exception {
   @override
   String toString() => '$message\n${validation.errors.join('\n')}';
 }
+
+final class _DiagnosticSink {
+  final diagnostics = <VrmDiagnostic>[];
+
+  void error(
+    String code,
+    String message, {
+    String? jsonPath,
+    int? gltfNodeIndex,
+    int? gltfMaterialIndex,
+  }) {
+    diagnostics.add(
+      VrmDiagnostic(
+        severity: const VrmError(),
+        code: code,
+        message: message,
+        jsonPath: jsonPath,
+        gltfNodeIndex: gltfNodeIndex,
+        gltfMaterialIndex: gltfMaterialIndex,
+      ),
+    );
+  }
+
+  void warning(
+    String code,
+    String message, {
+    String? jsonPath,
+    int? gltfNodeIndex,
+    int? gltfMaterialIndex,
+  }) {
+    diagnostics.add(
+      VrmDiagnostic(
+        severity: const VrmWarning(),
+        code: code,
+        message: message,
+        jsonPath: jsonPath,
+        gltfNodeIndex: gltfNodeIndex,
+        gltfMaterialIndex: gltfMaterialIndex,
+      ),
+    );
+  }
+}

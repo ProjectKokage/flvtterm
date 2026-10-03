@@ -2,6 +2,10 @@ part of '../../flvtterm.dart';
 
 const _lipSyncPresetNames = {'aa', 'ih', 'ou', 'ee', 'oh'};
 
+typedef _MorphKey = ({int node, int primitive, int morph});
+
+typedef _MaterialColorKey = ({int material, String type});
+
 /// Controls VRM expression input and application.
 final class VrmExpressionController {
   /// Creates an expression controller for [model].
@@ -230,4 +234,14 @@ final class VrmExpressionController {
       );
     }
   }
+}
+
+extension on VrmVector2 {
+  VrmVector2 operator +(VrmVector2 other) =>
+      VrmVector2(x + other.x, y + other.y);
+
+  VrmVector2 operator -(VrmVector2 other) =>
+      VrmVector2(x - other.x, y - other.y);
+
+  VrmVector2 operator *(double scale) => VrmVector2(x * scale, y * scale);
 }
