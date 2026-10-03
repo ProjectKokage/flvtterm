@@ -75,12 +75,16 @@ Uint8List? _decodeBufferBytes(
   }
   if (uriResolver == null) return null;
   try {
-    return uriResolver(uri);
+    return _ownedCopy(uriResolver(uri));
   } catch (error) {
     uriResolverFailures['\$.buffers[$bufferIndex].uri'] = error.toString();
     return null;
   }
 }
+
+/// Copies bytes a caller's resolver returned, so the asset owns them.
+Uint8List? _ownedCopy(Uint8List? bytes) =>
+    bytes == null ? null : Uint8List.fromList(bytes).asUnmodifiableView();
 
 Uint8List? _decodeDataUri(
   String uri,
@@ -96,10 +100,13 @@ Uint8List? _decodeDataUri(
     return null;
   }
   try {
+    // The decoded bytes are new, so the asset owns them without a copy.
     final dataUri = UriData.parse(_normalizeDataUriBase64Marker(uri, comma));
-    if (dataUri.isBase64) return dataUri.contentAsBytes();
+    if (dataUri.isBase64) return dataUri.contentAsBytes().asUnmodifiableView();
     final payload = uri.substring(comma + 1);
-    return Uint8List.fromList(utf8.encode(Uri.decodeComponent(payload)));
+    return Uint8List.fromList(
+      utf8.encode(Uri.decodeComponent(payload)),
+    ).asUnmodifiableView();
   } on FormatException catch (error) {
     sink.error(
       code,
@@ -522,7 +529,7 @@ Uint8List? _decodeImageBytes(
   }
   if (uriResolver == null) return null;
   try {
-    return uriResolver(uri);
+    return _ownedCopy(uriResolver(uri));
   } catch (error) {
     uriResolverFailures['\$.images[$imageIndex].uri'] = error.toString();
     return null;

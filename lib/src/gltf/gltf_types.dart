@@ -7,7 +7,7 @@ typedef GltfUriResolver = Uint8List? Function(String uri);
 final class GltfAsset {
   GltfAsset._({
     required Map<String, Object?> json,
-    required Uint8List? binaryChunk,
+    required this.binaryChunk,
     required Map<String, Object?> extensions,
     required Object? extras,
     required bool hasUriResolver,
@@ -30,9 +30,6 @@ final class GltfAsset {
     required List<GltfAnimation> animations,
   }) : json = _immutableJsonValue(json) as Map<String, Object?>,
        extras = _immutableJsonValue(extras),
-       binaryChunk = binaryChunk == null
-           ? null
-           : Uint8List.fromList(binaryChunk).asUnmodifiableView(),
        extensions = _immutableJsonValue(extensions) as Map<String, Object?>,
        _hasUriResolver = hasUriResolver,
        _uriResolverFailures = Map.unmodifiable(uriResolverFailures),
@@ -56,6 +53,9 @@ final class GltfAsset {
   final Map<String, Object?> json;
 
   /// GLB BIN chunk bytes, if the source was a GLB with a BIN chunk.
+  ///
+  /// This is the asset's one unmodifiable copy of the chunk; later changes to
+  /// the bytes passed to the parser do not reach it.
   final Uint8List? binaryChunk;
 
   /// Root glTF extensions, preserved.
