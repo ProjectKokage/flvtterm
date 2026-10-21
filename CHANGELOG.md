@@ -1,5 +1,13 @@
 ## 0.2.7 (unreleased)
 
+- Flutter Scene adapter: the corrected unlit material adds glTF emission
+  (emissive texture, factor, `KHR_materials_emissive_strength`, texture
+  transform and UV set), so MToon materials that fall back to it keep their
+  emissive detail such as VRoid hair highlight bands. VRM `emissionColor`
+  material binds now reach unlit materials instead of warning. The unlit
+  `MaterialInfo` block grows from 48 to 64 bytes; existing member offsets are
+  unchanged.
+
 - Flutter Scene adapter: `FlutterSceneVrmAsset.fromGlbBytes`/`fromGlbAsset`
   and `FlutterSceneResolvedImport.fromGltf` take `jointPaletteCapacity`, the
   largest skin the renderer animates. A skin listing more joints is replaced

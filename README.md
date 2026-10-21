@@ -330,7 +330,9 @@ are replaced generically rather than by model-specific indices. The corrected
 color pass implements glTF `OPAQUE`, `MASK`, and `BLEND`, `doubleSided`,
 base-level sampler filtering/address modes, and independent UV0
 `KHR_texture_transform` values for base color, metallic-roughness, normal,
-occlusion, and emissive textures. `alphaCorrectedMaterialIndices` and
+occlusion, and emissive textures. The unlit pass, which MToon materials fall
+back to, adds glTF emission (emissive texture times factor and
+`KHR_materials_emissive_strength`), so a VRoid hair highlight band renders. `alphaCorrectedMaterialIndices` and
 `straightAlphaTextureIndices` expose what was replaced for diagnostics.
 
 Constructing a `FlutterSceneVrmBinding` around a separately imported

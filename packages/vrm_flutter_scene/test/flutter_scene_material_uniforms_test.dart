@@ -54,8 +54,12 @@ void main() {
           final texture = blocks.singleWhere(
             (block) => block['name'] == 'TextureInfo',
           );
-          expect(material['byte_length'], 48);
+          final emissiveTexture = blocks.singleWhere(
+            (block) => block['name'] == 'EmissiveTextureInfo',
+          );
+          expect(material['byte_length'], 64);
           expect(texture['byte_length'], 32);
+          expect(emissiveTexture['byte_length'], 32);
           final offsets = <String, int>{
             for (final member
                 in (material['members'] as List).cast<Map<dynamic, dynamic>>())
@@ -68,7 +72,9 @@ void main() {
             'alpha_cutoff': 24,
             'fade': 28,
             'texture_coord': 32,
-            '_PADDING_': 36,
+            'emissive_texture_coord': 36,
+            '_PADDING_emissive_color_': 40,
+            'emissive_color': 48,
           });
           for (final mode in GltfAlphaMode.values) {
             final bytes = packFlutterSceneUnlitMaterialInfo(
@@ -78,6 +84,8 @@ void main() {
               alphaCutoff: 0.25,
               lodFade: -0.5,
               textureCoord: 1,
+              emissiveFactor: vm.Vector4(0.0625, 0.375, 0.625, 1),
+              emissiveTextureCoord: 1,
             );
             expect(bytes.lengthInBytes, material['byte_length']);
             expect(
@@ -90,12 +98,23 @@ void main() {
               ],
               [0.125, 0.25, 0.5, 0.75],
             );
+            expect(
+              [
+                for (var component = 0; component < 4; component++)
+                  bytes.getFloat32(
+                    offsets['emissive_color']! + component * 4,
+                    Endian.host,
+                  ),
+              ],
+              [0.0625, 0.375, 0.625, 1],
+            );
             final expected = {
               'vertex_color_weight': 0.5,
               'alpha_mode': mode.index.toDouble(),
               'alpha_cutoff': 0.25,
               'fade': -0.5,
               'texture_coord': 1.0,
+              'emissive_texture_coord': 1.0,
             };
             for (final entry in expected.entries) {
               expect(
@@ -106,8 +125,8 @@ void main() {
             }
             expect(
               bytes.buffer.asUint8List(
-                bytes.offsetInBytes + offsets['_PADDING_']!,
-                12,
+                bytes.offsetInBytes + offsets['_PADDING_emissive_color_']!,
+                8,
               ),
               everyElement(0),
             );
