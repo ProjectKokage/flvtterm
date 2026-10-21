@@ -5,17 +5,37 @@ import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter_scene/scene.dart' as scene;
 import 'package:flvtterm/flvtterm.dart';
 
+import 'flutter_scene_skin_reduction.dart';
+
 /// Imports a GLB through Flutter Scene while replaying resources already
 /// resolved and validated by flvtterm core.
-Future<scene.Node> importResolvedFlutterSceneGlb(
+///
+/// Returns the imported root with the skin reduction the import applied, if
+/// any, so the binding packs its own vertex data the same way.
+/// [jointPaletteCapacity] is the largest skin the renderer animates; null
+/// leaves every skin as authored.
+Future<({scene.Node root, FlutterSceneSkinReduction? skinReduction})>
+importResolvedFlutterSceneGlb(
   Uint8List originalBytes,
-  VrmModel model,
-) {
-  final resolved = FlutterSceneResolvedImport.fromGltf(model.gltf);
-  if (resolved == null) return scene.Node.fromGlbBytes(originalBytes);
-  return scene.Node.fromGltfBytes(
-    resolved.gltfJson,
-    resolveUri: resolved.resolveUri,
+  VrmModel model, {
+  int? jointPaletteCapacity,
+}) async {
+  final resolved = FlutterSceneResolvedImport.fromGltf(
+    model.gltf,
+    jointPaletteCapacity: jointPaletteCapacity,
+  );
+  if (resolved == null) {
+    return (
+      root: await scene.Node.fromGlbBytes(originalBytes),
+      skinReduction: null,
+    );
+  }
+  return (
+    root: await scene.Node.fromGltfBytes(
+      resolved.gltfJson,
+      resolveUri: resolved.resolveUri,
+    ),
+    skinReduction: resolved.skinReduction,
   );
 }
 
@@ -27,13 +47,26 @@ Future<scene.Node> importResolvedFlutterSceneGlb(
 /// bytes that flvtterm core already resolved. Optional Draco and meshopt hints
 /// use core-validated ordinary geometry; required compression remains unsupported.
 /// VRM-owned required names are normalized for the glTF-only renderer while
-/// unrelated required extensions remain subject to its validation.
+/// unrelated required extensions remain subject to its validation. A skin
+/// larger than the renderer's joint palette is replaced per mesh node by the
+/// joints that mesh weights ([FlutterSceneSkinReduction]).
 final class FlutterSceneResolvedImport {
-  FlutterSceneResolvedImport._(this.gltfJson, Map<String, Uint8List> resources)
-    : _resources = Map.unmodifiable(resources);
+  FlutterSceneResolvedImport._(
+    this.gltfJson,
+    Map<String, Uint8List> resources,
+    this.skinReduction,
+  ) : _resources = Map.unmodifiable(resources);
 
-  /// Returns `null` when the GLB needs no resource or extension adaptation.
-  static FlutterSceneResolvedImport? fromGltf(GltfAsset gltf) {
+  /// Returns `null` when the GLB needs no resource, extension or skin
+  /// adaptation.
+  ///
+  /// [jointPaletteCapacity] is the largest skin the renderer animates. The
+  /// renderer owns that bound, so the caller supplies it; null leaves every
+  /// skin as authored.
+  static FlutterSceneResolvedImport? fromGltf(
+    GltfAsset gltf, {
+    int? jointPaletteCapacity,
+  }) {
     final hasExternalResource =
         gltf.buffers.any((buffer) => _isExternalUri(buffer.uri)) ||
         gltf.images.any((image) => _isExternalUri(image.uri));
@@ -52,7 +85,13 @@ final class FlutterSceneResolvedImport {
             (primitive) => primitive.extensions.containsKey(_dracoExtension),
           ),
         );
-    if (!hasExternalResource && !hasVrmExtension && !hasCompression) {
+    final needsSkinReduction =
+        jointPaletteCapacity != null &&
+        gltfNeedsSkinReduction(gltf, jointPaletteCapacity);
+    if (!hasExternalResource &&
+        !hasVrmExtension &&
+        !hasCompression &&
+        !needsSkinReduction) {
       return null;
     }
 
@@ -148,14 +187,29 @@ final class FlutterSceneResolvedImport {
           .toList();
     }
 
+    final skinReduction = needsSkinReduction
+        ? reduceOversizedSkins(
+            gltf,
+            decoded,
+            resources,
+            reservedUris,
+            jointPaletteCapacity: jointPaletteCapacity,
+          )
+        : null;
+
     return FlutterSceneResolvedImport._(
       Uint8List.fromList(utf8.encode(jsonEncode(decoded))),
       resources,
+      skinReduction,
     );
   }
 
   /// Reconstructed JSON glTF bytes passed to Flutter Scene.
   final Uint8List gltfJson;
+
+  /// Per-node joint subsets substituted for oversized skins, or null when
+  /// every skin fits the renderer's palette as authored.
+  final FlutterSceneSkinReduction? skinReduction;
 
   final Map<String, Uint8List> _resources;
 

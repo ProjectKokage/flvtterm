@@ -1,5 +1,15 @@
 ## 0.2.7 (unreleased)
 
+- Flutter Scene adapter: `FlutterSceneVrmAsset.fromGlbBytes`/`fromGlbAsset`
+  and `FlutterSceneResolvedImport.fromGltf` take `jointPaletteCapacity`, the
+  largest skin the renderer animates. A skin listing more joints is replaced
+  per mesh node by the joints that mesh weights, with `JOINTS_0` and the
+  inverse-bind matrices rewritten for the renderer only; the parsed model is
+  unchanged and the binding packs its morph geometry through the same subset
+  (`FlutterSceneSkinReduction`, reported as `flutterScene.skinReduced`). A
+  mesh weighting more joints than the capacity keeps its authored skin. The
+  default, null, leaves every skin as authored.
+
 - Make every file under `lib/src` its own library instead of a `part` of one
   library. The exported API is unchanged. The package now depends on `meta`:
   the constructors the parsers call and six members that only flvtterm uses

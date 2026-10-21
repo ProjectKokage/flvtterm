@@ -123,6 +123,22 @@ void main() {
     },
   );
 
+  test('packs joints through a reduced-skin remap', () {
+    final gltf = _gltfWithAllVertexFields(
+      skinned: true,
+      skinWeights: [0.5, 0.5, 0, 0],
+    );
+    final result = MorphTargetDataFactory(gltf).build(
+      gltf.meshes.single.primitives.single,
+      jointSlotRemap: [1, 0, -1, -1],
+    );
+    expect(result.failure, isNull);
+    expect(result.data!.baseVertices.sublist(18), [
+      1, 0, 0, 0, // joints 0 and 1 follow the subset; unweighted slots reset
+      0.5, 0.5, 0, 0,
+    ]);
+  });
+
   test('rejects tangent morphs that Flutter Scene cannot represent', () {
     final gltf = _gltfWithTangentMorph();
     final result = MorphTargetDataFactory(
@@ -184,7 +200,10 @@ GltfAsset _gltfWithTangentMorph() {
   );
 }
 
-GltfAsset _gltfWithAllVertexFields({required bool skinned}) {
+GltfAsset _gltfWithAllVertexFields({
+  required bool skinned,
+  List<double> skinWeights = const [1.0, 0.0, 0.0, 0.0],
+}) {
   final attributes = {
     'POSITION': [1.0, 2.0, 3.0],
     'NORMAL': [0.0, 0.0, 1.0],
@@ -193,7 +212,7 @@ GltfAsset _gltfWithAllVertexFields({required bool skinned}) {
     'COLOR_0': [1.0, 0.5, 0.25, 1.0],
     'TANGENT': [1.0, 0.0, 0.0, -1.0],
     if (skinned) 'JOINTS_0': [0.0, 1.0, 2.0, 3.0],
-    if (skinned) 'WEIGHTS_0': [1.0, 0.0, 0.0, 0.0],
+    if (skinned) 'WEIGHTS_0': skinWeights,
   };
   final data = ByteData(attributes.values.expand((value) => value).length * 4);
   final views = <Map<String, Object?>>[];

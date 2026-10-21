@@ -320,7 +320,10 @@ runtime.update(1 / 60);
 ```
 
 `FlutterSceneVrmAsset` returns the parsed model, imported root node, and
-binding. It is also the material-correct import path: external resources are
+binding. Pass `jointPaletteCapacity` when the renderer animates a bounded
+joint palette: a skin listing more joints (a VRoid Studio 2.x export lists
+every bone) is replaced per mesh node by the joints that mesh weights, and the
+parsed model keeps the authored skin. It is also the material-correct import path: external resources are
 resolved once by core and replayed to Flutter Scene, referenced images are
 uploaded as straight-alpha RGBA, and imported PBR/unlit material occurrences
 are replaced generically rather than by model-specific indices. The corrected

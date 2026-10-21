@@ -41,12 +41,18 @@ final class FlutterSceneVrmAsset {
   ///
   /// With [adoptBytes], the parsed model keeps views of [bytes] instead of
   /// copying the BIN chunk; the caller must not change [bytes] afterwards.
+  ///
+  /// [jointPaletteCapacity] is the largest skin the renderer animates. A skin
+  /// over it is replaced per mesh node by the joints that mesh weights
+  /// ([FlutterSceneResolvedImport.skinReduction]); null leaves skins as
+  /// authored and the renderer rejects oversized ones.
   static Future<FlutterSceneVrmAsset> fromGlbBytes(
     Uint8List bytes, {
     VrmValidationMode validation = VrmValidationMode.strict,
     GltfUriResolver? uriResolver,
     FlutterSceneVrmBindingOptions? bindingOptions,
     bool adoptBytes = false,
+    int? jointPaletteCapacity,
   }) async {
     final model = VrmModel.parseGlb(
       bytes,
@@ -54,7 +60,12 @@ final class FlutterSceneVrmAsset {
       uriResolver: uriResolver,
       adoptBytes: adoptBytes,
     );
-    final rootNode = await importResolvedFlutterSceneGlb(bytes, model);
+    final imported = await importResolvedFlutterSceneGlb(
+      bytes,
+      model,
+      jointPaletteCapacity: jointPaletteCapacity,
+    );
+    final rootNode = imported.root;
     final corrections = await correctFlutterSceneMaterials(rootNode, model);
     return FlutterSceneVrmAsset._(
       model: model,
@@ -65,6 +76,7 @@ final class FlutterSceneVrmAsset {
         rootNode,
         model: model,
         options: bindingOptions,
+        skinReduction: imported.skinReduction,
       ),
     );
   }
@@ -76,6 +88,7 @@ final class FlutterSceneVrmAsset {
     VrmValidationMode validation = VrmValidationMode.strict,
     GltfUriResolver? uriResolver,
     FlutterSceneVrmBindingOptions? bindingOptions,
+    int? jointPaletteCapacity,
   }) async {
     final data = await (bundle ?? rootBundle).load(assetPath);
     return fromGlbBytes(
@@ -83,6 +96,7 @@ final class FlutterSceneVrmAsset {
       validation: validation,
       uriResolver: uriResolver,
       bindingOptions: bindingOptions,
+      jointPaletteCapacity: jointPaletteCapacity,
       // The bundle's bytes were loaded for this call and nothing else
       // changes them.
       adoptBytes: true,
