@@ -320,14 +320,19 @@ runtime.update(1 / 60);
 ```
 
 `FlutterSceneVrmAsset` returns the parsed model, imported root node, and
-binding. It is also the material-correct import path: external resources are
+binding. Pass `jointPaletteCapacity` when the renderer animates a bounded
+joint palette: a skin listing more joints (a VRoid Studio 2.x export lists
+every bone) is replaced per mesh node by the joints that mesh weights, and the
+parsed model keeps the authored skin. It is also the material-correct import path: external resources are
 resolved once by core and replayed to Flutter Scene, referenced images are
 uploaded as straight-alpha RGBA, and imported PBR/unlit material occurrences
 are replaced generically rather than by model-specific indices. The corrected
 color pass implements glTF `OPAQUE`, `MASK`, and `BLEND`, `doubleSided`,
 base-level sampler filtering/address modes, and independent UV0
 `KHR_texture_transform` values for base color, metallic-roughness, normal,
-occlusion, and emissive textures. `alphaCorrectedMaterialIndices` and
+occlusion, and emissive textures. The unlit pass, which MToon materials fall
+back to, adds glTF emission (emissive texture times factor and
+`KHR_materials_emissive_strength`), so a VRoid hair highlight band renders. `alphaCorrectedMaterialIndices` and
 `straightAlphaTextureIndices` expose what was replaced for diagnostics.
 
 Constructing a `FlutterSceneVrmBinding` around a separately imported

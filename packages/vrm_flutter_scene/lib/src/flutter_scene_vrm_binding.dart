@@ -5,6 +5,7 @@ import 'package:vector_math/vector_math.dart' as vm;
 import 'flutter_scene_material_corrections.dart';
 import 'flutter_scene_gltf_mapping.dart';
 import 'flutter_scene_morph_target_primitive.dart';
+import 'flutter_scene_skin_reduction.dart';
 import 'morph_target_blender.dart';
 
 /// Controls how [FlutterSceneVrmBinding] maps glTF node indices to
@@ -44,12 +45,33 @@ final class FlutterSceneVrmBindingOptions {
 final class FlutterSceneVrmBinding
     implements VrmModelRootBinding, VrmModelWorldBinding {
   /// Creates a binding for a Flutter Scene GLB root.
+  ///
+  /// [skinReduction] is the joint subset the import applied to skins larger
+  /// than the renderer's palette ([FlutterSceneResolvedImport.skinReduction]);
+  /// vertex data this binding packs itself follows the same subset.
   FlutterSceneVrmBinding.fromRootNode(
     this.root, {
     required this.model,
     FlutterSceneVrmBindingOptions? options,
+    FlutterSceneSkinReduction? skinReduction,
   }) {
     options ??= FlutterSceneVrmBindingOptions();
+    for (final entry
+        in (skinReduction?.jointSlotRemapsByNode ?? const {}).entries) {
+      final node = model.gltf.nodes.elementAtOrNull(entry.key);
+      final skin = model.gltf.skins.elementAtOrNull(node?.skin ?? -1);
+      final kept = entry.value.where((slot) => slot >= 0).length;
+      _capabilityWarnings.add(
+        VrmDiagnostic(
+          severity: const VrmInfo(),
+          code: 'flutterScene.skinReduced',
+          message:
+              'Skin ${skin?.index} lists ${skin?.joints.length} joints; node '
+              '${entry.key} animates through the $kept joints its mesh weights.',
+          gltfNodeIndex: entry.key,
+        ),
+      );
+    }
     _capabilityWarnings.addAll(
       VrmFirstPersonController(model).geometrySplitWarnings(),
     );
@@ -167,6 +189,7 @@ final class FlutterSceneVrmBinding
             entry.key,
             entry.value,
             morphTargetDataFactory,
+            skinReduction?.remapForNode(entry.key),
           ),
     };
     _materialBindings = {
@@ -492,10 +515,11 @@ final class _FlutterSceneMeshBinding implements VrmMeshBinding {
     this._nodeIndex,
     this._node,
     MorphTargetDataFactory morphTargetDataFactory,
+    List<int>? jointSlotRemap,
   ) : _meshComponents = List.unmodifiable(
         _node.getComponents<scene.MeshComponent>(),
       ) {
-    _installMorphTargets(morphTargetDataFactory);
+    _installMorphTargets(morphTargetDataFactory, jointSlotRemap);
   }
 
   final FlutterSceneVrmBinding _owner;
@@ -574,7 +598,10 @@ final class _FlutterSceneMeshBinding implements VrmMeshBinding {
     }
   }
 
-  void _installMorphTargets(MorphTargetDataFactory dataFactory) {
+  void _installMorphTargets(
+    MorphTargetDataFactory dataFactory,
+    List<int>? jointSlotRemap,
+  ) {
     final gltfNode = _owner.model.gltf.nodes[_nodeIndex];
     final meshIndex = gltfNode.mesh;
     if (meshIndex == null || meshIndex >= _owner.model.gltf.meshes.length) {
@@ -613,7 +640,10 @@ final class _FlutterSceneMeshBinding implements VrmMeshBinding {
             scenePrimitiveIndex >= scenePrimitives.length) {
           failure = 'Flutter Scene did not import the morph-bearing primitive.';
         } else {
-          final result = dataFactory.build(gltfPrimitive);
+          final result = dataFactory.build(
+            gltfPrimitive,
+            jointSlotRemap: jointSlotRemap,
+          );
           final data = result.data;
           final geometry = scenePrimitives[scenePrimitiveIndex].geometry;
           final geometryMatches = data == null

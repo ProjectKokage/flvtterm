@@ -101,6 +101,14 @@ Future<FlutterSceneMaterialCorrectionResult> correctFlutterSceneMaterials(
         model.gltf,
         gltfMaterial.baseColorTexture?.index,
       );
+      final emissiveTexture = await textures.resolve(
+        gltfMaterial.emissiveTexture?.index,
+        null,
+      );
+      final emissiveSampler = _samplerForTexture(
+        model.gltf,
+        gltfMaterial.emissiveTexture?.index,
+      );
       slot.primitive.material = _CorrectedUnlitMaterial(
         sourceBaseColorFactor: sourceFactor,
         vertexColorWeight: vertexColorWeight,
@@ -113,6 +121,17 @@ Future<FlutterSceneMaterialCorrectionResult> correctFlutterSceneMaterials(
               sampler: baseColorSampler,
             ),
         baseColorSampler: baseColorSampler,
+        // Without an emissive texture the factor alone is the emission, as
+        // glTF specifies; a black placeholder leaves the factor out.
+        emissiveTexture:
+            emissiveTexture ??
+            scene.GpuTextureSource(
+              gltfMaterial.emissiveTexture == null
+                  ? scene.Material.getWhitePlaceholderTexture()
+                  : _blackPlaceholderTexture(),
+              sampler: emissiveSampler,
+            ),
+        emissiveSampler: emissiveSampler,
       );
       correctedMaterials.add(gltfMaterial.index);
       continue;
@@ -227,6 +246,23 @@ final class _DecodedImage {
   final ByteData rgba;
 }
 
+gpu.Texture? _blackPlaceholder;
+
+/// A 1×1 opaque-black texture for a referenced emissive image that could not
+/// be decoded, so the emissive factor adds nothing rather than everything.
+gpu.Texture _blackPlaceholderTexture() {
+  final existing = _blackPlaceholder;
+  if (existing != null) return existing;
+  final texture = gpu.gpuContext.createTexture(
+    gpu.StorageMode.hostVisible,
+    1,
+    1,
+  );
+  texture.overwrite(Uint32List.fromList(<int>[0xFF000000]).buffer.asByteData());
+  _blackPlaceholder = texture;
+  return texture;
+}
+
 /// Packs the adapter's unlit MaterialInfo block using its std140 layout.
 ByteData packFlutterSceneUnlitMaterialInfo({
   required vm.Vector4 baseColorFactor,
@@ -235,6 +271,8 @@ ByteData packFlutterSceneUnlitMaterialInfo({
   required double alphaCutoff,
   required double lodFade,
   required int textureCoord,
+  required vm.Vector4 emissiveFactor,
+  required int emissiveTextureCoord,
 }) => ByteData.sublistView(
   Float32List.fromList([
     baseColorFactor.r,
@@ -246,10 +284,14 @@ ByteData packFlutterSceneUnlitMaterialInfo({
     alphaCutoff,
     lodFade,
     textureCoord.toDouble(),
-    // std140 rounds this vec4-aligned block's final scalar up to 48 bytes.
+    emissiveTextureCoord.toDouble(),
+    // std140 aligns the following vec4 to 16 bytes.
     0,
     0,
-    0,
+    emissiveFactor.r,
+    emissiveFactor.g,
+    emissiveFactor.b,
+    emissiveFactor.a,
   ]),
 );
 
@@ -262,14 +304,28 @@ final class _CorrectedUnlitMaterial extends scene.ShaderMaterial
     required gpu.Shader fragmentShader,
     required scene.TextureSource baseColorTexture,
     required gpu.SamplerOptions baseColorSampler,
+    required scene.TextureSource emissiveTexture,
+    required gpu.SamplerOptions emissiveSampler,
   }) : _alphaMode = material.alphaMode,
        _alphaCutoff = material.alphaCutoff,
        _baseColorTexture = baseColorTexture,
        _baseColorSampler = baseColorSampler,
+       _emissiveTexture = emissiveTexture,
+       _emissiveSampler = emissiveSampler,
        _textureTransform = _TextureTransform.from(
          material.baseColorTexture?.textureTransform,
        ),
+       _emissiveTransform = _TextureTransform.from(
+         material.emissiveTexture?.textureTransform,
+       ),
+       _emissiveStrength = material.emissiveStrength,
        baseColorFactor = sourceBaseColorFactor.clone(),
+       emissiveFactor = vm.Vector4(
+         material.emissiveFactor.x,
+         material.emissiveFactor.y,
+         material.emissiveFactor.z,
+         material.emissiveFactor.w,
+       ),
        super(
          fragmentShader: fragmentShader,
          isOpaqueOverride: material.alphaMode != GltfAlphaMode.blend,
@@ -282,20 +338,34 @@ final class _CorrectedUnlitMaterial extends scene.ShaderMaterial
         material.baseColorTexture?.textureTransform?.texCoord ??
         material.baseColorTexture?.texCoord ??
         0;
+    _emissiveTexCoord =
+        material.emissiveTexture?.textureTransform?.texCoord ??
+        material.emissiveTexture?.texCoord ??
+        0;
   }
 
   late final int _baseColorTexCoord;
+  late final int _emissiveTexCoord;
   final GltfAlphaMode _alphaMode;
   final double _alphaCutoff;
   final scene.TextureSource _baseColorTexture;
   final gpu.SamplerOptions _baseColorSampler;
+  final scene.TextureSource _emissiveTexture;
+  final gpu.SamplerOptions _emissiveSampler;
   _TextureTransform _textureTransform;
+  _TextureTransform _emissiveTransform;
+  final double _emissiveStrength;
   vm.Vector4 baseColorFactor;
+
+  /// glTF emissive factor before `KHR_materials_emissive_strength`; VRM
+  /// `emissionColor` binds write it.
+  vm.Vector4 emissiveFactor;
   double vertexColorWeight;
 
   @override
   Set<VrmMaterialTextureSlot> get textureTransformSlots => const {
     VrmMaterialTextureSlot.baseColor,
+    VrmMaterialTextureSlot.emissive,
   };
 
   @override
@@ -304,14 +374,26 @@ final class _CorrectedUnlitMaterial extends scene.ShaderMaterial
     required VrmVector2 scale,
     required VrmVector2 offset,
   }) {
-    if (slot != VrmMaterialTextureSlot.baseColor) return;
-    _textureTransform = _TextureTransform(
-      scaleX: scale.x,
-      scaleY: scale.y,
-      offsetX: offset.x,
-      offsetY: offset.y,
-      rotation: _textureTransform.rotation,
-    );
+    switch (slot) {
+      case VrmMaterialTextureSlot.baseColor:
+        _textureTransform = _TextureTransform(
+          scaleX: scale.x,
+          scaleY: scale.y,
+          offsetX: offset.x,
+          offsetY: offset.y,
+          rotation: _textureTransform.rotation,
+        );
+      case VrmMaterialTextureSlot.emissive:
+        _emissiveTransform = _TextureTransform(
+          scaleX: scale.x,
+          scaleY: scale.y,
+          offsetX: offset.x,
+          offsetY: offset.y,
+          rotation: _emissiveTransform.rotation,
+        );
+      default:
+        return;
+    }
   }
 
   @override
@@ -363,14 +445,23 @@ final class _CorrectedUnlitMaterial extends scene.ShaderMaterial
         alphaCutoff: _alphaCutoff,
         lodFade: lodFade,
         textureCoord: _baseColorTexCoord,
+        emissiveFactor: vm.Vector4(
+          emissiveFactor.r * _emissiveStrength,
+          emissiveFactor.g * _emissiveStrength,
+          emissiveFactor.b * _emissiveStrength,
+          emissiveFactor.a,
+        ),
+        emissiveTextureCoord: _emissiveTexCoord,
       ),
     );
     setUniformBlock('TextureInfo', _textureTransform.uniformBytes);
+    setUniformBlock('EmissiveTextureInfo', _emissiveTransform.uniformBytes);
     setTexture(
       'base_color_texture',
       _baseColorTexture,
       sampler: _baseColorSampler,
     );
+    setTexture('emissive_texture', _emissiveTexture, sampler: _emissiveSampler);
     super.bind(pass, transientsBuffer, lighting);
   }
 }

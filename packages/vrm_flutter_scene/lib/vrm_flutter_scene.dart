@@ -2,5 +2,6 @@
 library;
 
 export 'src/flutter_scene_resolved_import.dart' show FlutterSceneResolvedImport;
+export 'src/flutter_scene_skin_reduction.dart' show FlutterSceneSkinReduction;
 export 'src/flutter_scene_vrm_asset.dart';
 export 'src/flutter_scene_vrm_binding.dart';

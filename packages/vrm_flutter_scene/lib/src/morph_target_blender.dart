@@ -7,6 +7,8 @@ import 'dart:typed_data';
 
 import 'package:flvtterm/flvtterm.dart';
 
+import 'flutter_scene_skin_reduction.dart';
+
 final class MorphTargetPrimitiveBuildResult {
   const MorphTargetPrimitiveBuildResult._({this.data, this.failure});
 
@@ -54,7 +56,15 @@ final class MorphTargetDataFactory {
   final GltfAsset gltf;
   final Map<(int, bool, bool), Float32List?> _accessorCache = {};
 
-  MorphTargetPrimitiveBuildResult build(GltfMeshPrimitive primitive) {
+  /// Builds the packed base vertices and deltas for [primitive].
+  ///
+  /// [jointSlotRemap] is the reduced-skin remap the renderer import applied
+  /// to this primitive's node, so packed joint indices follow the same
+  /// subset the renderer's skin palette holds.
+  MorphTargetPrimitiveBuildResult build(
+    GltfMeshPrimitive primitive, {
+    List<int>? jointSlotRemap,
+  }) {
     if (primitive.mode != 4) {
       return MorphTargetPrimitiveBuildResult.unsupported(
         'Only TRIANGLES morph primitives are supported.',
@@ -100,7 +110,7 @@ final class MorphTargetDataFactory {
       );
     }
     final isSkinned = jointsIndex != null;
-    final joints = jointsIndex == null
+    var joints = jointsIndex == null
         ? null
         : _readExact(jointsIndex, vertexCount * 4, applyNormalization: false);
     final skinWeights = weightsIndex == null
@@ -110,6 +120,12 @@ final class MorphTargetDataFactory {
       return MorphTargetPrimitiveBuildResult.unsupported(
         'Skin attributes must be finite VEC4 accessors matching POSITION.',
       );
+    }
+    if (joints != null && skinWeights != null && jointSlotRemap != null) {
+      joints = Float32List.fromList([
+        for (final slot in remapJointSlots(joints, skinWeights, jointSlotRemap))
+          slot.toDouble(),
+      ]);
     }
 
     final texCoords = switch (primitive.attributes['TEXCOORD_0']) {

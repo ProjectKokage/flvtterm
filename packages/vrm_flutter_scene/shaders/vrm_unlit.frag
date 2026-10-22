@@ -5,6 +5,8 @@ uniform MaterialInfo {
   float alpha_cutoff;
   float fade;
   float texture_coord;
+  float emissive_texture_coord;
+  vec4 emissive_color;
 }
 material_info;
 
@@ -16,7 +18,14 @@ uniform TextureInfo {
 }
 texture_info;
 
+uniform EmissiveTextureInfo {
+  vec4 emissive_scale_offset;
+  vec4 emissive_rotation;
+}
+emissive_texture_info;
+
 uniform sampler2D base_color_texture;
+uniform sampler2D emissive_texture;
 
 #include <material_varyings.glsl>
 
@@ -41,6 +50,15 @@ void main() {
   vec3 rgb =
       SRGBToLinear(base.rgb) * vertex_color.rgb * material_info.color.rgb;
   float alpha = base.a * vertex_color.a * material_info.color.a;
+
+  // glTF emission adds the emissive texture times the emissive factor; the
+  // texture is sRGB like base color, the factor is linear.
+  vec2 emissive_uv =
+      TransformUv(GetUV(int(material_info.emissive_texture_coord)),
+                  emissive_texture_info.emissive_scale_offset,
+                  emissive_texture_info.emissive_rotation);
+  rgb += SRGBToLinear(texture(emissive_texture, emissive_uv).rgb) *
+         material_info.emissive_color.rgb;
 
   if (material_info.alpha_mode == 0.0) {
     alpha = 1.0;
