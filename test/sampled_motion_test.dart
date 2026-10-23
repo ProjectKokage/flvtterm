@@ -1,6 +1,8 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flvtterm/flvtterm.dart';
+import 'package:flvtterm/src/matrix_math.dart';
 import 'package:test/test.dart';
 
 import 'src/test_fixtures.dart';
@@ -115,6 +117,32 @@ void main() {
       expect(runtime.captureHumanoidPose(bones), isNotNull);
       runtime.unbind();
       expect(runtime.captureHumanoidPose(bones), isNull);
+    });
+
+    test('captures transforms stored as 32-bit floats', () {
+      final runtime = VrmRuntime(VrmModel.parseGlb(glb(minimalVrmJson())));
+      final binding = FakeBinding();
+      runtime.bind(binding);
+      runtime.update(0);
+      final bones = {VrmHumanoidBone.head};
+      final random = math.Random(1);
+      for (var i = 0; i < 200; i++) {
+        final angle = random.nextDouble() * math.pi;
+        final axis = [for (var j = 0; j < 3; j++) random.nextDouble() - .5];
+        final length = math.sqrt(
+          axis.fold<double>(0, (sum, value) => sum + value * value),
+        );
+        final s = math.sin(angle / 2) / length;
+        final matrix = trsMatrix(
+          const [0.01, 0.9, -0.02],
+          [axis[0] * s, axis[1] * s, axis[2] * s, math.cos(angle / 2)],
+          const [1, 1, 1],
+        );
+        binding.nodes[2]!.localTransform = VrmMatrix4(
+          Float32List.fromList(matrix.storage),
+        );
+        expect(runtime.captureHumanoidPose(bones), isNotNull);
+      }
     });
 
     test('isolates target and blended roots and never resamples a release', () {

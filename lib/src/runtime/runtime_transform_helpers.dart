@@ -10,6 +10,11 @@ import '../matrix_math.dart';
 import '../safe_list_index.dart';
 import '../vrm/vrm_humanoid_parser.dart';
 
+// Renderer bindings keep node transforms in 32-bit floats, so a TRS
+// round trip of an ordinary rotation differs by about 1e-7. Shear and
+// non-affine terms differ by orders of magnitude more.
+const _capturedPoseTolerance = 1e-5;
+
 @internal
 GltfNodePose? capturedNodePose(VrmMatrix4 matrix) {
   final values = matrix.storage;
@@ -35,7 +40,7 @@ GltfNodePose? capturedNodePose(VrmMatrix4 matrix) {
   for (var i = 0; i < 16; i++) {
     if (!reconstructed[i].isFinite ||
         (reconstructed[i] - values[i]).abs() >
-            1e-8 * math.max(1, values[i].abs())) {
+            _capturedPoseTolerance * math.max(1, values[i].abs())) {
       return null;
     }
   }
