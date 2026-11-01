@@ -11,6 +11,13 @@ import 'package:flutter_scene/scene.dart' as scene;
 import 'package:flutter_scene/src/gpu/gpu.dart' as gpu;
 import 'package:flutter_scene/src/material/material.dart'
     show resolveTextureSource;
+import 'package:flutter_scene/src/render/mip_sampling_probe.dart'
+    show mipChainsAreSampled;
+import 'package:flutter_scene/src/texture/mipmap.dart'
+    show MipLevel, TextureContent;
+import 'package:flutter_scene/src/texture/mipmap_async.dart'
+    show generateMipChainAsync;
+import 'package:flutter_scene/src/texture/texture2d.dart' show uploadMipLevels;
 import 'package:flvtterm/flvtterm.dart';
 import 'package:vector_math/vector_math.dart' as vm;
 
@@ -197,16 +204,23 @@ final class _StraightTextureCache {
     final encoded = gltf.images[imageIndex].data;
     if (encoded == null) return imported;
     final decoded = await _decodeStraightRgba(encoded);
-    final texture = scene.Texture2D.fromPixels(
-      decoded.rgba.buffer.asUint8List(
-        decoded.rgba.offsetInBytes,
-        decoded.rgba.lengthInBytes,
-      ),
-      decoded.width,
-      decoded.height,
+    final rgba = decoded.rgba.buffer.asUint8List(
+      decoded.rgba.offsetInBytes,
+      decoded.rgba.lengthInBytes,
     );
+    // The mip chain is built on a background isolate: for a VRM's large
+    // color textures it is most of the load's UI-isolate work. Only the
+    // upload stays here.
+    final levels = mipChainsAreSampled
+        ? await generateMipChainAsync(
+            rgba,
+            decoded.width,
+            decoded.height,
+            TextureContent.color,
+          )
+        : <MipLevel>[MipLevel(decoded.width, decoded.height, rgba)];
     final sampled = scene.GpuTextureSource(
-      texture.sampledTexture!,
+      uploadMipLevels(levels, decoded.width, decoded.height),
       sampler: _samplerForTexture(gltf, textureIndex),
     );
     _textures[textureIndex] = sampled;

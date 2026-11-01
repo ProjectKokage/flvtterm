@@ -1,5 +1,12 @@
 ## 0.2.7 (unreleased)
 
+- Flutter Scene adapter: the straight-alpha textures the material corrections
+  re-decode build their mip chains on a background isolate
+  (`generateMipChainAsync` + `uploadMipLevels`) instead of through
+  `Texture2D.fromPixels` on the caller. For a VRM's large color textures that
+  generation was most of the character load's UI-isolate work; only the GPU
+  upload stays there.
+
 - Flutter Scene adapter: the corrected unlit material adds glTF emission
   (emissive texture, factor, `KHR_materials_emissive_strength`, texture
   transform and UV set), so MToon materials that fall back to it keep their
