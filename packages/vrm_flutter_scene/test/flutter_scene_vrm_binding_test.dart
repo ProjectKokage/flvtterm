@@ -307,6 +307,37 @@ void main() {
     expect(root.localTransform.storage[12], -1);
   });
 
+  test('converts renderer points into core world space', () {
+    final model = VrmModel.parseGlb(_minimalVrmGlb());
+    final parent = scene.Node(
+      name: 'appParent',
+      localTransform: vm.Matrix4.translationValues(3, 4, 5),
+    );
+    final root = scene.Node(name: 'root')
+      ..localTransform = vm.Matrix4.diagonal3Values(1, 1, -1);
+    root.add(scene.Node(name: 'node0'));
+    parent.add(root);
+    final binding = FlutterSceneVrmBinding.fromRootNode(
+      root,
+      model: model,
+      options: FlutterSceneVrmBindingOptions(includeRootAsGltfNode: false),
+    );
+
+    // A camera 4 m in front of a character that faces renderer -Z is in
+    // front of it in core space too: the importer's Z flip is undone.
+    final camera = binding.worldPointFromScene(vm.Vector3(0, 1, -4));
+    expect(camera.x, closeTo(0, 0.000001));
+    expect(camera.y, closeTo(1, 0.000001));
+    expect(camera.z, closeTo(4, 0.000001));
+    // The same conversion maps the model's renderer origin onto its core
+    // world origin.
+    final origin = binding.worldPointFromScene(vm.Vector3(3, 4, 5));
+    final world = binding.modelWorldTransform.storage;
+    expect(origin.x, closeTo(world[12], 0.000001));
+    expect(origin.y, closeTo(world[13], 0.000001));
+    expect(origin.z, closeTo(world[14], 0.000001));
+  });
+
   test('converts imported handedness out of core world transforms', () {
     final model = VrmModel.parseGlb(_minimalVrmGlb());
     final root = scene.Node(name: 'root')

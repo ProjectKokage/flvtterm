@@ -283,6 +283,18 @@ final class FlutterSceneVrmBinding
     return _modelRootMotionTransform;
   }
 
+  /// Converts a point in Flutter Scene world coordinates, such as a camera
+  /// position, into the core world space of [modelWorldTransform] and node
+  /// world transforms, which leave out the importer's handedness conversion.
+  ///
+  /// World-space runtime targets such as `VrmLookAtController.lookAtWorld`
+  /// take points in that space; a renderer point passed unconverted lands
+  /// mirrored, behind a character that faces it on screen.
+  VrmVector3 worldPointFromScene(vm.Vector3 point) {
+    final core = _coreFromSceneTransform.transformed3(point);
+    return VrmVector3(core.x, core.y, core.z);
+  }
+
   @override
   set modelRootMotionTransform(VrmMatrix4 value) {
     if (value == _modelRootMotionTransform) return;
