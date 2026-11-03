@@ -690,6 +690,58 @@ void main() {
     }
   });
 
+  test('a scene tint multiplies imported and bound colours alike', () {
+    final model = VrmModel.tryParseGlb(
+      _minimalVrmGlb(
+        firstPersonSplit: true,
+        meshMaterial: true,
+        sharedMaterialPrimitives: true,
+      ),
+      validation: VrmValidationMode.permissive,
+    ).asset!;
+    final materials = [
+      _StubMaterial()..baseColorFactor = vm.Vector4(0.5, 1.0, 0.25, 1.0),
+      _StubMaterial()..baseColorFactor = vm.Vector4(0.5, 1.0, 0.25, 1.0),
+    ];
+    final root = scene.Node(name: 'root');
+    root.add(
+      scene.Node(
+        name: 'node0',
+        mesh: scene.Mesh.primitives(
+          primitives: [
+            for (final material in materials)
+              scene.MeshPrimitive(_StubGeometry(), material),
+          ],
+        ),
+      ),
+    );
+    final binding = FlutterSceneVrmBinding.fromRootNode(
+      root,
+      model: model,
+      options: FlutterSceneVrmBindingOptions(includeRootAsGltfNode: false),
+    );
+    expect(binding.sceneTint, vm.Vector3(1, 1, 1));
+
+    binding.sceneTint = vm.Vector3(0.5, 0.5, 2.0);
+    for (final material in materials) {
+      expect(material.baseColorFactor, vm.Vector4(0.25, 0.5, 0.5, 1.0));
+    }
+
+    // A colour bind replaces the imported colour and keeps the tint.
+    binding
+        .materialByGltfIndex(0)
+        .setColor('color', VrmVector4(0.1, 0.2, 0.3, 0.4));
+    for (final material in materials) {
+      expect(material.baseColorFactor, vm.Vector4(0.05, 0.1, 0.6, 0.4));
+    }
+
+    // Clearing the tint leaves the bound colour as bound.
+    binding.sceneTint = vm.Vector3(1, 1, 1);
+    for (final material in materials) {
+      expect(material.baseColorFactor, vm.Vector4(0.1, 0.2, 0.3, 0.4));
+    }
+  });
+
   test(
     'maps per-texture transforms to every corrected material occurrence',
     () {

@@ -1,5 +1,11 @@
 ## 0.2.7 (unreleased)
 
+- Flutter Scene adapter: `FlutterSceneVrmBinding.sceneTint` multiplies a
+  linear colour into every material's base colour factor, composed with VRM
+  expression colour binds, so a character whose materials draw unlit can
+  take the scene's light (warm at sunset, dim and cool at night). White,
+  the default, leaves the materials as imported.
+
 - Flutter Scene adapter: `FlutterSceneVrmBinding.worldPointFromScene`
   converts a Flutter Scene world point, such as a camera position, into the
   core world space of `modelWorldTransform` and node world transforms, which

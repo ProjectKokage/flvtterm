@@ -226,6 +226,22 @@ final class FlutterSceneVrmBinding
   /// Flutter Scene root for the loaded avatar.
   final scene.Node root;
 
+  vm.Vector3 _sceneTint = vm.Vector3(1, 1, 1);
+
+  /// A linear colour multiplied into every material's base colour factor,
+  /// composed with VRM expression colour binds, so a character whose
+  /// materials draw unlit can still take the scene's light: warm at sunset,
+  /// dim and cool at night. White (the default) leaves the materials as
+  /// imported.
+  vm.Vector3 get sceneTint => _sceneTint.clone();
+
+  set sceneTint(vm.Vector3 value) {
+    _sceneTint = value.clone();
+    for (final binding in _materialBindings.values) {
+      binding.setSceneTint(_sceneTint);
+    }
+  }
+
   /// Parsed VRM model for the same GLB bytes.
   final VrmModel model;
 
@@ -729,15 +745,34 @@ final class _FlutterSceneMaterialBinding
     this._owner,
     this._materialIndex,
     List<scene.Material> materials,
-  ) : _materials = List.unmodifiable(materials);
+  ) : _materials = List.unmodifiable(materials),
+      _importedColors = List.unmodifiable([
+        for (final material in materials) _readBaseColor(material),
+      ]);
 
   final FlutterSceneVrmBinding? _owner;
   final int _materialIndex;
   final List<scene.Material> _materials;
 
+  /// Each occurrence's base colour factor as imported (null where the
+  /// material has none), the colour a bind replaces and a tint multiplies.
+  final List<vm.Vector4?> _importedColors;
+
+  /// The last `color` bind, which replaces the imported colour until the
+  /// next bind.
+  vm.Vector4? _boundColor;
+  vm.Vector3 _tint = vm.Vector3(1, 1, 1);
+
   void applyFallback(GltfMaterial material) {
     setColor('color', material.baseColorFactor);
     setColor('emissionColor', material.emissiveFactor);
+  }
+
+  /// Multiplies every occurrence's base colour by [tint]; see
+  /// [FlutterSceneVrmBinding.sceneTint].
+  void setSceneTint(vm.Vector3 tint) {
+    _tint = tint;
+    _writeBaseColors(reportUnsupported: false);
   }
 
   @override
@@ -750,39 +785,73 @@ final class _FlutterSceneMaterialBinding
       );
       return;
     }
-    if (parameter != 'color' && parameter != 'emissionColor') {
-      _warnUnsupportedColor();
-      return;
-    }
-    var unsupported = false;
-    for (final sceneMaterial in _materials) {
-      // Flutter Scene's PBR and unlit materials and this package's corrected
-      // unlit material share no interface for these factors, so the color is
-      // set by name; a material without the member reports the warning below.
-      final dynamic material = sceneMaterial;
-      try {
-        if (parameter == 'color') {
-          // ignore: avoid_dynamic_calls
-          material.baseColorFactor = vm.Vector4(
-            value.x,
-            value.y,
-            value.z,
-            value.w,
-          );
-        } else {
-          // ignore: avoid_dynamic_calls
-          material.emissiveFactor = vm.Vector4(
-            value.x,
-            value.y,
-            value.z,
-            value.w,
-          );
+    switch (parameter) {
+      case 'color':
+        _boundColor = vm.Vector4(value.x, value.y, value.z, value.w);
+        _writeBaseColors(reportUnsupported: true);
+      case 'emissionColor':
+        var unsupported = false;
+        for (final sceneMaterial in _materials) {
+          // Flutter Scene's PBR and unlit materials and this package's
+          // corrected unlit material share no interface for these factors,
+          // so the color is set by name; a material without the member
+          // reports the warning below.
+          final dynamic material = sceneMaterial;
+          try {
+            // ignore: avoid_dynamic_calls
+            material.emissiveFactor = vm.Vector4(
+              value.x,
+              value.y,
+              value.z,
+              value.w,
+            );
+          } on Object {
+            unsupported = true;
+          }
         }
+        if (unsupported) _warnUnsupportedColor();
+      default:
+        _warnUnsupportedColor();
+    }
+  }
+
+  /// Writes `(bound colour or imported colour) * tint` to every occurrence.
+  /// An occurrence without a base colour factor is skipped; with
+  /// [reportUnsupported] that is reported once, as a colour bind it cannot
+  /// honour.
+  void _writeBaseColors({required bool reportUnsupported}) {
+    var unsupported = false;
+    for (var i = 0; i < _materials.length; i++) {
+      final color = _boundColor ?? _importedColors[i];
+      if (color == null) {
+        unsupported = true;
+        continue;
+      }
+      final dynamic material = _materials[i];
+      try {
+        // ignore: avoid_dynamic_calls
+        material.baseColorFactor = vm.Vector4(
+          color.x * _tint.x,
+          color.y * _tint.y,
+          color.z * _tint.z,
+          color.w,
+        );
       } on Object {
         unsupported = true;
       }
     }
-    if (unsupported) _warnUnsupportedColor();
+    if (unsupported && reportUnsupported) _warnUnsupportedColor();
+  }
+
+  static vm.Vector4? _readBaseColor(scene.Material sceneMaterial) {
+    final dynamic material = sceneMaterial;
+    try {
+      // ignore: avoid_dynamic_calls
+      final Object? value = material.baseColorFactor;
+      return value is vm.Vector4 ? value.clone() : null;
+    } on Object {
+      return null;
+    }
   }
 
   void _warnUnsupportedColor() {
