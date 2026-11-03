@@ -162,6 +162,9 @@ VRM override rules are applied before morph, material color, and texture
 transform binds are committed.
 When a binding implements `VrmModelRootBinding`, world-space LookAt targets are
 also converted through runtime root motion such as VRMA hips translation.
+With the Flutter Scene adapter, `targetPosition` is in the binding's core world,
+which leaves out the importer's Z flip; convert renderer points such as a camera
+position with `FlutterSceneVrmBinding.worldPointFromScene` first.
 
 Call `runtime.resetSpringBones()` after teleporting or otherwise discontinuously
 moving the avatar root.

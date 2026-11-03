@@ -1,5 +1,12 @@
 ## 0.2.7 (unreleased)
 
+- Flutter Scene adapter: `FlutterSceneVrmBinding.worldPointFromScene`
+  converts a Flutter Scene world point, such as a camera position, into the
+  core world space of `modelWorldTransform` and node world transforms, which
+  leave out the importer's Z flip. World-space targets such as
+  `lookAtWorld` need it: an unconverted camera position lands behind a
+  character that faces it on screen, saturating bone LookAt to one side.
+
 - Flutter Scene adapter: the straight-alpha textures the material corrections
   re-decode build their mip chains on a background isolate
   (`generateMipChainAsync` + `uploadMipLevels`) instead of through
