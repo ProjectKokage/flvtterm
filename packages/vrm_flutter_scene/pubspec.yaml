@@ -13,7 +13,7 @@ dependencies:
   flutter_gpu_shaders: 0.5.2
   # The adapter uses Flutter Scene internals for reusable morph buffers and
   # corrected VRM material bindings. Keep this exact.
-  flutter_scene: 0.23.0
+  flutter_scene: 0.24.3
   flvtterm:
     path: ../..
   hooks: 2.2.0

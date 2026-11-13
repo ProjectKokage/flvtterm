@@ -353,7 +353,7 @@ PBR/emissive fallback values. Morph writes are staged until `commitFrame`,
 composed from immutable base vertices, and uploaded once per changed primitive
 through one reusable buffer. `binding.supportsVisibleMorphTargets` is true only
 when every declared morph-bearing mesh was attached successfully. This path is
-deliberately pinned to Flutter Scene 0.23.0 because reusable skinned vertex
+deliberately pinned to Flutter Scene 0.24.3 because reusable skinned vertex
 buffers and corrected material bindings still depend on internal renderer
 seams. MToon
 materials report unlit/PBR fallback diagnostics through
