@@ -1,5 +1,9 @@
 ## 0.2.7 (unreleased)
 
+- Flutter Scene adapter: the exact pin moves from Flutter Scene 0.23.0 to
+  0.24.3. The adapter's sources are unchanged; its tests pass against the
+  hosted 0.24.3 package. The viewer example pins the same version.
+
 - Flutter Scene adapter: `FlutterSceneVrmBinding.sceneTint` multiplies a
   linear colour into every material's base colour factor, composed with VRM
   expression colour binds, so a character whose materials draw unlit can

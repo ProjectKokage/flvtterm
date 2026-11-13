@@ -1,4 +1,4 @@
-// Flutter Scene 0.23.0 keeps the render-pass and texture-allocation types used
+// Flutter Scene 0.24.3 keeps the render-pass and texture-allocation types used
 // by imported materials internal. This adapter is exact-version pinned while
 // that compatibility seam exists.
 // ignore_for_file: implementation_imports, invalid_use_of_internal_member, public_member_api_docs
