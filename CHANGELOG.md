@@ -1,4 +1,8 @@
-## 0.2.7 (unreleased)
+## 0.2.7
+
+- 0.2.2 to 0.2.6 were not published to pub.dev; this release includes
+  their entries below as well as these. It is also the first pub.dev
+  release of the Flutter Scene adapter, `flvtterm_flutter_scene`.
 
 - Flutter Scene adapter: the exact pin moves from Flutter Scene 0.23.0 to
   0.24.3. The adapter's sources are unchanged; its tests pass against the

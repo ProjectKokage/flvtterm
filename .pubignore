@@ -1,0 +1,11 @@
+# https://dart.dev/guides/libraries/private-files
+# Created by `dart pub`
+.dart_tool/
+build/
+/pubspec.lock
+/packages/*/pubspec.lock
+
+# Agent instructions are not part of the published package. A .pubignore
+# replaces .gitignore for pub, so the rules above are repeated. Pub applies
+# this file to packages/ too, so the adapter is not excluded here.
+/AGENTS.md
