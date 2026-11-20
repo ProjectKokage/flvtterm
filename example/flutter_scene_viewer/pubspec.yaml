@@ -16,6 +16,11 @@ dependencies:
     path: ../../packages/vrm_flutter_scene
   vector_math: ^2.4.0
 
+# The adapter depends on the hosted core; keep both on this checkout.
+dependency_overrides:
+  flvtterm:
+    path: ../..
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

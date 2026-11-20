@@ -308,8 +308,10 @@ model-orientation transform.
 
 ## Flutter
 
-Flutter Scene integration lives in the optional `packages/vrm_flutter_scene`
-package. Flutter Scene types stay out of the core package.
+Flutter Scene integration lives in the optional
+[`flvtterm_flutter_scene`](https://pub.dev/packages/flvtterm_flutter_scene)
+package, in `packages/vrm_flutter_scene`. Flutter Scene types stay out of the
+core package.
 
 The intended adapter flow is:
 

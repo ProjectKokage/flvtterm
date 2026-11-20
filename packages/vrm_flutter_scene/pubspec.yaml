@@ -1,7 +1,13 @@
 name: flvtterm_flutter_scene
 description: Flutter Scene adapter for the renderer-neutral flvtterm VRM runtime.
-version: 0.2.6
-publish_to: none
+version: 0.2.7
+repository: https://github.com/ProjectKokage/flvtterm/tree/main/packages/vrm_flutter_scene
+issue_tracker: https://github.com/ProjectKokage/flvtterm/issues
+topics:
+  - vrm
+  - flutter-scene
+  - avatar
+  - graphics
 
 environment:
   sdk: ^3.11.5
@@ -10,14 +16,18 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_gpu_shaders: 0.5.2
+  flutter_gpu_shaders: ^0.5.2
   # The adapter uses Flutter Scene internals for reusable morph buffers and
   # corrected VRM material bindings. Keep this exact.
   flutter_scene: 0.24.3
+  flvtterm: ^0.2.7
+  hooks: ^2.2.0
+  vector_math: ^2.4.0
+
+# Develop against the core in this repository; consumers get the hosted core.
+dependency_overrides:
   flvtterm:
     path: ../..
-  hooks: 2.2.0
-  vector_math: ^2.4.0
 
 dev_dependencies:
   flutter_test:
